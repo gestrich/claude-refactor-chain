@@ -14,6 +14,44 @@
 
 An automated system for performing ongoing code refactoring using AI (Claude Code) and GitHub Actions. The core idea is to create a "refactor chain" that continuously generates pull requests for incremental refactoring work, reducing the manual burden and maintaining momentum on large-scale codebase improvements.
 
+## Setup
+
+Before using the refactor chain, you need to configure a few things:
+
+### 1. Install the Claude Code GitHub App
+
+Run this command in Claude Code to install the GitHub app and set up authentication:
+
+```
+/install-github-app
+```
+
+This grants the necessary permissions for Claude to interact with your repository.
+
+### 2. Add Anthropic API Key
+
+Add your Anthropic API key as a repository secret:
+
+1. Go to **Settings > Secrets and variables > Actions**
+2. Add a secret named `ANTHROPIC_API_KEY` with your key from [console.anthropic.com](https://console.anthropic.com)
+
+### 3. Enable PR Creation
+
+Allow GitHub Actions to create pull requests:
+
+1. Go to **Settings > Actions > General**
+2. Scroll to **Workflow permissions**
+3. Check **"Allow GitHub Actions to create and approve pull requests"**
+4. Save
+
+### 4. Create Your Refactor Label
+
+Create a label for tracking refactor PRs (must match `label` in your `configuration.json`):
+
+```bash
+gh label create "your-refactor-label" --description "Automated refactor PRs" --color "0E8A16"
+```
+
 ## Problems Being Solved
 
 1. **Motivation & Inertia** - Large refactors require creating many PRs over time. Having an automated system breaks the inertia and keeps progress moving.
@@ -155,6 +193,8 @@ Options for handling bad PRs:
 - **UI Automation Screenshots** - Capture screenshots showing the result. Visual verification without manual testing.
 
 - **Progress Celebration** - Post to Slack on merge: "✅ 47/300 files converted to Swift". Keeps momentum visible. You can even include a summary celebrating the number of PRs reviewed by each user.
+
+- **Leaderboard & Stats** - Create a GitHub Pages site or Slack integration that tracks merges per developer over time. Query merged PRs with your refactor label using the GitHub API, aggregate by assignee, and display a leaderboard. Great for friendly competition and recognizing top reviewers.
 
 ## Technical Decisions
 
