@@ -187,10 +187,11 @@ jobs:
           prompt: |
             Complete this task: ${{ needs.find-task.outputs.task }}
 
-            Create the file as specified. Do not modify any other files.
-            After creating the file, commit your changes.
+            Use bash commands to create the file (e.g., echo "content" > filename).
+            Then use git add and git commit to commit your changes.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: "--allowedTools Write,Read,Bash,Edit"
+          show_full_output: true
 
       - name: Push branch and create PR
         env:
