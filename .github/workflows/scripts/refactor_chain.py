@@ -523,7 +523,8 @@ def cmd_create_pr(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
             gh.set_warning(f"Failed to mark task complete in plan: {str(e)}")
 
         # Push the branch with all changes
-        run_git_command(["push", "-u", "origin", branch_name, "--force-with-lease"])
+        # Use --force since we may have amended the commit
+        run_git_command(["push", "-u", "origin", branch_name, "--force"])
 
         # Load PR template and substitute
         pr_template_file = f"{project_path}/pr-template.md"
