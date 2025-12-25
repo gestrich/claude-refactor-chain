@@ -305,60 +305,57 @@ def mark_task_complete(plan_file: str, task: str) -> None:
         f.write(updated_content)
 
 
-def get_artifact_metadata(repo: str, artifact_id: int) -> Optional[Dict[str, Any]]:
-    """Download and parse artifact metadata JSON
+def download_artifact_json(repo: str, artifact_id: int) -> Optional[Dict[str, Any]]:
+    """Download and parse artifact JSON using GitHub API
 
     Args:
         repo: GitHub repository (owner/name)
         artifact_id: Artifact ID to download
 
     Returns:
-        Parsed artifact metadata or None if download fails
+        Parsed JSON content or None if download fails
     """
     import tempfile
     import zipfile
+    import subprocess
 
     try:
-        # Download artifact as zip file
-        # gh CLI doesn't support artifact download, so we use API directly
-        # The artifact download URL returns a redirect, we need to follow it
-        download_url = f"/repos/{repo}/actions/artifacts/{artifact_id}/zip"
+        # Get artifact download URL (returns a redirect)
+        download_endpoint = f"/repos/{repo}/actions/artifacts/{artifact_id}/zip"
 
-        # Create temp file for download
+        # Create temp file for the zip
         with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as tmp_file:
-            tmp_path = tmp_file.name
+            tmp_zip_path = tmp_file.name
 
-        # Download using gh api (which follows redirects)
         try:
-            # gh api returns the binary content when we follow the redirect
-            result = run_command([
-                "gh", "api", download_url,
-                "--method", "GET"
-            ], capture_output=True)
+            # Download the zip file using gh api
+            # The endpoint returns a redirect which gh api should follow
+            subprocess.run(
+                ["gh", "api", download_endpoint, "--method", "GET"],
+                stdout=open(tmp_zip_path, 'wb'),
+                stderr=subprocess.PIPE,
+                check=True
+            )
 
-            # Write binary content to temp file
-            with open(tmp_path, 'wb') as f:
-                f.write(result.stdout)
-
-            # Extract and read JSON from zip
-            with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
-                # The zip contains the JSON file
+            # Extract and parse the JSON from the zip
+            with zipfile.ZipFile(tmp_zip_path, 'r') as zip_ref:
+                # Get the first JSON file in the zip
                 json_files = [f for f in zip_ref.namelist() if f.endswith('.json')]
                 if json_files:
                     with zip_ref.open(json_files[0]) as json_file:
-                        metadata = json.load(json_file)
-                        return metadata
+                        return json.load(json_file)
+                else:
+                    print(f"Warning: No JSON file found in artifact {artifact_id}")
+                    return None
 
         finally:
             # Clean up temp file
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+            if os.path.exists(tmp_zip_path):
+                os.remove(tmp_zip_path)
 
     except Exception as e:
-        print(f"Warning: Failed to download artifact {artifact_id}: {e}")
+        print(f"Warning: Failed to download/parse artifact {artifact_id}: {e}")
         return None
-
-    return None
 
 
 def find_available_reviewer(reviewers: List[Dict[str, Any]], label: str, project: str) -> Optional[str]:
@@ -426,9 +423,9 @@ def find_available_reviewer(reviewers: List[Dict[str, Any]], label: str, project
                     for artifact in artifacts:
                         name = artifact["name"]
                         if name.startswith(f"task-metadata-{project}-"):
-                            # Download and parse artifact to get reviewer
+                            # Download and parse the artifact JSON
                             artifact_id = artifact["id"]
-                            metadata = get_artifact_metadata(repo, artifact_id)
+                            metadata = download_artifact_json(repo, artifact_id)
 
                             if metadata and "reviewer" in metadata:
                                 assigned_reviewer = metadata["reviewer"]
