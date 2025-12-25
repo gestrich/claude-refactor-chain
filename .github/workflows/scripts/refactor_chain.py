@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Continuous AI Refactoring - GitHub Actions Helper Script
+ClaudeStep - GitHub Actions Helper Script
 
 This script handles all operations for the automated refactoring workflow.
 It replaces bash scripts with a more maintainable Python implementation.
@@ -905,7 +905,7 @@ def cmd_create_pr(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         # Create PR
         pr_url = run_gh_command([
             "pr", "create",
-            "--title", f"Continuous AI Refactor: {task}",
+            "--title", f"ClaudeStep: {task}",
             "--body", pr_body,
             "--label", label,
             "--assignee", reviewer,
@@ -969,7 +969,7 @@ def cmd_create_pr(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
 def main():
     """Main entry point for the script"""
     parser = argparse.ArgumentParser(
-        description="Continuous AI Refactoring - GitHub Actions Helper Script"
+        description="ClaudeStep - GitHub Actions Helper Script"
     )
     subparsers = parser.add_subparsers(dest="command", help="Subcommands")
 

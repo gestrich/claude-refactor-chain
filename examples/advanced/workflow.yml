@@ -6,7 +6,7 @@
 # - Custom Claude model and tool configuration
 # - Output usage for downstream jobs
 
-name: Continuous AI Refactoring
+name: ClaudeStep
 
 on:
   # Scheduled: Run daily at 9 AM UTC
@@ -64,9 +64,9 @@ jobs:
           echo "name=$PROJECT" >> $GITHUB_OUTPUT
           echo "Determined project: $PROJECT"
 
-      - name: Run Continuous AI Refactoring
+      - name: Run ClaudeStep
         id: refactor
-        uses: ./  # Change to: your-username/continuous-ai-refactor-action@v1
+        uses: ./  # Change to: gestrich/claude-step@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}

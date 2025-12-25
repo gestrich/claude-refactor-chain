@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get up and running with Continuous AI Refactoring in 5 minutes.
+Get up and running with ClaudeStep in 5 minutes.
 
 ## Prerequisites
 
@@ -77,7 +77,7 @@ gh label create "ai-refactor" --color "0E8A16"
 Create `.github/workflows/ai-refactor.yml`:
 
 ```yaml
-name: AI Refactoring
+name: ClaudeStep
 
 on:
   schedule:
@@ -95,7 +95,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: gestrich/continuous-ai-refactor-action@v1
+      - uses: gestrich/claude-step@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -107,7 +107,7 @@ jobs:
 ### Manual Test
 
 1. Go to Actions tab in GitHub
-2. Click "AI Refactoring" workflow
+2. Click "ClaudeStep" workflow
 3. Click "Run workflow"
 4. Wait ~2-5 minutes
 5. Check for new PR!

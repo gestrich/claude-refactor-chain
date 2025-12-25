@@ -1,4 +1,4 @@
-# Continuous AI Refactoring
+# ClaudeStep
 
 ## Overview
 
@@ -13,7 +13,7 @@ This repository can now be used as a reusable GitHub Action in any repository. Y
 Add the action to your workflow:
 
 ```yaml
-- uses: gestrich/continuous-ai-refactor-action@v1
+- uses: gestrich/claude-step@v1
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -114,7 +114,7 @@ Test label detection, max PRs per user, and per-user assignment logic.
 
 - [ ] **Record video walkthrough**
 
-Create "Continuous AI Refactoring" tutorial video.
+Create "ClaudeStep" tutorial video.
 
 - [ ] **Write blog post**
 
@@ -126,7 +126,7 @@ Complete setup that others can use.
 
 ## Setup
 
-Before using Continuous AI Refactoring, you need to configure a few things:
+Before using ClaudeStep, you need to configure a few things:
 
 ### 1. Install the Claude Code GitHub App
 
@@ -275,7 +275,7 @@ Convert Objective-C files to Swift following these guidelines:
 
 The `- [ ]` items can appear anywhere in the file—they don't need to be in a specific section. This allows you to include detailed instructions under each item if needed.
 
-#### 2. Continuous AI Refactoring (GitHub Action)
+#### 2. ClaudeStep (GitHub Action)
 
 Runs on schedule or merge trigger:
 1. Check for open PRs with the label

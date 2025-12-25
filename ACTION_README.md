@@ -1,4 +1,4 @@
-# Continuous AI Refactoring Action
+# ClaudeStep Action
 
 Automate code refactoring with AI using Claude Code. This GitHub Action creates incremental pull requests for systematic codebase improvements, making large-scale refactoring manageable and continuous.
 
@@ -65,7 +65,7 @@ Convert Objective-C files to Swift following these guidelines:
 Create `.github/workflows/continuous-refactor.yml`:
 
 ```yaml
-name: Continuous AI Refactoring
+name: ClaudeStep
 
 on:
   schedule:
@@ -88,7 +88,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: gestrich/continuous-ai-refactor-action@v1
+      - uses: gestrich/claude-step@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -329,8 +329,8 @@ MIT License - see LICENSE file
 ## Support
 
 - 📚 [Full Documentation](docs/CONFIGURATION.md)
-- 🐛 [Report Issues](https://github.com/gestrich/continuous-ai-refactor-action/issues)
-- 💬 [Discussions](https://github.com/gestrich/continuous-ai-refactor-action/discussions)
+- 🐛 [Report Issues](https://github.com/gestrich/claude-step/issues)
+- 💬 [Discussions](https://github.com/gestrich/claude-step/discussions)
 
 ## Credits
 

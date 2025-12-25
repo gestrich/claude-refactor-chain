@@ -2,7 +2,7 @@
 
 ## ✅ Implementation Complete!
 
-Your Continuous AI Refactoring system has been successfully converted into a reusable GitHub Action.
+Your ClaudeStep system has been successfully converted into a reusable GitHub Action.
 
 ## What Was Created
 
@@ -34,7 +34,7 @@ Your Continuous AI Refactoring system has been successfully converted into a reu
 ## File Structure
 
 ```
-continuous-ai-refactor-action/
+claude-step/
 ├── action.yml                      # Main action definition
 ├── LICENSE                         # MIT license
 ├── README.md                       # Updated with action info
@@ -99,7 +99,7 @@ git push -f origin v1
 Once published, test it from a different repo:
 
 ```yaml
-- uses: gestrich/continuous-ai-refactor-action@v1
+- uses: gestrich/claude-step@v1
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -117,13 +117,13 @@ Once published, test it from a different repo:
 7. Publish release
 
 The action will appear in the GitHub Marketplace at:
-`https://github.com/marketplace/actions/continuous-ai-refactoring`
+`https://github.com/marketplace/actions/claudestep`
 
 ### 5. Update Documentation Links
 
 Once published, update these placeholder links in documentation:
 
-- `gestrich/continuous-ai-refactor-action` → your actual repo path
+- `gestrich/claude-step` → your actual repo path
 - Add link to GitHub Marketplace (if published)
 - Add badges to ACTION_README.md (version, downloads, etc.)
 
@@ -134,7 +134,7 @@ Once published, update these placeholder links in documentation:
 Users can now add this to their workflows:
 
 ```yaml
-name: Continuous AI Refactoring
+name: ClaudeStep
 
 on:
   schedule:
@@ -151,7 +151,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: gestrich/continuous-ai-refactor-action@v1
+      - uses: gestrich/claude-step@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}

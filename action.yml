@@ -1,4 +1,4 @@
-name: 'Continuous AI Refactoring'
+name: 'ClaudeStep'
 description: 'Automate code refactoring with AI using Claude Code. Creates incremental PRs for systematic codebase improvements.'
 author: 'gestrich'
 
@@ -235,7 +235,7 @@ runs:
       if: always()
       shell: bash
       run: |
-        echo "## Continuous AI Refactoring Summary" >> $GITHUB_STEP_SUMMARY
+        echo "## ClaudeStep Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         if [ "${{ steps.check-capacity.outputs.has_capacity }}" != "true" ]; then

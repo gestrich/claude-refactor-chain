@@ -1,4 +1,4 @@
-name: Continuous AI Refactoring
+name: ClaudeStep
 
 on:
   workflow_dispatch:

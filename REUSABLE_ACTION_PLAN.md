@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Convert the Continuous AI Refactoring system from a repository-specific workflow into a reusable GitHub Action that can be easily integrated into any repository. This will enable other teams to adopt the continuous refactoring approach without copying/modifying workflow files.
+Convert the ClaudeStep system from a repository-specific workflow into a reusable GitHub Action that can be easily integrated into any repository. This will enable other teams to adopt the continuous refactoring approach without copying/modifying workflow files.
 
 ## 1. Action Architecture
 
@@ -23,7 +23,7 @@ Convert the Continuous AI Refactoring system from a repository-specific workflow
 ### Structure
 
 ```
-continuous-ai-refactor-action/
+claude-step/
 ├── action.yml                    # Action metadata & interface
 ├── README.md                      # Usage documentation
 ├── LICENSE                        # MIT or Apache 2.0
@@ -192,7 +192,7 @@ Users configure the trigger in their workflow file (not in the action).
 
 ### Phase 1: Core Action Setup
 
-1. **Create new repository**: `continuous-ai-refactor-action`
+1. **Create new repository**: `claude-step`
    - Initialize with LICENSE (MIT recommended)
    - Create basic README with placeholder content
    - Set up branch protection for `main`
@@ -261,7 +261,7 @@ Here's how users would integrate the action:
 
 ```yaml
 # .github/workflows/continuous-refactor.yml
-name: Continuous AI Refactoring
+name: ClaudeStep
 
 on:
   schedule:
@@ -284,7 +284,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: anthropics/continuous-ai-refactor-action@v1
+      - uses: gestrich/claude-step@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -294,7 +294,7 @@ jobs:
 ### Advanced Example (Multi-Trigger)
 
 ```yaml
-name: Continuous AI Refactoring
+name: ClaudeStep
 
 on:
   schedule:
@@ -333,7 +333,7 @@ jobs:
             echo "name=swift-migration" >> $GITHUB_OUTPUT
           fi
 
-      - uses: anthropics/continuous-ai-refactor-action@v1
+      - uses: gestrich/claude-step@v1
         id: refactor
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -357,8 +357,8 @@ For users of the current repository-based approach:
 
 ```bash
 # Create new repo
-gh repo create continuous-ai-refactor-action --public
-cd continuous-ai-refactor-action
+gh repo create claude-step --public
+cd claude-step
 
 # Copy action files
 cp -r ../claude-refactor-chain/action.yml .
@@ -468,7 +468,7 @@ Before each release:
 
 ```yaml
 # action.yml
-name: 'Continuous AI Refactoring'
+name: 'ClaudeStep'
 description: 'Automate code refactoring with AI using Claude Code. Creates incremental PRs for systematic codebase improvements.'
 author: 'Anthropic'
 branding:
@@ -617,11 +617,11 @@ branding:
 **Q:** Where should the action be published?
 
 **Options:**
-1. `anthropics/continuous-ai-refactor-action`
+1. `anthropics/claude-step`
 2. `anthropics/claude-refactor-action`
 3. `anthropics/ai-refactor-action`
 
-**Recommendation:** `anthropics/continuous-ai-refactor-action` (descriptive, matches branding)
+**Recommendation:** `gestrich/claude-step` (descriptive, matches branding)
 
 ## 15. Next Steps
 
