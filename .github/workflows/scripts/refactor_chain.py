@@ -658,14 +658,21 @@ def cmd_create_pr(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         else:
             pr_body = f"## Task\n{task}"
 
-        # Create PR and capture PR number
-        pr_output = run_gh_command([
+        # Create PR
+        pr_url = run_gh_command([
             "pr", "create",
             "--title", f"Refactor: {task}",
             "--body", pr_body,
             "--label", label,
             "--assignee", reviewer,
-            "--head", branch_name,
+            "--head", branch_name
+        ])
+
+        print(f"Created PR: {pr_url}")
+
+        # Query the PR number from the created PR
+        pr_output = run_gh_command([
+            "pr", "view", branch_name,
             "--json", "number"
         ])
 
