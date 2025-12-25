@@ -51,6 +51,15 @@ Post to Slack on merge: "✅ 47/300 files converted to Swift". Keeps momentum vi
 
 Create a GitHub Pages site or Slack integration that tracks merges per developer over time. Query merged PRs with your refactor label using the GitHub API, aggregate by assignee, and display a leaderboard. Great for friendly competition and recognizing top reviewers.
 
+- [ ] **Cost in PR Summary**
+
+Show Claude Code cost in PR summary
+
+- [ ] **Claude Code generated Summary**
+
+A section in the PR summary should show summarized output from Claude code on what was done.
+ 
+
 - [ ] **Implement PR rejection handling**
 
 Options for handling bad PRs:
