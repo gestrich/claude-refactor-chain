@@ -80,6 +80,10 @@ Success metrics to track:
 - Total items completed over time
 - Specification refinement iterations needed
 
+- [ ] **Random Code Smell Example**
+
+The idea is to support random refactors based on the most egregious code smells in the codebase.
+
 - [ ] **Local Build Script**
 
 Fetch open PRs and build locally on a schedule. Ready to run when you sit down to review.

@@ -659,6 +659,114 @@ def get_in_progress_task_indices(repo: str, label: str, project: str) -> set:
 
 
 # Command Handlers
+def cmd_detect_project(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
+    """Handle 'detect-project' subcommand - detect project from merged PR or use provided name
+
+    Args:
+        args: Parsed command-line arguments
+        gh: GitHub Actions helper instance
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    try:
+        # Get environment variables
+        project_name = os.environ.get("PROJECT_NAME", "")
+        merged_pr_number = os.environ.get("MERGED_PR_NUMBER", "")
+        config_path = os.environ.get("CONFIG_PATH", "")
+        spec_path = os.environ.get("SPEC_PATH", "")
+        pr_template_path = os.environ.get("PR_TEMPLATE_PATH", "")
+        repo = os.environ.get("GITHUB_REPOSITORY", "")
+
+        detected_project = None
+
+        # If merged PR number provided, detect project from PR labels
+        if merged_pr_number:
+            print(f"Detecting project from merged PR #{merged_pr_number}...")
+
+            try:
+                # Get PR labels
+                pr_output = run_gh_command([
+                    "pr", "view", merged_pr_number,
+                    "--repo", repo,
+                    "--json", "labels"
+                ])
+                pr_data = json.loads(pr_output)
+                pr_labels = [label["name"] for label in pr_data.get("labels", [])]
+
+                print(f"PR labels: {pr_labels}")
+
+                # Search for matching refactor project
+                import glob
+                for config_file in glob.glob("refactor/*/configuration.json"):
+                    if os.path.isfile(config_file):
+                        try:
+                            config = load_json(config_file)
+                            label = config.get("label")
+
+                            if label in pr_labels:
+                                # Extract project name from path: refactor/{project}/configuration.json
+                                detected_project = config_file.split("/")[1]
+                                print(f"✅ Found matching project: {detected_project} (label: {label})")
+                                break
+                        except Exception as e:
+                            print(f"Warning: Failed to read {config_file}: {e}")
+                            continue
+
+                if not detected_project:
+                    gh.set_error(f"No refactor project found with matching label for PR #{merged_pr_number}")
+                    return 1
+
+            except Exception as e:
+                gh.set_error(f"Failed to detect project from PR: {str(e)}")
+                return 1
+
+        # Use provided project name if no merged PR
+        elif project_name:
+            detected_project = project_name
+            print(f"Using provided project name: {detected_project}")
+        else:
+            gh.set_error("Either project_name or merged_pr_number must be provided")
+            return 1
+
+        # Determine paths (use inputs or defaults)
+        if config_path:
+            final_config_path = config_path
+        else:
+            final_config_path = f"refactor/{detected_project}/configuration.json"
+
+        if spec_path:
+            final_spec_path = spec_path
+        else:
+            final_spec_path = f"refactor/{detected_project}/spec.md"
+
+        if pr_template_path:
+            final_pr_template_path = pr_template_path
+        else:
+            final_pr_template_path = f"refactor/{detected_project}/pr-template.md"
+
+        project_path = f"refactor/{detected_project}"
+
+        # Write outputs
+        gh.write_output("project_name", detected_project)
+        gh.write_output("config_path", final_config_path)
+        gh.write_output("spec_path", final_spec_path)
+        gh.write_output("pr_template_path", final_pr_template_path)
+        gh.write_output("project_path", project_path)
+
+        print(f"Configuration paths:")
+        print(f"  Project: {detected_project}")
+        print(f"  Config: {final_config_path}")
+        print(f"  Spec: {final_spec_path}")
+        print(f"  PR Template: {final_pr_template_path}")
+
+        return 0
+
+    except Exception as e:
+        gh.set_error(f"Unexpected error in detect-project: {str(e)}")
+        return 1
+
+
 def cmd_setup(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
     """Handle 'setup' subcommand - load configuration
 
@@ -978,6 +1086,9 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", help="Subcommands")
 
+    # Detect-project subcommand
+    parser_detect = subparsers.add_parser("detect-project", help="Detect project from merged PR or use provided name")
+
     # Setup subcommand
     parser_setup = subparsers.add_parser("setup", help="Load configuration and write outputs")
     parser_setup.add_argument("--config", required=True, help="Path to configuration.json")
@@ -1002,7 +1113,9 @@ def main():
     gh = GitHubActionsHelper()
 
     # Route to appropriate command handler
-    if args.command == "setup":
+    if args.command == "detect-project":
+        return cmd_detect_project(args, gh)
+    elif args.command == "setup":
         return cmd_setup(args, gh)
     elif args.command == "check-capacity":
         return cmd_check_capacity(args, gh)
