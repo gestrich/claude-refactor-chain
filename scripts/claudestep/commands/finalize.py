@@ -73,9 +73,16 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         # Check for any changes (staged, unstaged, or untracked)
         status_output = run_git_command(["status", "--porcelain"])
         if status_output.strip():
-            print("Found uncommitted changes, committing...")
+            print("Found uncommitted changes, staging...")
             run_git_command(["add", "-A"])
-            run_git_command(["commit", "-m", f"Complete task: {task}"])
+
+            # Check if there are actually staged changes after git add
+            staged_status = run_git_command(["diff", "--cached", "--name-only"])
+            if staged_status.strip():
+                print(f"Committing {len(staged_status.strip().split())} file(s)...")
+                run_git_command(["commit", "-m", f"Complete task: {task}"])
+            else:
+                print("No changes to commit after staging (files may have been committed by Claude Code)")
         else:
             print("No uncommitted changes found")
 
