@@ -241,40 +241,41 @@ def substitute_template(template: str, **kwargs) -> str:
     return result
 
 
-def find_next_available_task(plan_file: str, skip_indices: Optional[set] = None) -> Optional[tuple]:
-    """Find first unchecked task not in skip_indices
+def find_next_available_task(plan_file: str, skip_descriptions: Optional[set] = None) -> Optional[tuple]:
+    """Find first unchecked task not in skip_descriptions
 
     Args:
         plan_file: Path to spec.md file
-        skip_indices: Set of task indices to skip (in-progress tasks)
+        skip_descriptions: Set of task descriptions to skip (in-progress tasks)
 
     Returns:
-        Tuple of (task_index, task_text) or None if no available task found
-        task_index is 1-based position in spec.md
+        Tuple of (task_position, task_text) or None if no available task found
+        task_position is 1-based position in spec.md (for reference only)
 
     Raises:
         FileNotFoundError: If spec file doesn't exist
     """
-    if skip_indices is None:
-        skip_indices = set()
+    if skip_descriptions is None:
+        skip_descriptions = set()
 
     if not os.path.exists(plan_file):
         raise FileNotFoundError(f"Spec file not found: {plan_file}")
 
     with open(plan_file, "r") as f:
-        task_index = 1
+        task_position = 1
         for line in f:
             # Check for unchecked task
             match = re.match(r'^\s*- \[ \] (.+)$', line)
             if match:
-                if task_index not in skip_indices:
-                    return (task_index, match.group(1).strip())
+                task_text = match.group(1).strip()
+                if task_text not in skip_descriptions:
+                    return (task_position, task_text)
                 else:
-                    print(f"Skipping task {task_index} (already in progress)")
-                task_index += 1
-            # Also count completed tasks to maintain correct indices
+                    print(f"Skipping task (already in progress): {task_text}")
+                task_position += 1
+            # Also count completed tasks to maintain correct position
             elif re.match(r'^\s*- \[[xX]\] ', line):
-                task_index += 1
+                task_position += 1
 
     return None
 
@@ -543,7 +544,7 @@ def find_available_reviewer(reviewers: List[Dict[str, Any]], label: str, project
                                 # Store PR details
                                 pr_info = {
                                     "pr_number": pr_num,
-                                    "task_index": metadata.get("task_index", "?"),
+                                    "task_index": metadata.get("pr_index", metadata.get("task_index", "?")),  # Support both old and new field names
                                     "task_description": metadata.get("task_description", "Unknown task")
                                 }
                                 reviewer_prs[assigned_reviewer].append(pr_info)
@@ -579,8 +580,67 @@ def find_available_reviewer(reviewers: List[Dict[str, Any]], label: str, project
     return selected_reviewer, result
 
 
-def get_in_progress_task_indices(repo: str, label: str, project: str) -> set:
-    """Get set of task indices currently being worked on
+def get_next_pr_index(repo: str, project: str) -> int:
+    """Get the next PR index for a project by finding max existing index + 1
+
+    Args:
+        repo: GitHub repository (owner/name)
+        project: Project name to match artifacts
+
+    Returns:
+        Next available PR index (1 if no artifacts exist)
+
+    Raises:
+        GitHubAPIError: If GitHub API calls fail
+    """
+    max_index = 0
+
+    # Get recent workflow runs to find artifacts
+    try:
+        api_response = gh_api_call(
+            f"/repos/{repo}/actions/runs?status=completed&per_page=100"
+        )
+        runs = api_response.get("workflow_runs", [])
+    except GitHubAPIError as e:
+        print(f"Warning: Failed to get workflow runs: {e}")
+        runs = []
+
+    # Check artifacts from all runs
+    for run in runs:
+        if run.get("conclusion") != "success":
+            continue
+
+        try:
+            artifacts_data = gh_api_call(
+                f"/repos/{repo}/actions/runs/{run['id']}/artifacts"
+            )
+            artifacts = artifacts_data.get("artifacts", [])
+
+            for artifact in artifacts:
+                name = artifact["name"]
+                # Format: task-metadata-{project}-{pr_index}.json
+                if name.startswith(f"task-metadata-{project}-"):
+                    try:
+                        # Extract PR index from artifact name
+                        suffix = name.replace(f"task-metadata-{project}-", "")
+                        index_str = suffix.replace(".json", "")
+                        pr_index = int(index_str)
+                        max_index = max(max_index, pr_index)
+                    except ValueError:
+                        print(f"Warning: Could not parse PR index from artifact name: {name}")
+                        continue
+
+        except GitHubAPIError as e:
+            print(f"Warning: Failed to get artifacts for run {run['id']}: {e}")
+            continue
+
+    next_index = max_index + 1
+    print(f"Next PR index for project '{project}': {next_index}")
+    return next_index
+
+
+def get_in_progress_task_descriptions(repo: str, label: str, project: str) -> set:
+    """Get set of task descriptions currently being worked on
 
     Args:
         repo: GitHub repository (owner/name)
@@ -588,7 +648,7 @@ def get_in_progress_task_indices(repo: str, label: str, project: str) -> set:
         project: Project name to match artifacts
 
     Returns:
-        Set of task indices that are in progress
+        Set of task description strings that are in progress
 
     Raises:
         GitHubAPIError: If GitHub API calls fail
@@ -636,20 +696,17 @@ def get_in_progress_task_indices(repo: str, label: str, project: str) -> set:
                     artifacts = artifacts_data.get("artifacts", [])
 
                     for artifact in artifacts:
-                        # Parse task index from artifact name
-                        # Format: task-metadata-{project}-{index}.json
+                        # Download artifact to get task description
+                        # Format: task-metadata-{project}-{pr_index}.json
                         name = artifact["name"]
                         if name.startswith(f"task-metadata-{project}-"):
-                            try:
-                                # Extract index from name
-                                suffix = name.replace(f"task-metadata-{project}-", "")
-                                index_str = suffix.replace(".json", "")
-                                task_index = int(index_str)
-                                in_progress.add(task_index)
-                                print(f"Found in-progress task {task_index} from PR #{pr_number}")
-                            except ValueError:
-                                print(f"Warning: Could not parse task index from artifact name: {name}")
-                                continue
+                            artifact_id = artifact["id"]
+                            metadata = download_artifact_json(repo, artifact_id)
+
+                            if metadata and "task_description" in metadata:
+                                task_description = metadata["task_description"]
+                                in_progress.add(task_description)
+                                print(f"Found in-progress task from PR #{pr_number}: {task_description}")
                 except GitHubAPIError as e:
                     print(f"Warning: Failed to get artifacts for run {run['id']}: {e}")
                     continue
@@ -789,28 +846,37 @@ def cmd_find_task(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
 
         spec_file = f"{project_path}/spec.md"
 
-        # Get in-progress task indices from open PRs
+        # Get in-progress task descriptions from open PRs
         print("Checking for in-progress tasks...")
-        in_progress_indices = get_in_progress_task_indices(repo, label, project)
+        in_progress_descriptions = get_in_progress_task_descriptions(repo, label, project)
 
-        if in_progress_indices:
-            print(f"Found in-progress tasks: {sorted(in_progress_indices)}")
+        if in_progress_descriptions:
+            print(f"Found {len(in_progress_descriptions)} in-progress task(s)")
+            for desc in in_progress_descriptions:
+                print(f"  - {desc}")
 
         # Find next available task
-        result = find_next_available_task(spec_file, in_progress_indices)
+        result = find_next_available_task(spec_file, in_progress_descriptions)
 
         if result:
-            task_index, task = result
+            task_position, task = result
+
+            # Determine the next PR index for branch naming
+            print("Determining next PR index...")
+            pr_index = get_next_pr_index(repo, project)
 
             gh.write_output("task", task)
-            gh.write_output("task_index", str(task_index))
+            gh.write_output("task_position", str(task_position))
+            gh.write_output("pr_index", str(pr_index))
             gh.write_output("has_task", "true")
 
             gh.write_step_summary("### Next Task")
-            gh.write_step_summary(f"Task {task_index}: {task}")
+            gh.write_step_summary(f"Position {task_position}: {task}")
+            gh.write_step_summary(f"PR Index: {pr_index}")
         else:
             gh.write_output("task", "")
-            gh.write_output("task_index", "")
+            gh.write_output("task_position", "")
+            gh.write_output("pr_index", "")
             gh.write_output("has_task", "false")
             gh.set_notice("No available tasks (all completed or in progress)")
 
@@ -838,7 +904,8 @@ def cmd_create_pr(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         # Get environment variables
         branch_name = os.environ.get("BRANCH_NAME", "")
         task = os.environ.get("TASK", "")
-        task_index = os.environ.get("TASK_INDEX", "")
+        task_position = os.environ.get("TASK_POSITION", "")
+        pr_index_str = os.environ.get("PR_INDEX", "")
         reviewer = os.environ.get("REVIEWER", "")
         label = os.environ.get("LABEL", "")
         project = os.environ.get("PROJECT", "")
@@ -847,8 +914,14 @@ def cmd_create_pr(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         github_repository = os.environ.get("GITHUB_REPOSITORY", "")
         github_run_id = os.environ.get("GITHUB_RUN_ID", "")
 
-        if not all([branch_name, task, task_index, reviewer, label, project, project_path, gh_token, github_repository]):
+        if not all([branch_name, task, task_position, pr_index_str, reviewer, label, project, project_path, gh_token, github_repository]):
             raise ConfigurationError("Missing required environment variables")
+
+        # Parse PR index from environment
+        try:
+            pr_index = int(pr_index_str)
+        except ValueError:
+            raise ConfigurationError(f"Invalid PR_INDEX value: {pr_index_str}")
 
         # Check if there are commits to push
         try:
@@ -926,7 +999,8 @@ def cmd_create_pr(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         # Create artifact metadata JSON
         from datetime import datetime
         metadata = {
-            "task_index": int(task_index),
+            "pr_index": pr_index,  # Sequential index for this project's PRs
+            "task_position": int(task_position),  # Position in spec.md (for reference)
             "task_description": task,
             "project": project,
             "branch_name": branch_name,
@@ -937,7 +1011,8 @@ def cmd_create_pr(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         }
 
         # Write metadata to file for artifact upload
-        artifact_filename = f"task-metadata-{project}-{task_index}.json"
+        # Use PR index in filename (not task position)
+        artifact_filename = f"task-metadata-{project}-{pr_index}.json"
         artifact_path = os.path.join(os.getcwd(), artifact_filename)
 
         with open(artifact_path, "w") as f:
@@ -953,8 +1028,9 @@ def cmd_create_pr(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         gh.write_step_summary("### PR Created")
         gh.write_step_summary(f"- Branch: {branch_name}")
         gh.write_step_summary(f"- PR: #{pr_number}")
+        gh.write_step_summary(f"- PR Index: {pr_index}")
         gh.write_step_summary(f"- Reviewer: {reviewer}")
-        gh.write_step_summary(f"- Task {task_index}: {task}")
+        gh.write_step_summary(f"- Task: {task}")
 
         return 0
 

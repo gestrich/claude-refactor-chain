@@ -126,7 +126,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       task: ${{ steps.parse-plan.outputs.task }}
-      task_index: ${{ steps.parse-plan.outputs.task_index }}
+      task_position: ${{ steps.parse-plan.outputs.task_position }}
+      pr_index: ${{ steps.parse-plan.outputs.pr_index }}
       has_task: ${{ steps.parse-plan.outputs.has_task }}
     steps:
       - uses: actions/checkout@v4
@@ -162,10 +163,10 @@ jobs:
         id: branch
         env:
           PROJECT: ${{ needs.setup.outputs.project }}
-          TASK_INDEX: ${{ needs.find-task.outputs.task_index }}
+          PR_INDEX: ${{ needs.find-task.outputs.pr_index }}
         run: |
           DATE_PREFIX=$(date +%Y-%m)
-          BRANCH_NAME="${DATE_PREFIX}-${PROJECT}-${TASK_INDEX}"
+          BRANCH_NAME="${DATE_PREFIX}-${PROJECT}-${PR_INDEX}"
           git checkout -b "$BRANCH_NAME"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
@@ -230,7 +231,8 @@ jobs:
           LABEL: ${{ needs.setup.outputs.label }}
           REVIEWER: ${{ needs.check-capacity.outputs.reviewer }}
           TASK: ${{ needs.find-task.outputs.task }}
-          TASK_INDEX: ${{ needs.find-task.outputs.task_index }}
+          TASK_POSITION: ${{ needs.find-task.outputs.task_position }}
+          PR_INDEX: ${{ needs.find-task.outputs.pr_index }}
           PROJECT: ${{ needs.setup.outputs.project }}
           PROJECT_PATH: ${{ needs.setup.outputs.project_path }}
           GITHUB_REPOSITORY: ${{ github.repository }}
