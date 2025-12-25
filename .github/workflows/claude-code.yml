@@ -185,12 +185,10 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           prompt: |
-            Complete this task and commit the changes:
+            Complete this task: ${{ needs.find-task.outputs.task }}
 
-            ${{ needs.find-task.outputs.task }}
-
-            Instructions from prompt.md:
-            $(cat ${{ needs.setup.outputs.project_path }}/prompt.md | sed 's/{{TASK}}/${{ needs.find-task.outputs.task }}/g')
+            Create the file as specified. Do not modify any other files.
+            After creating the file, commit your changes.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Push branch and create PR
