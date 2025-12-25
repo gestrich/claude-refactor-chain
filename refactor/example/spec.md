@@ -11,4 +11,4 @@ Complete the following task as specified in the checklist below.
 ## Checklist
 
 - [x] Create hello.txt with "Hello World"
-- [ ] Create goodbye.txt with "Goodbye World"
+- [x] Create goodbye.txt with "Goodbye World"
