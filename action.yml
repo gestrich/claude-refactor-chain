@@ -16,7 +16,10 @@ inputs:
     default: ${{ github.token }}
   project_name:
     description: 'Project folder name under /refactor directory'
-    required: true
+    required: false
+  merged_pr_number:
+    description: 'PR number that was just merged (for auto-detecting project from labels)'
+    required: false
   config_path:
     description: 'Path to configuration.json file (overrides default)'
     required: false
@@ -71,47 +74,20 @@ runs:
       with:
         python-version: '3.11'
 
-    - name: Setup configuration
+    - name: Detect project and setup configuration
       id: setup
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
+        GH_TOKEN: ${{ inputs.github_token }}
         PROJECT_NAME: ${{ inputs.project_name }}
+        MERGED_PR_NUMBER: ${{ inputs.merged_pr_number }}
         CONFIG_PATH: ${{ inputs.config_path }}
         SPEC_PATH: ${{ inputs.spec_path }}
         PR_TEMPLATE_PATH: ${{ inputs.pr_template_path }}
-      run: |
-        # Determine paths (use inputs or defaults)
-        if [ -n "$CONFIG_PATH" ]; then
-          FINAL_CONFIG_PATH="$CONFIG_PATH"
-        else
-          FINAL_CONFIG_PATH="refactor/${PROJECT_NAME}/configuration.json"
-        fi
-
-        if [ -n "$SPEC_PATH" ]; then
-          FINAL_SPEC_PATH="$SPEC_PATH"
-        else
-          FINAL_SPEC_PATH="refactor/${PROJECT_NAME}/spec.md"
-        fi
-
-        if [ -n "$PR_TEMPLATE_PATH" ]; then
-          FINAL_PR_TEMPLATE_PATH="$PR_TEMPLATE_PATH"
-        else
-          FINAL_PR_TEMPLATE_PATH="refactor/${PROJECT_NAME}/pr-template.md"
-        fi
-
-        PROJECT_PATH="refactor/${PROJECT_NAME}"
-
-        # Export for later steps
-        echo "config_path=$FINAL_CONFIG_PATH" >> $GITHUB_OUTPUT
-        echo "spec_path=$FINAL_SPEC_PATH" >> $GITHUB_OUTPUT
-        echo "pr_template_path=$FINAL_PR_TEMPLATE_PATH" >> $GITHUB_OUTPUT
-        echo "project_path=$PROJECT_PATH" >> $GITHUB_OUTPUT
-
-        echo "Configuration paths:"
-        echo "  Config: $FINAL_CONFIG_PATH"
-        echo "  Spec: $FINAL_SPEC_PATH"
-        echo "  PR Template: $FINAL_PR_TEMPLATE_PATH"
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: python3 "$ACTION_PATH/scripts/refactor_chain.py" detect-project
 
     - name: Load and validate configuration
       id: load-config
@@ -131,7 +107,7 @@ runs:
         GH_TOKEN: ${{ inputs.github_token }}
         LABEL: ${{ steps.load-config.outputs.label }}
         REVIEWERS_JSON: ${{ steps.load-config.outputs.reviewers_json }}
-        PROJECT: ${{ inputs.project_name }}
+        PROJECT: ${{ steps.setup.outputs.project_name }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         ACTION_PATH: ${{ github.action_path }}
       run: python3 "$ACTION_PATH/scripts/refactor_chain.py" check-capacity
@@ -145,7 +121,7 @@ runs:
         GH_TOKEN: ${{ inputs.github_token }}
         PROJECT_PATH: ${{ steps.setup.outputs.project_path }}
         SPEC_PATH: ${{ steps.setup.outputs.spec_path }}
-        PROJECT: ${{ inputs.project_name }}
+        PROJECT: ${{ steps.setup.outputs.project_name }}
         LABEL: ${{ steps.load-config.outputs.label }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         ACTION_PATH: ${{ github.action_path }}
@@ -157,7 +133,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
-        PROJECT: ${{ inputs.project_name }}
+        PROJECT: ${{ steps.setup.outputs.project_name }}
         TASK_INDEX: ${{ steps.find-task.outputs.task_index }}
       run: |
         DATE_PREFIX=$(date +%Y-%m)
@@ -236,7 +212,7 @@ runs:
         REVIEWER: ${{ steps.check-capacity.outputs.reviewer }}
         TASK: ${{ steps.find-task.outputs.task }}
         TASK_INDEX: ${{ steps.find-task.outputs.task_index }}
-        PROJECT: ${{ inputs.project_name }}
+        PROJECT: ${{ steps.setup.outputs.project_name }}
         PROJECT_PATH: ${{ steps.setup.outputs.project_path }}
         SPEC_PATH: ${{ steps.setup.outputs.spec_path }}
         PR_TEMPLATE_PATH: ${{ steps.setup.outputs.pr_template_path }}
