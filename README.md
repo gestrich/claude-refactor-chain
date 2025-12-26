@@ -301,3 +301,31 @@ Once you have the system set up, here are tips for rolling it out:
 - **Use immediate trigger first** - Start with merge-triggered runs for faster iteration. Switch to scheduled (daily) once the process is stable.
 
 - **Scale up gradually** - As confidence grows, add more reviewers and increase concurrent PRs per reviewer.
+
+## Development
+
+### Running Integration Tests
+
+The project includes end-to-end integration tests that validate the complete ClaudeStep workflow.
+
+**Prerequisites:**
+- GitHub CLI (`gh`) installed and authenticated
+- Write access to the demo repository
+- Python 3.11+ and pytest
+
+**Quick start:**
+```bash
+# Run integration tests
+./tests/integration/run_test.sh
+
+# Or use pytest directly
+pytest tests/integration/test_workflow_e2e.py -v -s -m integration
+```
+
+**What the tests validate:**
+- Manual workflow trigger and PR creation
+- Reviewer capacity management (max 2 PRs per reviewer)
+- Merge trigger functionality
+- Resource cleanup
+
+See [tests/integration/README.md](tests/integration/README.md) for detailed documentation.

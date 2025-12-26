@@ -66,12 +66,25 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         # === STEP 1: Commit Any Uncommitted Changes ===
         print("=== Step 1/3: Committing changes ===")
 
-        # Remove .action directory if it exists (checked out action code, not part of user's repo)
+        # Exclude .action directory from git tracking (checked out action code, not part of user's repo)
+        # We can't remove it because GitHub Actions needs it for post-action cleanup
+        # Instead, add it to .git/info/exclude so git ignores it
         action_dir = os.path.join(os.getcwd(), ".action")
         if os.path.exists(action_dir):
-            import shutil
-            shutil.rmtree(action_dir)
-            print("Removed .action directory (checked-out action code)")
+            exclude_file = os.path.join(os.getcwd(), ".git", "info", "exclude")
+            try:
+                with open(exclude_file, "r") as f:
+                    exclude_content = f.read()
+                if ".action" not in exclude_content:
+                    with open(exclude_file, "a") as f:
+                        f.write("\n.action\n")
+                    print("Added .action to git exclude list")
+            except FileNotFoundError:
+                # .git/info/exclude doesn't exist, create it
+                os.makedirs(os.path.dirname(exclude_file), exist_ok=True)
+                with open(exclude_file, "w") as f:
+                    f.write(".action\n")
+                print("Created git exclude list with .action")
 
         # Configure git user for commits
         run_git_command(["config", "user.name", "github-actions[bot]"])
