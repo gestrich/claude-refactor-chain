@@ -39,10 +39,17 @@ def cmd_extract_cost(args, gh):
         # Debug: Check if data is a list or dict
         if isinstance(data, list):
             print(f"Execution file contains a list with {len(data)} items")
-            # If it's a list, get the last item (most recent execution)
+            # Get the execution index from environment (default to -1 for last)
+            exec_index = int(os.environ.get("EXECUTION_INDEX", "-1"))
+            print(f"Using execution index: {exec_index}")
+            # If it's a list, get the item at the specified index
             if data:
-                data = data[-1]
-                print("Using the last item in the list")
+                try:
+                    data = data[exec_index]
+                    print(f"Selected item at index {exec_index}")
+                except IndexError:
+                    print(f"::warning::Index {exec_index} out of range, using last item")
+                    data = data[-1]
 
         if isinstance(data, dict):
             print(f"Execution file top-level keys: {list(data.keys())[:20]}")

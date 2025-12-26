@@ -183,6 +183,7 @@ runs:
       working-directory: ${{ inputs.working_directory }}
       env:
         EXECUTION_FILE: ${{ steps.claude_code.outputs.execution_file }}
+        EXECUTION_INDEX: '-2'  # Second-to-last item (main task, before PR summary)
         ACTION_PATH: ${{ github.action_path }}
       run: |
         export PYTHONPATH="$ACTION_PATH/scripts:$PYTHONPATH"
@@ -199,6 +200,7 @@ runs:
       working-directory: ${{ inputs.working_directory }}
       env:
         EXECUTION_FILE: ${{ steps.pr_summary.outputs.execution_file }}
+        EXECUTION_INDEX: '-1'  # Last item (PR summary)
         ACTION_PATH: ${{ github.action_path }}
       run: |
         export PYTHONPATH="$ACTION_PATH/scripts:$PYTHONPATH"
