@@ -258,7 +258,7 @@ class TestStatisticsReport:
         slack_msg = report.format_for_slack()
         assert "ClaudeStep Statistics Report" in slack_msg
         assert "No projects found" in slack_msg
-        assert "No team member activity found" in slack_msg
+        # Empty report doesn't show leaderboard section
 
     def test_format_for_slack_with_data(self):
         """Test Slack formatting with data"""
@@ -280,7 +280,10 @@ class TestStatisticsReport:
         assert "ClaudeStep Statistics Report" in slack_msg
         assert "test-project" in slack_msg
         assert "alice" in slack_msg
-        assert "50%" in slack_msg
+        # Check for table format
+        assert "```" in slack_msg  # Code block for table
+        assert "Total" in slack_msg  # Table header
+        assert "Merged" in slack_msg  # Leaderboard header
         assert "2025-01-01" in slack_msg
 
     def test_format_for_pr_comment_single_project(self):
@@ -368,9 +371,10 @@ class TestStatisticsReport:
         slack_msg = report.format_for_slack()
 
         # Charlie should appear first (most active), then alice, then bob
-        charlie_pos = slack_msg.find("@charlie")
-        alice_pos = slack_msg.find("@alice")
-        bob_pos = slack_msg.find("@bob")
+        # Table format doesn't use @ prefix
+        charlie_pos = slack_msg.find("charlie")
+        alice_pos = slack_msg.find("alice")
+        bob_pos = slack_msg.find("bob")
 
         assert charlie_pos < alice_pos < bob_pos
 

@@ -166,6 +166,31 @@ class TeamMemberStats:
 
         return "\n".join(lines)
 
+    def format_table_row(self, rank: int = 0) -> str:
+        """Format team member as a table row for compact display
+
+        Args:
+            rank: Ranking position (1-based), 0 for no rank display
+
+        Returns:
+            Formatted string: "🥇 username     5    2" or "@username    5    2"
+        """
+        # Medal emojis for top 3
+        medals = ["🥇", "🥈", "🥉"]
+
+        # Format rank/medal
+        if rank > 0 and rank <= 3:
+            prefix = medals[rank - 1]
+        elif rank > 0:
+            prefix = f"#{rank}"
+        else:
+            prefix = " "
+
+        # Truncate long usernames
+        username = self.username[:15]
+
+        return f"{prefix} {username:<15} {self.merged_count:>3} {self.open_count:>3}"
+
 
 class ProjectStats:
     """Statistics for a single project"""
@@ -229,6 +254,16 @@ class ProjectStats:
         lines.append(" · ".join(status_parts))
 
         return "\n".join(lines)
+
+    def format_table_row(self) -> str:
+        """Format project as a table row for compact display
+
+        Returns:
+            Formatted string: "project-name    5    3    1    1"
+        """
+        # Truncate long project names
+        name = self.project_name[:20]
+        return f"{name:<20} {self.total_tasks:>3} {self.completed_tasks:>3} {self.in_progress_tasks:>3} {self.pending_tasks:>3}"
 
 
 class StatisticsReport:
@@ -315,7 +350,7 @@ class StatisticsReport:
         return "\n".join(lines)
 
     def format_for_slack(self) -> str:
-        """Complete report in Slack mrkdwn format"""
+        """Complete report in Slack mrkdwn format with tables"""
         fmt = MarkdownFormatter(for_slack=True)
         lines = []
 
@@ -329,42 +364,41 @@ class StatisticsReport:
             lines.append(fmt.italic(f"Generated: {timestamp}"))
             lines.append("")
 
-        # Leaderboard (show first, it's the most engaging!)
-        leaderboard = self.format_leaderboard(for_slack=True)
-        if leaderboard:
-            lines.append(leaderboard)
-            lines.append("")
-
-        # Project Statistics
-        if self.project_stats:
-            lines.append(fmt.header("📊 Project Progress", level=2))
-            lines.append("")
-            for project_name in sorted(self.project_stats.keys()):
-                stats = self.project_stats[project_name]
-                lines.append(stats.format_summary(for_slack=True))
-                lines.append("")
-        else:
-            lines.append(fmt.header("📊 Project Progress", level=2))
-            lines.append("")
-            lines.append(fmt.italic("No projects found"))
-            lines.append("")
-
-        # Team Member Statistics (detailed view)
+        # Leaderboard Table
         if self.team_stats:
-            lines.append(fmt.header("👥 Team Activity (Detailed)", level=2))
-            lines.append("")
-            # Sort by activity level (merged PRs desc, then username)
+            # Filter to active members only
             sorted_members = sorted(
                 self.team_stats.items(),
                 key=lambda x: (-x[1].merged_count, x[0])
             )
-            for username, stats in sorted_members:
-                lines.append(stats.format_summary(for_slack=True))
+            active_members = [(username, stats) for username, stats in sorted_members
+                             if stats.merged_count > 0]
+
+            if active_members:
+                lines.append(fmt.header("🏆 Leaderboard", level=2))
+                lines.append("```")
+                lines.append(f"{'Rank':<3} {'Username':<15} {'Merged':>6} {'Open':>5}")
+                lines.append("-" * 32)
+                for idx, (username, stats) in enumerate(active_members):
+                    lines.append(stats.format_table_row(rank=idx + 1))
+                lines.append("```")
                 lines.append("")
-        else:
-            lines.append(fmt.header("👥 Team Activity", level=2))
+
+        # Project Statistics Table
+        if self.project_stats:
+            lines.append(fmt.header("📊 Project Progress", level=2))
+            lines.append("```")
+            lines.append(f"{'Project':<20} {'Total':>5} {'Done':>5} {'WIP':>4} {'Todo':>5}")
+            lines.append("-" * 42)
+            for project_name in sorted(self.project_stats.keys()):
+                stats = self.project_stats[project_name]
+                lines.append(stats.format_table_row())
+            lines.append("```")
             lines.append("")
-            lines.append(fmt.italic("No team member activity found"))
+        else:
+            lines.append(fmt.header("📊 Project Progress", level=2))
+            lines.append("")
+            lines.append(fmt.italic("No projects found"))
             lines.append("")
 
         return "\n".join(lines)
