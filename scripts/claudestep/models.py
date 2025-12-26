@@ -400,15 +400,19 @@ class StatisticsReport:
             lines.append(fmt.header("📊 Project Progress", level=2))
             lines.append("```")
             # Table header with box-drawing characters
-            lines.append("┌──────────────────────┬───────┬──────┬─────┬──────┬──────┐")
-            lines.append("│ Project              │ Total │ Done │ WIP │ Todo │   %  │")
-            lines.append("├──────────────────────┼───────┼──────┼─────┼──────┼──────┤")
+            lines.append("┌──────────────────────┬───────┬──────┬─────┬──────┬──────────────┐")
+            lines.append("│ Project              │ Total │ Done │ WIP │ Todo │   Progress   │")
+            lines.append("├──────────────────────┼───────┼──────┼─────┼──────┼──────────────┤")
             for project_name in sorted(self.project_stats.keys()):
                 stats = self.project_stats[project_name]
                 name = project_name[:20]
                 pct = stats.completion_percentage
-                lines.append(f"│ {name:<20} │  {stats.total_tasks:>4} │  {stats.completed_tasks:>3} │ {stats.in_progress_tasks:>3} │  {stats.pending_tasks:>3} │ {pct:>3.0f}% │")
-            lines.append("└──────────────────────┴───────┴──────┴─────┴──────┴──────┘")
+                # Create compact progress bar (8 blocks wide)
+                bar_width = 8
+                filled = int((pct / 100) * bar_width)
+                bar = "█" * filled + "░" * (bar_width - filled)
+                lines.append(f"│ {name:<20} │  {stats.total_tasks:>4} │  {stats.completed_tasks:>3} │ {stats.in_progress_tasks:>3} │  {stats.pending_tasks:>3} │ {bar} {pct:>3.0f}% │")
+            lines.append("└──────────────────────┴───────┴──────┴─────┴──────┴──────────────┘")
             lines.append("```")
             lines.append("")
         else:
