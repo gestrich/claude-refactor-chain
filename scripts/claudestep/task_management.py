@@ -128,7 +128,22 @@ def get_in_progress_task_indices(repo: str, label: str, project: str) -> set:
         branch = pr["headRefName"]
         pr_number = pr["number"]
 
-        # Get workflow runs for this branch
+        # First, try to extract task index from branch name as a quick check
+        # Branch format: YYYY-MM-{project}-{index}
+        # Example: 2025-12-test-project-abc123-1
+        try:
+            # Extract the last part after the final dash
+            parts = branch.rsplit("-", 1)
+            if len(parts) == 2:
+                task_index = int(parts[1])
+                in_progress.add(task_index)
+                print(f"Found in-progress task {task_index} from PR #{pr_number} (branch name)")
+                continue  # Skip artifact check if we got the index from branch name
+        except (ValueError, IndexError):
+            # Branch name doesn't match expected format, fall back to artifact check
+            pass
+
+        # Fallback: Get workflow runs for this branch and check artifacts
         try:
             api_response = gh_api_call(
                 f"/repos/{repo}/actions/runs?branch={branch}&status=completed&per_page=10"
@@ -159,7 +174,7 @@ def get_in_progress_task_indices(repo: str, label: str, project: str) -> set:
                                 index_str = suffix.replace(".json", "")
                                 task_index = int(index_str)
                                 in_progress.add(task_index)
-                                print(f"Found in-progress task {task_index} from PR #{pr_number}")
+                                print(f"Found in-progress task {task_index} from PR #{pr_number} (artifact)")
                             except ValueError:
                                 print(f"Warning: Could not parse task index from artifact name: {name}")
                                 continue

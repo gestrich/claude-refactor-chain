@@ -356,6 +356,10 @@ def test_claudestep_workflow_e2e(gh, test_project, cleanup_prs):
     cleanup_prs.append(pr_1_number)
     print(f"  ✓ PR #{pr_1_number} created: {pr_1['title']}")
 
+    # Wait a bit to ensure PR is fully indexed before second workflow run
+    print("  Waiting for PR to be fully indexed...")
+    time.sleep(10)
+
     # === STEP 2: Trigger workflow again and verify second PR ===
     print("\n[STEP 2] Triggering workflow for second task...")
 
