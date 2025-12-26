@@ -396,6 +396,7 @@ Get your API key from [console.anthropic.com](https://console.anthropic.com), th
 | `label` | string | ✅ | GitHub label for PRs |
 | `branchPrefix` | string | ✅ | Prefix for branch names |
 | `reviewers` | array | ✅ | List of reviewers with capacity |
+| `slackWebhookUrl` | string | ❌ | Slack webhook URL for PR notifications (optional) |
 
 **Reviewers** array items:
 - `username` (string): GitHub username
@@ -408,7 +409,8 @@ Get your API key from [console.anthropic.com](https://console.anthropic.com), th
   "reviewers": [
     { "username": "alice", "maxOpenPRs": 1 },
     { "username": "bob", "maxOpenPRs": 2 }
-  ]
+  ],
+  "slackWebhookUrl": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
 }
 ```
 

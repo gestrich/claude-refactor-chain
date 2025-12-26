@@ -49,9 +49,6 @@ inputs:
     description: 'Add AI-generated summary comment to PR (true/false)'
     required: false
     default: 'true'
-  slack_webhook_url:
-    description: 'Slack webhook URL for PR notifications (optional)'
-    required: false
 
 outputs:
   pr_number:
@@ -247,7 +244,7 @@ runs:
       continue-on-error: true
 
     - name: Post to Slack
-      if: steps.notify.outputs.has_pr == 'true' && inputs.slack_webhook_url != ''
+      if: steps.notify.outputs.has_pr == 'true' && steps.prepare.outputs.slack_webhook_url != ''
       uses: slackapi/slack-github-action@v2
       with:
         payload: |
@@ -273,7 +270,7 @@ runs:
             ]
           }
       env:
-        SLACK_WEBHOOK_URL: ${{ inputs.slack_webhook_url }}
+        SLACK_WEBHOOK_URL: ${{ steps.prepare.outputs.slack_webhook_url }}
       continue-on-error: true
 
     - name: Upload task metadata artifact

@@ -62,6 +62,7 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         config = load_json(config_path)
         branch_prefix = config.get("branchPrefix")
         reviewers = config.get("reviewers")
+        slack_webhook_url = config.get("slackWebhookUrl", "")  # Optional
 
         if not branch_prefix or not reviewers:
             raise ConfigurationError("Missing required fields: branchPrefix or reviewers")
@@ -156,6 +157,7 @@ Now complete the task '{task}' following all the details and instructions in the
         gh.write_output("label", label)
         gh.write_output("branch_prefix", branch_prefix)
         gh.write_output("reviewers_json", json.dumps(reviewers))
+        gh.write_output("slack_webhook_url", slack_webhook_url)
         gh.write_output("task", task)
         gh.write_output("task_index", str(task_index))
         gh.write_output("has_task", "true")
