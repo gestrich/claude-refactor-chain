@@ -87,7 +87,6 @@ def collect_team_member_stats(
                 "100",
             ]
         )
-        print(f"DEBUG: merged_output = {merged_output[:200] if merged_output else 'EMPTY'}")
         merged_prs = json.loads(merged_output) if merged_output else []
         print(f"Found {len(merged_prs)} merged PR(s)")
 
