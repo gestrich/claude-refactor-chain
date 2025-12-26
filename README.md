@@ -835,7 +835,7 @@ Built with [Claude Code](https://github.com/anthropics/claude-code-action) by An
 
 - [ ] **Slack Action and metrics**
 
-Post progress updates and metrics to Slack when PRs are merged. Post to Slack on merge: "✅ 47/300 tasks complted to Swift". Keeps momentum visible.
+Post progress updates and metrics to Slack when PRs are merged. Post to Slack on merge: "✅ 47/300 tasks completed to Swift". Keeps momentum visible.
 
 Success metrics to track:
 - Time from PR creation to merge (review efficiency)
