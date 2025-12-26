@@ -15,8 +15,9 @@ inputs:
     required: true
     default: ${{ github.token }}
   project_name:
-    description: 'Project folder name under /refactor directory'
+    description: 'Project folder name under /refactor directory (leave empty to process all projects)'
     required: false
+    default: ''
   merged_pr_number:
     description: 'PR number that was just merged (for auto-detecting project from labels)'
     required: false
