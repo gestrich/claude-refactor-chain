@@ -377,10 +377,21 @@ class StatisticsReport:
             if active_members:
                 lines.append(fmt.header("🏆 Leaderboard", level=2))
                 lines.append("```")
-                lines.append(f"{'Rank':<3} {'Username':<15} {'Merged':>6} {'Open':>5}")
-                lines.append("-" * 32)
+                # Table header with box-drawing characters
+                lines.append("┌────┬─────────────────┬────────┬──────┐")
+                lines.append("│Rank│ Username        │ Merged │ Open │")
+                lines.append("├────┼─────────────────┼────────┼──────┤")
                 for idx, (username, stats) in enumerate(active_members):
-                    lines.append(stats.format_table_row(rank=idx + 1))
+                    # Get rank display
+                    medals = ["🥇", "🥈", "🥉"]
+                    if idx < 3:
+                        rank_display = medals[idx]
+                    else:
+                        rank_display = f"#{idx+1}"
+
+                    username_truncated = username[:15]
+                    lines.append(f"│{rank_display:<3} │ {username_truncated:<15} │   {stats.merged_count:>4} │  {stats.open_count:>3} │")
+                lines.append("└────┴─────────────────┴────────┴──────┘")
                 lines.append("```")
                 lines.append("")
 
@@ -388,11 +399,15 @@ class StatisticsReport:
         if self.project_stats:
             lines.append(fmt.header("📊 Project Progress", level=2))
             lines.append("```")
-            lines.append(f"{'Project':<20} {'Total':>5} {'Done':>5} {'WIP':>4} {'Todo':>5}")
-            lines.append("-" * 42)
+            # Table header with box-drawing characters
+            lines.append("┌──────────────────────┬───────┬──────┬─────┬──────┐")
+            lines.append("│ Project              │ Total │ Done │ WIP │ Todo │")
+            lines.append("├──────────────────────┼───────┼──────┼─────┼──────┤")
             for project_name in sorted(self.project_stats.keys()):
                 stats = self.project_stats[project_name]
-                lines.append(stats.format_table_row())
+                name = project_name[:20]
+                lines.append(f"│ {name:<20} │  {stats.total_tasks:>4} │  {stats.completed_tasks:>3} │ {stats.in_progress_tasks:>3} │  {stats.pending_tasks:>3} │")
+            lines.append("└──────────────────────┴───────┴──────┴─────┴──────┘")
             lines.append("```")
             lines.append("")
         else:
