@@ -14,6 +14,7 @@ from claudestep.commands.discover import main as cmd_discover
 from claudestep.commands.discover_ready import main as cmd_discover_ready
 from claudestep.commands.extract_cost import cmd_extract_cost
 from claudestep.commands.finalize import cmd_finalize
+from claudestep.commands.notify_pr import cmd_notify_pr
 from claudestep.commands.prepare import cmd_prepare
 from claudestep.commands.prepare_summary import cmd_prepare_summary
 from claudestep.commands.statistics import cmd_statistics
@@ -35,6 +36,7 @@ def main():
     parser_prepare_summary = subparsers.add_parser("prepare-summary", help="Prepare prompt for PR summary generation")
     parser_extract_cost = subparsers.add_parser("extract-cost", help="Extract cost from workflow logs")
     parser_add_cost_comment = subparsers.add_parser("add-cost-comment", help="Post cost breakdown comment to PR")
+    parser_notify_pr = subparsers.add_parser("notify-pr", help="Generate Slack notification for created PR")
     parser_statistics = subparsers.add_parser("statistics", help="Generate statistics and reports")
 
     args = parser.parse_args()
@@ -62,6 +64,8 @@ def main():
         return cmd_extract_cost(args, gh)
     elif args.command == "add-cost-comment":
         return cmd_add_cost_comment(args, gh)
+    elif args.command == "notify-pr":
+        return cmd_notify_pr(args, gh)
     elif args.command == "statistics":
         return cmd_statistics(args, gh)
     else:
