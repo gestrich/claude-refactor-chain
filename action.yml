@@ -162,6 +162,7 @@ runs:
         python3 -m claudestep prepare-summary
 
     - name: Generate and post PR summary
+      id: pr_summary
       if: |
         inputs.add_pr_summary == 'true' &&
         steps.prepare_summary.outputs.summary_prompt != ''
@@ -172,6 +173,57 @@ runs:
         github_token: ${{ inputs.github_token }}
         claude_args: '--allowedTools Bash'
         show_full_output: true
+      continue-on-error: true
+
+    - name: Extract cost from main task
+      id: extract_main_cost
+      if: steps.finalize.outputs.pr_number != ''
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        STEP_NAME: 'Run Claude Code'
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        export PYTHONPATH="$ACTION_PATH/scripts:$PYTHONPATH"
+        python3 -m claudestep extract-cost
+      continue-on-error: true
+
+    - name: Extract cost from PR summary
+      id: extract_summary_cost
+      if: |
+        inputs.add_pr_summary == 'true' &&
+        steps.finalize.outputs.pr_number != ''
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        STEP_NAME: 'Generate and post PR summary'
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        export PYTHONPATH="$ACTION_PATH/scripts:$PYTHONPATH"
+        python3 -m claudestep extract-cost
+      continue-on-error: true
+
+    - name: Post cost breakdown to PR
+      if: steps.finalize.outputs.pr_number != ''
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        PR_NUMBER: ${{ steps.finalize.outputs.pr_number }}
+        MAIN_COST: ${{ steps.extract_main_cost.outputs.cost_usd }}
+        SUMMARY_COST: ${{ steps.extract_summary_cost.outputs.cost_usd }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        export PYTHONPATH="$ACTION_PATH/scripts:$PYTHONPATH"
+        python3 -m claudestep add-cost-comment
       continue-on-error: true
 
     - name: Upload task metadata artifact
