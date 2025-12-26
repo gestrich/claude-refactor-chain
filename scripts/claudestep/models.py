@@ -215,16 +215,18 @@ class ProjectStats:
         lines.append(fmt.header(f"📊 {self.project_name}", level=3))
         lines.append("")
 
-        # Progress bar
-        lines.append(f"{fmt.bold('Progress:')} {self.format_progress_bar()}")
-        lines.append(f"{fmt.bold('Tasks:')} {self.completed_tasks}/{self.total_tasks} complete")
-        lines.append("")
+        # Progress bar and tasks on same line for compactness
+        lines.append(f"{self.format_progress_bar()} · {self.completed_tasks}/{self.total_tasks} complete")
 
-        # Task breakdown
-        lines.append(fmt.bold("Details:"))
-        lines.append(f"- ✅ Completed: {self.completed_tasks}")
-        lines.append(f"- 🔄 In Progress: {self.in_progress_tasks}")
-        lines.append(f"- ⏸️ Pending: {self.pending_tasks}")
+        # Compact status breakdown - only show non-zero counts
+        status_parts = []
+        status_parts.append(f"✅{self.completed_tasks}")
+        if self.in_progress_tasks > 0:
+            status_parts.append(f"🔄{self.in_progress_tasks}")
+        if self.pending_tasks > 0:
+            status_parts.append(f"⏸️{self.pending_tasks}")
+
+        lines.append(" · ".join(status_parts))
 
         return "\n".join(lines)
 

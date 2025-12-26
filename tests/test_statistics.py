@@ -215,10 +215,11 @@ class TestProjectStats:
 
         summary = stats.format_summary()
         assert "my-project" in summary
-        assert "7/10" in summary
-        assert "Completed: 7" in summary
-        assert "In Progress: 2" in summary
-        assert "Pending: 1" in summary
+        assert "7/10 complete" in summary
+        # Check compact format with emojis
+        assert "✅7" in summary
+        assert "🔄2" in summary
+        assert "⏸️1" in summary
         assert "█" in summary  # Progress bar
         assert "70%" in summary
 
