@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
+from claudestep.artifact_operations import find_project_artifacts
 from claudestep.config import load_config
 from claudestep.exceptions import FileNotFoundError as ClaudeStepFileNotFoundError
 from claudestep.github_operations import run_gh_command
@@ -51,43 +52,34 @@ def collect_project_costs(
     prs_with_cost = 0
 
     try:
-        # Get all merged PRs for this project (filter by label)
-        pr_output = run_gh_command([
-            "pr", "list",
-            "--repo", repo,
-            "--label", label,
-            "--state", "merged",
-            "--limit", "100",
-            "--json", "number,title,body,comments,headRefName"
-        ])
+        # Get all merged PR artifacts for this project
+        artifacts = find_project_artifacts(
+            repo=repo,
+            project=project_name,
+            label=label,
+            pr_state="merged",
+            download_metadata=True  # Need PR numbers
+        )
 
-        prs = json.loads(pr_output) if pr_output else []
+        # Get unique PR numbers from artifacts
+        pr_numbers = {a.metadata.pr_number for a in artifacts if a.metadata}
 
-        # Filter PRs for this specific project
-        # Check if project name appears in branch name or PR body
-        project_prs = []
-        for pr in prs:
-            branch_name = pr.get("headRefName", "")
-            body = pr.get("body", "")
+        print(f"  Found {len(pr_numbers)} merged PR(s) for {project_name}")
 
-            # Match by branch name (e.g., "refactor/project-name-1") or body (e.g., "Project: project-name")
-            if project_name in branch_name or f"Project: {project_name}" in body:
-                project_prs.append(pr)
+        # For each PR, get comments and extract cost
+        for pr_number in pr_numbers:
+            # Get PR comments
+            comments_output = run_gh_command([
+                "pr", "view", str(pr_number),
+                "--repo", repo,
+                "--json", "comments",
+                "--jq", ".comments[] | .body"
+            ])
 
-        print(f"  Found {len(project_prs)} merged PR(s) for {project_name}")
-
-        for pr in project_prs:
-            pr_number = pr.get("number")
-
-            # Check comments for cost breakdown
-            comments = pr.get("comments", [])
-
-            for comment in comments:
-                body = comment.get("body", "")
-
-                # Look for cost breakdown comment (contains "💰 Cost Breakdown")
-                if "💰 Cost Breakdown" in body or "Cost Breakdown" in body:
-                    cost = extract_cost_from_comment(body)
+            # Parse comments for cost breakdown
+            for comment_body in comments_output.split('\n\n'):
+                if "💰 Cost Breakdown" in comment_body or "Cost Breakdown" in comment_body:
+                    cost = extract_cost_from_comment(comment_body)
                     if cost is not None:
                         total_cost += cost
                         prs_with_cost += 1

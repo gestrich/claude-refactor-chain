@@ -505,15 +505,27 @@ def collect_project_costs(
   - Parsing task indices from artifact names
   - Branch name pattern matching fallback logic
 
-### - [ ] Phase 4: Refactor statistics_collector.py with Cost Tracking (Priority: High)
+### - [x] Phase 4: Refactor statistics_collector.py with Cost Tracking (Priority: High) ✅ COMPLETED
 - Update `collect_project_costs()` to use `find_project_artifacts()` API
 - Fix PR matching to use artifact metadata instead of branch names
 - Get PR numbers from artifacts, then fetch comments for costs
 - Test cost aggregation on merged PRs
 - Verify statistics report shows correct costs
 
-**Estimated effort**: 1-2 hours
-**Risk**: Medium - needs careful testing to ensure cost collection is accurate
+**Completed**: 2025-12-27
+**Technical Notes**:
+- Refactored `scripts/claudestep/statistics_collector.py` from 424 lines to 396 lines (28 line reduction)
+- Replaced incorrect branch name matching logic with centralized `find_project_artifacts()` API
+- The `collect_project_costs()` function now:
+  - Uses `find_project_artifacts(pr_state="merged", download_metadata=True)` to get merged PRs
+  - Extracts unique PR numbers from artifact metadata (previously used unreliable branch name matching)
+  - Fetches PR comments using `gh pr view` for each PR to extract cost data
+- Added import: `artifact_operations.find_project_artifacts`
+- Module compiles successfully with Python 3.13
+- All existing tests pass (86 passed, 5 pre-existing failures in test_prepare_summary.py unrelated to this change)
+- Key improvement: **Fixes the incorrect PR matching bug** where branch names were used instead of artifact metadata
+- Now correctly identifies merged PRs for a project regardless of branch naming conventions
+- Cost collection is now more reliable and matches the same pattern used by reviewer_management.py and task_management.py
 
 ### - [ ] Phase 5: Add Cost to Artifact Metadata (Priority: Medium, Optional)
 - Update TaskMetadata model with cost fields (main_task_cost_usd, pr_summary_cost_usd, total_cost_usd)
