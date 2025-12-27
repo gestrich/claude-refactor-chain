@@ -6,34 +6,76 @@ This document outlines a comprehensive plan to improve test coverage in the Clau
 
 ## Recent Updates (December 2025)
 
-Following the completion of the branch naming simplification refactoring (see `docs/completed/simplify-branch-naming.md`), this test plan has been updated to reflect:
+### Architecture Modernization (December 27, 2025)
+Following the completion of the architecture modernization (see `docs/completed/architecture-update.md`), this test plan has been updated to reflect:
+
+1. **Layered Architecture** - Code reorganized into domain, infrastructure, application, and CLI layers
+2. **Test Structure Reorganized** - Tests now mirror the `src/` structure in `tests/unit/`
+3. **All 112 Tests Passing** - Fixed failing `test_prepare_summary.py` tests
+4. **CI Workflow Added** - Unit tests run automatically on push and PR
+5. **E2E Tests Updated** - Demo repository tests working with new architecture
+
+### Branch Naming Simplification
+Following the completion of the branch naming simplification refactoring (see `docs/completed/simplify-branch-naming.md`):
 
 1. **New `pr_operations.py` module** - Centralized PR utilities with comprehensive tests (21 test cases) already implemented
-2. **Simplified branch naming** - All tests should use the standard format `claude-step-{project}-{index}`
-3. **Removed `branchPrefix` configuration** - Tests should verify this field is rejected with a helpful error message
-4. **Simplified `project_detection.py`** - Uses centralized `parse_branch_name()` utility instead of multiple format parsing
+2. **Simplified branch naming** - All tests use the standard format `claude-step-{project}-{index}`
+3. **Removed `branchPrefix` configuration** - Tests verify this field is rejected with a helpful error message
+4. **Simplified `project_detection.py`** - Uses centralized `parse_branch_name()` utility
 5. **Centralized PR fetching** - Multiple modules now use shared `get_project_prs()` utility
 
 These changes reduce code duplication and simplify the testing surface area.
 
 ## Current State
 
-### Existing Tests
-- `tests/test_statistics.py` - Statistics models and collectors
-- `tests/test_table_formatter.py` - Table formatting utilities
-- `tests/test_prepare_summary.py` - PR summary command
-- `tests/test_task_management.py` - Task finding and marking
-- `tests/test_pr_operations.py` - PR operations utilities (branch naming, parsing, PR fetching)
-- `tests/integration/test_workflow_e2e.py` - End-to-end workflow
+### Test Infrastructure ✅
+- `pytest.ini` - Pytest configuration
+- `.github/workflows/test.yml` - CI workflow for unit tests
+- `pyproject.toml` - Package configuration with test dependencies
+- Tests run on every push and PR to main branch
+- **112 tests passing** with 0 failures
+
+### Existing Tests (Organized by Layer)
+**Application Layer:**
+- `tests/unit/application/collectors/test_statistics.py` - Statistics models and collectors (44 tests)
+- `tests/unit/application/formatters/test_table_formatter.py` - Table formatting utilities (19 tests)
+- `tests/unit/application/services/test_pr_operations.py` - PR operations (21 tests)
+- `tests/unit/application/services/test_task_management.py` - Task finding and marking (19 tests)
+
+**CLI Layer:**
+- `tests/unit/cli/commands/test_prepare_summary.py` - PR summary command (9 tests)
+
+**Integration:**
+- Demo repository: `claude-step-demo/tests/integration/test_workflow_e2e.py` - End-to-end workflow
 
 ### Coverage Gaps
 The following modules lack unit tests:
-- Core commands (prepare, finalize, discover, etc.)
-- GitHub and Git operations wrappers
-- Configuration loading and validation
-- Reviewer capacity management
-- Project detection (simplified after branch naming refactoring)
-- Custom exception hierarchy
+
+**Domain Layer:**
+- `src/claudestep/domain/models.py` - Core domain models
+- `src/claudestep/domain/config.py` - Configuration models and validation
+- `src/claudestep/domain/exceptions.py` - Custom exception hierarchy
+
+**Infrastructure Layer:**
+- `src/claudestep/infrastructure/git/operations.py` - Git command wrappers
+- `src/claudestep/infrastructure/github/operations.py` - GitHub CLI wrappers
+- `src/claudestep/infrastructure/github/actions.py` - GitHub Actions helpers
+- `src/claudestep/infrastructure/filesystem/operations.py` - File I/O utilities
+
+**Application Layer:**
+- `src/claudestep/application/services/reviewer_management.py` - Reviewer capacity management
+- `src/claudestep/application/services/project_detection.py` - Project detection
+- `src/claudestep/application/services/artifact_operations.py` - Artifact management
+
+**CLI Layer:**
+- `src/claudestep/cli/commands/discover.py` - Project discovery
+- `src/claudestep/cli/commands/discover_ready.py` - Ready project discovery
+- `src/claudestep/cli/commands/prepare.py` - Task preparation
+- `src/claudestep/cli/commands/finalize.py` - Task finalization
+- `src/claudestep/cli/commands/statistics.py` - Statistics reporting
+- `src/claudestep/cli/commands/extract_cost.py` - Cost extraction
+- `src/claudestep/cli/commands/add_cost_comment.py` - Cost comment posting
+- `src/claudestep/cli/commands/notify_pr.py` - PR notifications
 
 ## Testing Principles to Follow
 
@@ -50,219 +92,187 @@ Based on Python testing best practices:
 
 ## Implementation Plan
 
-### Phase 1: Infrastructure & Core Utilities
+### Phase 1: Infrastructure & Core Utilities ✅ MOSTLY COMPLETE
 
-- [ ] **Set up test infrastructure**
-  - [ ] Add `pytest.ini` configuration file
-  - [ ] Add `conftest.py` with common fixtures
-  - [ ] Set up code coverage reporting with `pytest-cov`
-  - [ ] Configure coverage thresholds in CI/CD
-  - [ ] Document how to run tests in development
+- [x] **Set up test infrastructure** ✅
+  - ✅ Add `pytest.ini` configuration file
+  - ✅ Set up code coverage reporting with `pytest-cov` in CI
+  - ✅ Tests run automatically in CI/CD (`.github/workflows/test.yml`)
+  - ✅ Package structure supports testing (`pyproject.toml` configured)
+  - Pending: Configure coverage thresholds in CI/CD
+  - Pending: Add `conftest.py` with common fixtures
+  - Pending: Document how to run tests in development
 
 - [ ] **Create common test fixtures** (`tests/conftest.py`)
-  - [ ] Fixture for temporary git repository
-  - [ ] Fixture for mock GitHub API responses
-  - [ ] Fixture for sample project configurations
-  - [ ] Fixture for spec.md files with various states
-  - [ ] Fixture for mocked GitHubActionsHelper
+  - Fixture for temporary git repository
+  - Fixture for mock GitHub API responses
+  - Fixture for sample project configurations
+  - Fixture for spec.md files with various states
+  - Fixture for mocked GitHubActionsHelper
 
-- [ ] **Test exception hierarchy** (`tests/test_exceptions.py`)
-  - [ ] Test custom exception classes exist
-  - [ ] Test exception inheritance structure
-  - [ ] Test exception message formatting
+- [ ] **Test domain layer** (`tests/unit/domain/`)
+  - Test `exceptions.py` - Custom exception classes and inheritance
+  - Test `models.py` - Domain model validation and serialization
+  - Test `config.py` - Configuration loading, validation, and branchPrefix rejection
 
-### Phase 2: Operations Layer
+### Phase 2: Infrastructure Layer
 
-- [x] **Test pr_operations.py** (`tests/test_pr_operations.py`) - ✅ COMPLETED
-  - [x] Test `format_branch_name()` - branch name generation
-  - [x] Test `parse_branch_name()` - extract project and index from branch
-  - [x] Test `get_project_prs()` - fetch PRs by project using branch prefix
-  - [x] Test branch name format validation (`claude-step-{project}-{index}`)
-  - [x] Test complex project names with hyphens
-  - [x] Test invalid input handling
-  - [x] Test PR fetching with various states (open, merged, all)
-  - [x] Test error handling for API failures
-  - [x] Test roundtrip (format → parse → verify)
-  - **Note**: 21 comprehensive tests already implemented during branch naming refactoring
+- [x] **Test pr_operations.py** ✅ COMPLETE (`tests/unit/application/services/test_pr_operations.py`)
+  - 21 comprehensive tests covering branch name generation, parsing, and PR fetching
+  - Branch name format validation (`claude-step-{project}-{index}`)
+  - Complex project names with hyphens, invalid input handling
+  - PR fetching with various states (open, merged, all)
+  - Error handling for API failures
 
-- [ ] **Test git_operations.py** (`tests/test_git_operations.py`)
-  - [ ] Mock subprocess calls to git commands
-  - [ ] Test `create_branch()` - success and failure cases
-  - [ ] Test `commit_changes()` - with and without files
-  - [ ] Test `push_branch()` - success, failure, force push scenarios
-  - [ ] Test `get_current_branch()` - various git states
-  - [ ] Test error handling for git command failures
-  - [ ] Test proper command construction (quoting, arguments)
+- [ ] **Test git operations** (`tests/unit/infrastructure/git/test_operations.py`)
+  - Mock subprocess calls to git commands
+  - Test `create_branch()`, `commit_changes()`, `push_branch()`, `get_current_branch()`
+  - Test error handling for git command failures
+  - Test proper command construction (quoting, arguments)
 
-- [ ] **Test github_operations.py** (`tests/test_github_operations.py`)
-  - [ ] Mock GitHub CLI (`gh`) commands
-  - [ ] Test `create_pull_request()` - various PR configurations
-  - [ ] Test `get_open_prs()` - empty, single, multiple PRs
-  - [ ] Test `close_pull_request()` - success and error cases
-  - [ ] Test `add_pr_comment()` - comment posting
-  - [ ] Test `get_pr_diff()` - diff retrieval
-  - [ ] Test error handling for GitHub API failures
-  - [ ] Test rate limiting scenarios
-  - [ ] Test authentication errors
+- [ ] **Test GitHub operations** (`tests/unit/infrastructure/github/test_operations.py`)
+  - Mock GitHub CLI (`gh`) commands
+  - Test `create_pull_request()`, `get_open_prs()`, `close_pull_request()`, `add_pr_comment()`, `get_pr_diff()`
+  - Test error handling for GitHub API failures, rate limiting, authentication errors
 
-- [ ] **Test github_actions.py** (`tests/test_github_actions.py`)
-  - [ ] Mock environment variables (GITHUB_OUTPUT, GITHUB_STEP_SUMMARY)
-  - [ ] Test `write_output()` - output file writing
-  - [ ] Test `write_summary()` - markdown summary formatting
-  - [ ] Test `set_failed()` - error state handling
-  - [ ] Test output sanitization (special characters, multiline)
+- [ ] **Test GitHub Actions helpers** (`tests/unit/infrastructure/github/test_actions.py`)
+  - Mock environment variables (GITHUB_OUTPUT, GITHUB_STEP_SUMMARY)
+  - Test `write_output()`, `write_summary()`, `set_failed()`
+  - Test output sanitization (special characters, multiline)
 
-### Phase 3: Business Logic Layer
+- [ ] **Test filesystem operations** (`tests/unit/infrastructure/filesystem/test_operations.py`)
+  - Test `read_file()`, `write_file()`, `file_exists()`, `find_file()`
+  - Test error handling for missing files, permission errors
+  - Test path normalization and validation
 
-- [ ] **Test config.py** (`tests/test_config.py`)
-  - [ ] Test loading valid configuration.yml files
-  - [ ] Test missing required fields (should fail gracefully)
-  - [ ] Test invalid YAML syntax handling
-  - [ ] Test default value application
-  - [ ] Test reviewer configuration parsing
-  - [ ] Test branchPrefix rejection (should fail with helpful error message)
-  - [ ] Test configuration validation rules
-  - [ ] Test edge cases (empty files, malformed data)
+### Phase 3: Application Services Layer
 
-- [ ] **Test reviewer_management.py** (`tests/test_reviewer_management.py`)
-  - [ ] Test `check_reviewer_capacity()` - at capacity, under capacity, over capacity
-  - [ ] Test `find_available_reviewer()` - single reviewer, multiple reviewers
-  - [ ] Test reviewer rotation logic
-  - [ ] Test capacity calculation with various PR states
-  - [ ] Test handling of zero maxOpenPRs
-  - [ ] Test filtering by PR labels
-  - [ ] Test edge cases (no reviewers configured, all at capacity)
+- [x] **Test task_management.py** ✅ COMPLETE (`tests/unit/application/services/test_task_management.py`)
+  - 19 tests covering task finding, marking, ID generation
+  - Tests for in-progress tasks, completed tasks, edge cases
 
-- [ ] **Test project_detection.py** (`tests/test_project_detection.py`)
-  - [ ] Test detecting project from environment variable
-  - [ ] Test detecting project from PR branch name using `parse_branch_name()` utility
-  - [ ] Test project path resolution
-  - [ ] Test spec.md file discovery
-  - [ ] Test configuration.yml file discovery
-  - [ ] Test error cases (project not found, missing files, invalid branch names)
-  - [ ] Test multiple projects in claude-step/ directory
-  - [ ] Test simplified branch format parsing (`claude-step-{project}-{index}`)
+- [x] **Test statistics_collector.py** ✅ COMPLETE (`tests/unit/application/collectors/test_statistics.py`)
+  - 44 tests covering progress bars, task counting, team member stats, project stats
+  - Leaderboard functionality, cost extraction
 
-### Phase 4: Command Layer
+- [x] **Test table_formatter.py** ✅ COMPLETE (`tests/unit/application/formatters/test_table_formatter.py`)
+  - 19 tests covering visual width calculation, padding, emoji support, table formatting
 
-- [ ] **Test commands/prepare.py** (`tests/test_commands/test_prepare.py`)
-  - [ ] Mock all external dependencies (git, GitHub, file system)
-  - [ ] Test successful preparation workflow
-  - [ ] Test reviewer capacity check integration
-  - [ ] Test task discovery integration
-  - [ ] Test branch creation using `format_branch_name()` utility
-  - [ ] Test branch name format (`claude-step-{project}-{index}`)
-  - [ ] Test prompt generation
-  - [ ] Test output variable setting
-  - [ ] Test failure scenarios (no capacity, no tasks, missing files)
-  - [ ] Test skip_indices handling for in-progress tasks
+- [ ] **Test reviewer_management.py** (`tests/unit/application/services/test_reviewer_management.py`)
+  - Test `check_reviewer_capacity()`, `find_available_reviewer()`, reviewer rotation
+  - Test capacity calculation with various PR states
+  - Test edge cases (no reviewers, all at capacity, zero maxOpenPRs)
 
-- [ ] **Test commands/finalize.py** (`tests/test_commands/test_finalize.py`)
-  - [ ] Mock git and GitHub operations
-  - [ ] Test commit creation with changes
-  - [ ] Test spec.md task marking
-  - [ ] Test PR creation
-  - [ ] Test PR template substitution
-  - [ ] Test metadata artifact creation
-  - [ ] Test handling no changes scenario
-  - [ ] Test error recovery (commit succeeds but PR fails)
+- [ ] **Test project_detection.py** (`tests/unit/application/services/test_project_detection.py`)
+  - Test detecting project from environment variable and PR branch name using `parse_branch_name()`
+  - Test project path resolution, spec.md/configuration.yml file discovery
+  - Test error cases (project not found, missing files, invalid branch names)
+  - Test simplified branch format parsing (`claude-step-{project}-{index}`)
 
-- [ ] **Test commands/discover.py** (`tests/test_commands/test_discover.py`)
-  - [ ] Mock file system operations
-  - [ ] Test finding all projects in claude-step/
-  - [ ] Test filtering valid projects (must have spec.md)
-  - [ ] Test output formatting (JSON)
-  - [ ] Test empty directory handling
-  - [ ] Test invalid project structure handling
+- [ ] **Test artifact_operations.py** (`tests/unit/application/services/test_artifact_operations.py`)
+  - Test artifact creation, reading, writing, metadata handling
+  - Test error cases (missing artifacts, malformed JSON)
 
-- [ ] **Test commands/discover_ready.py** (`tests/test_commands/test_discover_ready.py`)
-  - [ ] Mock GitHub API for PR queries
-  - [ ] Test finding projects with available capacity
-  - [ ] Test filtering by reviewer capacity
-  - [ ] Test output formatting
-  - [ ] Test all reviewers at capacity scenario
-  - [ ] Test projects with no reviewers
+### Phase 4: CLI Commands Layer
 
-- [ ] **Test commands/statistics.py** (`tests/test_commands/test_statistics.py`)
-  - [ ] Mock statistics collector
-  - [ ] Test report generation workflow
-  - [ ] Test output formatting (JSON, Slack)
-  - [ ] Test GitHub Actions output writing
-  - [ ] Test handling projects with no tasks
-  - [ ] Test date range filtering
+- [x] **Test prepare_summary.py** ✅ COMPLETE (`tests/unit/cli/commands/test_prepare_summary.py`)
+  - 9 tests covering prompt template loading, variable substitution, output formatting
+  - Tests for missing inputs, error handling, workflow URL construction
 
-- [ ] **Test commands/add_cost_comment.py** (`tests/test_commands/test_add_cost_comment.py`)
-  - [ ] Mock GitHub API for comment posting
-  - [ ] Test cost extraction and formatting
-  - [ ] Test comment creation on PR
-  - [ ] Test handling missing cost data
-  - [ ] Test handling invalid PR numbers
+- [ ] **Test prepare.py** (`tests/unit/cli/commands/test_prepare.py`)
+  - Mock all external dependencies (git, GitHub, file system)
+  - Test successful preparation workflow, reviewer capacity check, task discovery
+  - Test branch creation using `format_branch_name()` utility with format `claude-step-{project}-{index}`
+  - Test prompt generation, output variable setting
+  - Test failure scenarios (no capacity, no tasks, missing files)
+  - Test skip_indices handling for in-progress tasks
 
-- [ ] **Test commands/extract_cost.py** (`tests/test_commands/test_extract_cost.py`)
-  - [ ] Mock artifact reading
-  - [ ] Test cost data extraction from metadata
-  - [ ] Test parsing various cost formats
-  - [ ] Test handling missing artifacts
-  - [ ] Test output formatting
+- [ ] **Test finalize.py** (`tests/unit/cli/commands/test_finalize.py`)
+  - Mock git and GitHub operations
+  - Test commit creation, spec.md task marking, PR creation with template substitution
+  - Test metadata artifact creation
+  - Test handling no changes scenario and error recovery
 
-- [ ] **Test commands/notify_pr.py** (`tests/test_commands/test_notify_pr.py`)
-  - [ ] Mock Slack webhook calls
-  - [ ] Test notification message formatting
-  - [ ] Test webhook request construction
-  - [ ] Test error handling (webhook failures)
-  - [ ] Test optional notification (when webhook not configured)
+- [ ] **Test discover.py** (`tests/unit/cli/commands/test_discover.py`)
+  - Mock file system operations
+  - Test finding all projects in claude-step/, filtering valid projects (must have spec.md)
+  - Test output formatting (JSON), empty directory and invalid project structure handling
+
+- [ ] **Test discover_ready.py** (`tests/unit/cli/commands/test_discover_ready.py`)
+  - Mock GitHub API for PR queries
+  - Test finding projects with available capacity, filtering by reviewer capacity
+  - Test output formatting, all reviewers at capacity scenario, projects with no reviewers
+
+- [ ] **Test statistics.py** (`tests/unit/cli/commands/test_statistics.py`)
+  - Mock statistics collector
+  - Test report generation workflow, output formatting (JSON, Slack)
+  - Test GitHub Actions output writing, handling projects with no tasks, date range filtering
+
+- [ ] **Test add_cost_comment.py** (`tests/unit/cli/commands/test_add_cost_comment.py`)
+  - Mock GitHub API for comment posting
+  - Test cost extraction and formatting, comment creation on PR
+  - Test handling missing cost data and invalid PR numbers
+
+- [ ] **Test extract_cost.py** (`tests/unit/cli/commands/test_extract_cost.py`)
+  - Mock artifact reading
+  - Test cost data extraction from metadata, parsing various cost formats
+  - Test handling missing artifacts and output formatting
+
+- [ ] **Test notify_pr.py** (`tests/unit/cli/commands/test_notify_pr.py`)
+  - Mock Slack webhook calls
+  - Test notification message formatting, webhook request construction
+  - Test error handling (webhook failures) and optional notification (when webhook not configured)
 
 ### Phase 5: Integration & Quality
 
 - [ ] **Improve existing tests**
-  - [ ] Review test_statistics.py for additional edge cases
-  - [ ] Review test_table_formatter.py for formatting edge cases
-  - [ ] Review test_prepare_summary.py for template variations (currently has 5 pre-existing failures to investigate)
-  - [ ] Review test_task_management.py for additional scenarios
-  - [ ] Review test_pr_operations.py for additional PR fetching scenarios
-  - [ ] Add parametrized tests where multiple similar cases exist
+  - Review existing tests for additional edge cases and parametrization opportunities
+  - Consider adding more boundary condition tests
+  - Add tests for error scenarios not currently covered
 
 - [ ] **Add integration test coverage**
-  - [ ] Test full prepare → finalize workflow (mocked)
-  - [ ] Test error propagation through command chain
-  - [ ] Test state management across commands
-  - [ ] Test concurrent PR handling scenarios
+  - Test full prepare → finalize workflow (mocked)
+  - Test error propagation through command chain
+  - Test state management across commands
+  - Test concurrent PR handling scenarios
 
 - [ ] **Set up coverage reporting**
-  - [ ] Configure pytest-cov to track coverage
-  - [ ] Add coverage report to CI/CD pipeline
-  - [ ] Set minimum coverage threshold (start at 70%, target 80%+)
-  - [ ] Generate HTML coverage reports for local development
-  - [ ] Identify and document intentionally untested code
+  - Configure pytest-cov to track coverage (already in CI)
+  - Add coverage report to CI/CD pipeline
+  - Set minimum coverage threshold (start at 70%, target 80%+)
+  - Generate HTML coverage reports for local development
+  - Add coverage badge to README.md
+  - Identify and document intentionally untested code
 
 - [ ] **Add property-based testing** (optional, for critical paths)
-  - [ ] Install `hypothesis` library
-  - [ ] Add property tests for task ID generation
-  - [ ] Add property tests for spec.md parsing
-  - [ ] Add property tests for configuration validation
+  - Install `hypothesis` library
+  - Add property tests for task ID generation
+  - Add property tests for spec.md parsing
+  - Add property tests for configuration validation
 
 ### Phase 6: Documentation & CI/CD
 
 - [ ] **Document testing practices**
-  - [ ] Create `docs/testing-guide.md`
-  - [ ] Document how to run tests locally
-  - [ ] Document how to write new tests
-  - [ ] Document mocking strategies
-  - [ ] Document common fixtures and their usage
-  - [ ] Add examples of well-written tests
+  - Create `docs/testing-guide.md`
+  - Document how to run tests locally (`PYTHONPATH=src:scripts pytest tests/unit/ -v`)
+  - Document how to write new tests
+  - Document mocking strategies
+  - Document common fixtures and their usage (once conftest.py is created)
+  - Add examples of well-written tests
 
-- [ ] **Set up CI/CD testing**
-  - [ ] Add GitHub Actions workflow for running tests on PR
-  - [ ] Run tests on multiple Python versions (3.11, 3.12, 3.13)
-  - [ ] Add test status badge to README.md
-  - [ ] Configure PR merge requirements (tests must pass)
-  - [ ] Add coverage reporting to PR comments
+- [x] **Set up CI/CD testing** ✅ MOSTLY COMPLETE
+  - ✅ Add GitHub Actions workflow for running tests on PR (`.github/workflows/test.yml`)
+  - ✅ Tests run on every push and PR to main branch
+  - Pending: Run tests on multiple Python versions (currently 3.11 only, add 3.12, 3.13)
+  - Pending: Add test status badge to README.md
+  - Pending: Configure PR merge requirements (tests must pass)
+  - Pending: Add coverage reporting to PR comments
 
 - [ ] **Performance testing** (optional)
-  - [ ] Ensure test suite runs in under 10 seconds
-  - [ ] Identify and optimize slow tests
-  - [ ] Consider splitting unit vs integration test runs
-  - [ ] Add `pytest-benchmark` for performance-critical code
+  - Ensure test suite runs in under 10 seconds (currently ~0.7s in CI, excellent!)
+  - Identify and optimize slow tests if any emerge
+  - Consider splitting unit vs integration test runs as suite grows
+  - Add `pytest-benchmark` for performance-critical code if needed
 
 ## Success Criteria
 
@@ -384,18 +394,22 @@ class TestCheckReviewerCapacity:
 ### Prioritization
 
 **High Priority** (implement first):
-- Test infrastructure and fixtures
-- git_operations.py and github_operations.py (foundational)
-- config.py (core functionality, including branchPrefix rejection validation)
+- ✅ ~~Test infrastructure and fixtures~~ - Partially complete (CI set up, need conftest.py)
+- ✅ ~~pr_operations.py~~ - Complete (21 tests)
+- Domain layer tests (config.py, models.py, exceptions.py)
+- Infrastructure layer tests (git_operations.py, github_operations.py, github_actions.py, filesystem operations)
 - reviewer_management.py (business logic)
 - commands/prepare.py and commands/finalize.py (main workflows)
-- **Note**: pr_operations.py already has comprehensive tests ✅
 
 **Medium Priority** (implement second):
-- task_management.py (already has tests, but enhance)
+- ✅ ~~task_management.py~~ - Complete (19 tests)
+- ✅ ~~statistics_collector.py~~ - Complete (44 tests)
+- ✅ ~~table_formatter.py~~ - Complete (19 tests)
+- project_detection.py (simplified after branch naming refactoring)
+- artifact_operations.py
 - commands/discover.py and commands/discover_ready.py
-- project_detection.py (simplified after branch naming refactoring - now uses parse_branch_name())
-- statistics_collector.py (already has tests, but enhance)
+- ✅ ~~commands/prepare_summary.py~~ - Complete (9 tests)
+- commands/statistics.py
 
 **Low Priority** (implement as time allows):
 - commands/notify_pr.py (nice-to-have feature)
@@ -416,16 +430,23 @@ class TestCheckReviewerCapacity:
 
 ## Timeline Estimate
 
-- **Phase 1**: 1-2 days (infrastructure setup)
-- **Phase 2**: 1-2 days (operations layer - 2 modules remaining; pr_operations.py already complete ✅)
-- **Phase 3**: 2-3 days (business logic - 3 modules, including updated config validation)
-- **Phase 4**: 5-7 days (commands - 8 modules)
-- **Phase 5**: 2-3 days (integration and quality improvements)
-- **Phase 6**: 1-2 days (documentation and CI/CD)
+**Current Progress**:
+- ✅ Phase 1: ~80% complete (test infrastructure set up, CI running, need conftest.py and domain tests)
+- ✅ Phase 2: ~20% complete (pr_operations.py done, need infrastructure layer tests)
+- ✅ Phase 3: ~75% complete (task_management, statistics, table_formatter done, need reviewer/project/artifact)
+- ✅ Phase 4: ~11% complete (prepare_summary done, need 8 more commands)
+- Phase 5: Not started (integration tests and quality improvements)
+- ✅ Phase 6: ~40% complete (CI set up, need documentation and enhancements)
 
-**Total: 12-19 days** (can be parallelized or spread over multiple contributors)
+**Remaining Effort**:
+- **Phase 1**: 0.5 days (conftest.py fixtures, domain layer tests)
+- **Phase 2**: 2-3 days (git, github, filesystem infrastructure tests)
+- **Phase 3**: 1 day (reviewer_management, project_detection, artifact_operations)
+- **Phase 4**: 4-5 days (8 remaining command modules)
+- **Phase 5**: 2-3 days (integration tests, coverage reporting)
+- **Phase 6**: 1 day (documentation, CI enhancements)
 
-**Note**: Recent branch naming refactoring has already delivered comprehensive tests for pr_operations.py, reducing overall timeline by 1 day.
+**Total Remaining: 10.5-13.5 days** (can be parallelized or spread over multiple contributors)
 
 ## Resources
 
@@ -437,13 +458,29 @@ class TestCheckReviewerCapacity:
 
 ## Next Steps
 
-1. Review and approve this proposal
-2. Set up initial testing infrastructure (Phase 1)
-3. Begin implementing tests following the prioritization order
+1. ~~Review and approve this proposal~~ ✅ Approved
+2. ~~Set up initial testing infrastructure (Phase 1)~~ ✅ In Progress
+3. Continue implementing tests following the prioritization order (see below)
 4. Review and iterate based on learnings
 5. Update this document with progress and adjustments
 
-**Progress Made**: The branch naming simplification refactoring (December 2025) has already delivered:
+**Recommended Next Actions** (in priority order):
+1. Create `tests/conftest.py` with common fixtures (Phase 1)
+2. Add domain layer tests for config.py with branchPrefix rejection validation (Phase 1)
+3. Add infrastructure tests for git and github operations (Phase 2)
+4. Add application service tests for reviewer_management.py (Phase 3)
+5. Add CLI command tests for prepare.py and finalize.py (Phase 4)
+
+## Progress Summary
+
+**Completed (December 2025)**:
+- ✅ Architecture modernization with layered structure
+- ✅ Test structure reorganized to mirror src/ layout
+- ✅ CI workflow added for automated testing
+- ✅ All 112 existing tests passing (0 failures)
+- ✅ E2E tests updated and working
 - ✅ Comprehensive tests for `pr_operations.py` (21 test cases)
-- ✅ Centralized PR fetching utilities that reduce testing surface area
-- ✅ Simplified branch naming logic that makes future tests easier to write
+- ✅ Comprehensive tests for `task_management.py` (19 test cases)
+- ✅ Comprehensive tests for `statistics_collector.py` (44 test cases)
+- ✅ Comprehensive tests for `table_formatter.py` (19 test cases)
+- ✅ Comprehensive tests for `prepare_summary.py` (9 test cases)
