@@ -4,6 +4,8 @@
 
 This document outlines a comprehensive plan to improve test coverage in the ClaudeStep project by implementing Python testing best practices. The goal is to achieve robust, maintainable test coverage that enables confident refactoring and prevents regressions.
 
+**⚠️ IMPORTANT**: All tests written for this project MUST follow the **Test Style Guide and Conventions** section below. Consistency in test style is critical for maintainability, readability, and long-term project health. Code reviews will enforce adherence to these standards.
+
 ## Recent Updates (December 2025)
 
 ### Architecture Modernization (December 27, 2025)
@@ -89,6 +91,393 @@ Based on Python testing best practices:
 6. **Parametrization** - Use pytest.mark.parametrize for similar test cases
 7. **Proper Mocking** - Mock external services, not internal logic
 8. **Edge Case Coverage** - Test boundary conditions, empty inputs, errors
+
+**IMPORTANT**: All tests in this project MUST follow the style guide and conventions documented below. Consistency across the test suite is critical for maintainability.
+
+## Test Style Guide and Conventions
+
+### Required Test Structure
+
+All tests MUST follow this structure:
+
+```python
+class TestFeatureName:
+    """Test suite for FeatureName functionality"""
+
+    @pytest.fixture
+    def fixture_name(self):
+        """Fixture providing test data - clear docstring explaining purpose"""
+        return setup_test_data()
+
+    def test_feature_does_something_when_condition(self, fixture_name):
+        """Test description explaining what this verifies
+
+        Should read like: "Test that feature does X when Y condition exists"
+        """
+        # Arrange - Set up test data and mocks
+        expected_value = "expected"
+        mock_dependency = Mock()
+
+        # Act - Execute the code under test
+        result = function_under_test(fixture_name, mock_dependency)
+
+        # Assert - Verify the outcome
+        assert result == expected_value
+        mock_dependency.method.assert_called_once()
+```
+
+### Naming Conventions
+
+**Class Names**: `TestModuleName` or `TestFunctionName`
+- ✅ `TestReviewerManagement`
+- ✅ `TestCheckReviewerCapacity`
+- ❌ `ReviewerTests` (wrong suffix)
+- ❌ `TestReviewers` (too vague)
+
+**Test Method Names**: `test_<what>_<when>_<condition>`
+- ✅ `test_find_reviewer_returns_none_when_all_at_capacity`
+- ✅ `test_create_branch_raises_error_when_branch_exists`
+- ✅ `test_parse_branch_extracts_project_and_index`
+- ❌ `test_reviewer` (not descriptive)
+- ❌ `test_find_reviewer_works` (vague)
+- ❌ `test_1` or `test_case_a` (meaningless)
+
+**Fixture Names**: `<resource>_<state>` or `mock_<service>`
+- ✅ `reviewer_config`, `sample_spec_file`, `mock_github_api`
+- ❌ `data`, `setup`, `fixture1`
+
+### Good Test Patterns (✅ WRITE THESE)
+
+#### 1. Test Behavior, Not Implementation
+
+```python
+# ✅ GOOD - Tests the behavior/outcome
+def test_find_available_reviewer_returns_reviewer_under_capacity(mock_github_api):
+    """Should return first reviewer with available capacity"""
+    # Arrange
+    reviewers = [
+        ReviewerConfig(username="alice", maxOpenPRs=2),
+        ReviewerConfig(username="bob", maxOpenPRs=2)
+    ]
+    mock_github_api.get_open_prs.side_effect = [
+        [{"number": 1}, {"number": 2}],  # alice at capacity
+        [{"number": 3}]  # bob under capacity
+    ]
+
+    # Act
+    result = find_available_reviewer(reviewers, mock_github_api)
+
+    # Assert
+    assert result.username == "bob"
+
+# ❌ BAD - Tests implementation details
+def test_find_available_reviewer_calls_check_capacity_for_each(mock_check):
+    """Don't test that internal functions are called - test outcomes"""
+    reviewers = [ReviewerConfig(username="alice", maxOpenPRs=2)]
+
+    with patch('module.check_reviewer_capacity') as mock_check:
+        find_available_reviewer(reviewers)
+        assert mock_check.call_count == 1  # Brittle - breaks if refactored
+```
+
+#### 2. Use Descriptive Assertions
+
+```python
+# ✅ GOOD - Clear what's being tested and why
+def test_format_branch_name_creates_correct_format():
+    """Should create branch name in format: claude-step-{project}-{index}"""
+    result = format_branch_name("my-project", 5)
+
+    assert result == "claude-step-my-project-5"
+    assert result.startswith("claude-step-")
+    assert result.endswith("-5")
+
+# ❌ BAD - Unclear what's being verified
+def test_format_branch_name():
+    result = format_branch_name("my-project", 5)
+    assert result  # What does this even verify?
+    assert len(result) > 0  # Too vague
+```
+
+#### 3. Test Edge Cases and Boundaries
+
+```python
+# ✅ GOOD - Tests multiple boundary conditions
+@pytest.mark.parametrize("open_pr_count,max_prs,expected", [
+    (0, 2, True),   # Well under capacity
+    (1, 2, True),   # Just under capacity
+    (2, 2, False),  # Exactly at capacity
+    (3, 2, False),  # Over capacity
+    (0, 0, False),  # Edge case: zero max
+])
+def test_check_reviewer_capacity_boundary_conditions(
+    open_pr_count, max_prs, expected, mock_github_api
+):
+    """Should correctly handle all capacity boundary conditions"""
+    reviewer = ReviewerConfig(username="alice", maxOpenPRs=max_prs)
+    mock_github_api.get_open_prs.return_value = [
+        {"number": i} for i in range(open_pr_count)
+    ]
+
+    result = check_reviewer_capacity(reviewer, mock_github_api)
+
+    assert result == expected
+```
+
+#### 4. Mock at System Boundaries
+
+```python
+# ✅ GOOD - Mock external services (GitHub, git, filesystem)
+def test_create_pull_request_success(mock_subprocess):
+    """Should execute gh CLI command with correct arguments"""
+    mock_subprocess.run.return_value = Mock(returncode=0, stdout="PR #123")
+
+    result = create_pull_request(
+        title="Test PR",
+        body="Description",
+        base="main"
+    )
+
+    assert result == "123"
+    mock_subprocess.run.assert_called_once()
+    args = mock_subprocess.run.call_args[0][0]
+    assert "gh pr create" in " ".join(args)
+
+# ❌ BAD - Mocking internal business logic
+def test_prepare_command():
+    with patch('module.find_next_task') as mock_find:  # Internal function
+        with patch('module.check_capacity') as mock_check:  # Internal function
+            # Too many mocks of internal logic = testing implementation
+            cmd_prepare(args)
+```
+
+#### 5. Clear Test Data Setup
+
+```python
+# ✅ GOOD - Clear, minimal test data
+def test_parse_branch_name_extracts_project_and_index():
+    """Should parse standard branch format correctly"""
+    # Arrange
+    branch_name = "claude-step-my-project-42"
+
+    # Act
+    project, index = parse_branch_name(branch_name)
+
+    # Assert
+    assert project == "my-project"
+    assert index == 42
+
+# ❌ BAD - Overly complex or irrelevant test data
+def test_parse_branch_name():
+    branch = "claude-step-" + "-".join([
+        "my", "project", "with", "lots", "of", "parts"
+    ]) + "-" + str(int("42"))  # Why so complex?
+    project, index = parse_branch_name(branch)
+    assert project  # Assertion doesn't even verify the parsing!
+```
+
+### Bad Test Patterns (❌ AVOID THESE)
+
+#### 1. Tests Without Assertions (Test Smoke)
+
+```python
+# ❌ BAD - No assertions, just checking it doesn't crash
+def test_load_config():
+    """This doesn't test anything meaningful"""
+    config = load_config("config.yml")
+    # No assertions - what are we verifying?
+
+# ✅ GOOD - Actually verify the behavior
+def test_load_config_parses_reviewers_correctly():
+    """Should parse reviewer configuration from YAML"""
+    config = load_config("test_config.yml")
+
+    assert len(config.reviewers) == 2
+    assert config.reviewers[0].username == "alice"
+    assert config.reviewers[0].maxOpenPRs == 2
+```
+
+#### 2. Testing Language/Framework Features
+
+```python
+# ❌ BAD - Testing Python itself
+def test_list_append():
+    """Don't test that Python lists work"""
+    my_list = []
+    my_list.append(1)
+    assert len(my_list) == 1
+
+# ❌ BAD - Testing library behavior
+def test_yaml_loads():
+    """Don't test that PyYAML works"""
+    result = yaml.safe_load("key: value")
+    assert result == {"key": "value"}
+
+# ✅ GOOD - Test YOUR code
+def test_config_validates_required_fields():
+    """Should raise error when required fields are missing"""
+    with pytest.raises(ConfigValidationError, match="reviewers"):
+        load_config("config_without_reviewers.yml")
+```
+
+#### 3. Over-Mocking (Too Many Mocks)
+
+```python
+# ❌ BAD - Mocking everything = testing nothing
+def test_prepare_command():
+    with patch('module.os') as mock_os:
+        with patch('module.Path') as mock_path:
+            with patch('module.yaml') as mock_yaml:
+                with patch('module.find_task') as mock_find:
+                    with patch('module.create_branch') as mock_branch:
+                        # 5+ mocks = you're testing mocks, not code
+                        cmd_prepare(args)
+                        mock_branch.assert_called_once()
+
+# ✅ GOOD - Mock boundaries, test logic
+def test_prepare_command_creates_branch_with_correct_name(
+    mock_git_client,
+    mock_task_service,
+    sample_config
+):
+    """Should create branch using format: claude-step-{project}-{index}"""
+    # Arrange
+    mock_task_service.find_next_task.return_value = Task(index=5, description="...")
+
+    # Act
+    cmd_prepare(args, mock_git_client, mock_task_service, sample_config)
+
+    # Assert
+    mock_git_client.create_branch.assert_called_once_with(
+        "claude-step-my-project-5"
+    )
+```
+
+#### 4. Testing Multiple Things (No Focus)
+
+```python
+# ❌ BAD - Testing too many things at once
+def test_prepare_workflow():
+    """Too broad - should be split into multiple tests"""
+    result = cmd_prepare(args)
+    assert result.exit_code == 0
+    assert result.branch_created
+    assert result.task_found
+    assert result.reviewer_assigned
+    assert result.prompt_generated
+    # If any assertion fails, you don't know which part broke
+
+# ✅ GOOD - One concept per test
+def test_prepare_creates_branch():
+    """Should create a new branch for the task"""
+    # Test only branch creation
+
+def test_prepare_finds_next_task():
+    """Should find the next uncompleted task from spec.md"""
+    # Test only task finding
+
+def test_prepare_assigns_reviewer():
+    """Should assign a reviewer with available capacity"""
+    # Test only reviewer assignment
+```
+
+#### 5. Brittle Tests (Coupled to Implementation)
+
+```python
+# ❌ BAD - Breaks when internal implementation changes
+def test_find_task():
+    with patch('module.open', mock_open(read_data="data")) as mock_file:
+        find_next_task("spec.md")
+        mock_file.assert_called_once_with("spec.md", "r")  # Brittle
+        # Breaks if we change from 'r' to 'rt' or use Path.read_text()
+
+# ✅ GOOD - Tests behavior, not how it's implemented
+def test_find_next_task_returns_first_uncompleted(tmp_path):
+    """Should return the first unchecked task from spec file"""
+    # Arrange
+    spec_file = tmp_path / "spec.md"
+    spec_file.write_text("""
+    - [x] Completed task
+    - [ ] Next task to do
+    - [ ] Future task
+    """)
+
+    # Act
+    result = find_next_task(str(spec_file))
+
+    # Assert
+    assert result.description == "Next task to do"
+    assert result.index == 2
+```
+
+### Low-Value Tests (❌ DON'T WRITE)
+
+#### 1. Getter/Setter Tests
+
+```python
+# ❌ DON'T WRITE - Pointless, no business logic
+def test_reviewer_config_sets_username():
+    """Don't test trivial assignments"""
+    config = ReviewerConfig(username="alice", maxOpenPRs=2)
+    assert config.username == "alice"
+    assert config.maxOpenPRs == 2
+```
+
+#### 2. Tests That Duplicate the Code
+
+```python
+# ❌ DON'T WRITE - Just reimplements the function
+def test_calculate_completion():
+    """This is just duplicating the implementation"""
+    completed = 3
+    total = 10
+    result = calculate_completion_percentage(completed, total)
+    assert result == (completed / total) * 100  # Same logic as function!
+
+# ✅ WRITE THIS INSTEAD - Test edge cases and behavior
+def test_calculate_completion_handles_zero_total():
+    """Should return 0% when there are no tasks"""
+    result = calculate_completion_percentage(0, 0)
+    assert result == 0.0  # Not undefined or NaN
+```
+
+#### 3. Tests for Third-Party Code
+
+```python
+# ❌ DON'T WRITE - Testing PyYAML
+def test_yaml_parsing():
+    """Don't test libraries - they have their own tests"""
+    data = yaml.safe_load("key: value")
+    assert isinstance(data, dict)
+```
+
+### Test Code Smells (⚠️ WARNING SIGNS)
+
+1. **No Assertions** - Test executes code but doesn't verify anything
+2. **Magic Numbers** - Unexplained values (use constants with names)
+3. **Sleep/Wait** - Tests shouldn't depend on timing (use mocks)
+4. **Shared State** - Tests modify global state or depend on test order
+5. **Too Many Mocks** - More than 3-4 mocks suggests poor boundaries
+6. **Long Tests** - Over 20 lines suggests testing too much at once
+7. **Duplicate Logic** - Test reimplements the code it's testing
+8. **Vague Names** - Can't tell what's being tested from the name
+9. **No Docstrings** - Purpose of test isn't clear
+10. **Fixture Bloat** - Fixtures setting up data not used by the test
+
+### Summary: Quick Checklist
+
+Before committing a test, verify:
+
+- [ ] Test name clearly describes what's being tested
+- [ ] Test has a docstring explaining its purpose
+- [ ] Test follows Arrange-Act-Assert structure
+- [ ] Test has meaningful assertions (not just "doesn't crash")
+- [ ] Test mocks external dependencies, not internal logic
+- [ ] Test is focused (one concept/behavior)
+- [ ] Test will fail if the code is broken
+- [ ] Test won't break if internal implementation changes
+- [ ] Test doesn't duplicate existing test coverage
+- [ ] Test adds value (not testing language/framework/library)
 
 ## Implementation Plan
 
@@ -254,12 +643,12 @@ Based on Python testing best practices:
 ### Phase 6: Documentation & CI/CD
 
 - [ ] **Document testing practices**
-  - Create `docs/testing-guide.md`
+  - Create `docs/testing-guide.md` (can extract from style guide in this document)
   - Document how to run tests locally (`PYTHONPATH=src:scripts pytest tests/unit/ -v`)
-  - Document how to write new tests
-  - Document mocking strategies
+  - Reference the "Test Style Guide and Conventions" section in this document
+  - All new tests MUST follow the documented style guide for consistency
   - Document common fixtures and their usage (once conftest.py is created)
-  - Add examples of well-written tests
+  - Enforce style guide in code reviews
 
 - [x] **Set up CI/CD testing** ✅ MOSTLY COMPLETE
   - ✅ Add GitHub Actions workflow for running tests on PR (`.github/workflows/test.yml`)
