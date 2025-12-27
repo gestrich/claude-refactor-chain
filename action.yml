@@ -264,7 +264,7 @@ runs:
       uses: slackapi/slack-github-action@v2
       with:
         method: incoming-webhook
-        webhook-url: ${{ steps.prepare.outputs.slack_webhook_url }}
+        webhook: ${{ steps.prepare.outputs.slack_webhook_url }}
         payload: |
           {
             "text": "New ClaudeStep PR Created",
