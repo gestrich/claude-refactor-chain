@@ -447,52 +447,6 @@ The `spec.md` file combines instructions and steps in a single document.
 3. **PR merged**: Action automatically marks as `- [x]`
 4. **Checked (`- [x]`)**: Step is skipped in future runs
 
-## Trigger Modes
-
-### Scheduled (Recommended for Getting Started)
-
-```yaml
-on:
-  schedule:
-    - cron: '0 9 * * *'  # Daily at 9 AM UTC
-```
-
-- Predictable, steady pace
-- One PR per day per reviewer
-- Easy to manage initially
-
-### Manual Dispatch
-
-```yaml
-on:
-  workflow_dispatch:
-    inputs:
-      project:
-        description: 'Project name'
-        required: true
-```
-
-- On-demand PR creation
-- Useful for testing and demos
-- Allows project selection
-
-### Automatic (PR Merge)
-
-```yaml
-on:
-  pull_request:
-    types: [closed]
-
-jobs:
-  refactor:
-    # ...
-```
-
-- Creates next PR immediately when one closes (merged or not)
-- Fastest iteration speed
-- Best for active refactoring periods
-- **Important:** If closing without merging, update `spec.md` first to avoid the PR re-opening
-
 ## Development
 
 ### Running Integration Tests
@@ -520,51 +474,6 @@ pytest tests/integration/test_workflow_e2e.py -v -s -m integration
 - Resource cleanup
 
 See [tests/integration/README.md](tests/integration/README.md) for detailed documentation.
-
-## Validation
-
-The action validates your configuration at runtime:
-
-**configuration.yml:**
-- ✅ File exists and is valid YAML
-- ✅ Required field present (`reviewers`)
-- ✅ Reviewers array has at least one entry
-- ✅ Each reviewer has `username` and `maxOpenPRs`
-- ✅ `maxOpenPRs` is between 1 and 10
-- ✅ Optional `branchPrefix` field (if omitted, uses YYYY-MM date format)
-
-**spec.md:**
-- ✅ File exists
-- ✅ Contains at least one step (`- [ ]` or `- [x]`)
-
-If validation fails, the workflow will error with a descriptive message.
-
-## How It Works
-
-The ClaudeStep action follows this workflow:
-
-1. **Check Capacity** - Finds first reviewer under their `maxOpenPRs` limit
-2. **Find Step** - Scans spec.md for first unchecked `- [ ]` item
-3. **Create Branch** - Names branch with format `YYYY-MM-{project}-{index}`
-4. **Run Claude** - Provides entire spec.md as context for the step
-5. **Create PR** - Assigns to reviewer, applies label, uses template
-6. **Track Progress** - Uploads artifact with step metadata
-
-When you merge a PR, the next run will pick up the next unchecked step and repeat the process.
-
-## Security
-
-- API keys stored as GitHub secrets (never in logs)
-- Uses repository GITHUB_TOKEN with minimal permissions
-- No external services beyond Anthropic API
-- All code runs in GitHub Actions sandbox
-
-## Limitations
-
-- Requires Anthropic API key (costs apply based on usage)
-- Claude Code action requires specific Claude models
-- Maximum 90-day artifact retention for tracking
-- GitHub API rate limits apply (rarely hit in practice)
 
 ## Examples
 
