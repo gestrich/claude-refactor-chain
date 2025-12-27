@@ -29,8 +29,8 @@ class TestPrepareSummary:
 ## Your Task
 Generate a summary of the changes.
 """
-        template_path = tmp_path / "prompts" / "summary_prompt.md"
-        template_path.parent.mkdir(parents=True)
+        template_path = tmp_path / "scripts" / "claudestep" / "prompts" / "summary_prompt.md"
+        template_path.parent.mkdir(parents=True, exist_ok=True)
         template_path.write_text(template_content)
 
         # Set environment variables
@@ -153,8 +153,8 @@ Generate a summary of the changes.
 PR: {PR_NUMBER}
 URL: {WORKFLOW_URL}
 """
-        template_path = tmp_path / "prompts" / "summary_prompt.md"
-        template_path.parent.mkdir(parents=True)
+        template_path = tmp_path / "scripts" / "claudestep" / "prompts" / "summary_prompt.md"
+        template_path.parent.mkdir(parents=True, exist_ok=True)
         template_path.write_text(template_content)
 
         with patch.dict(os.environ, {
@@ -181,8 +181,8 @@ URL: {WORKFLOW_URL}
         args = argparse.Namespace()
 
         template_content = "Template with {PR_NUMBER}"
-        template_path = tmp_path / "prompts" / "summary_prompt.md"
-        template_path.parent.mkdir(parents=True)
+        template_path = tmp_path / "scripts" / "claudestep" / "prompts" / "summary_prompt.md"
+        template_path.parent.mkdir(parents=True, exist_ok=True)
         template_path.write_text(template_content)
 
         with patch.dict(os.environ, {
@@ -208,8 +208,8 @@ URL: {WORKFLOW_URL}
         args = argparse.Namespace()
 
         template_content = "{WORKFLOW_URL}"
-        template_path = tmp_path / "prompts" / "summary_prompt.md"
-        template_path.parent.mkdir(parents=True)
+        template_path = tmp_path / "scripts" / "claudestep" / "prompts" / "summary_prompt.md"
+        template_path.parent.mkdir(parents=True, exist_ok=True)
         template_path.write_text(template_content)
 
         with patch.dict(os.environ, {
@@ -232,8 +232,8 @@ URL: {WORKFLOW_URL}
 
         # Create template
         template_content = "Test"
-        template_path = tmp_path / "prompts" / "summary_prompt.md"
-        template_path.parent.mkdir(parents=True)
+        template_path = tmp_path / "scripts" / "claudestep" / "prompts" / "summary_prompt.md"
+        template_path.parent.mkdir(parents=True, exist_ok=True)
         template_path.write_text(template_content)
 
         # Mock write_output to raise an exception
