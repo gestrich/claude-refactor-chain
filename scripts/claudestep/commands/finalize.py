@@ -40,9 +40,7 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         base_branch = os.environ.get("BASE_BRANCH", "main")
         has_capacity = os.environ.get("HAS_CAPACITY", "")
         has_task = os.environ.get("HAS_TASK", "")
-
-        # Use single 'claudestep' label for all projects
-        label = "claudestep"
+        label = os.environ.get("LABEL", "")
 
         # === Generate Summary Early (for all cases) ===
         print("\n=== Generating workflow summary ===")
