@@ -263,6 +263,7 @@ runs:
       if: steps.notify.outputs.has_pr == 'true' && steps.prepare.outputs.slack_webhook_url != ''
       uses: slackapi/slack-github-action@v2
       with:
+        method: incoming-webhook
         payload: |
           {
             "text": "New ClaudeStep PR Created",
