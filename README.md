@@ -28,10 +28,10 @@ Get up and running with ClaudeStep in 5 minutes.
 Create this directory structure in your repo:
 
 ```bash
-mkdir -p refactor/my-refactor
+mkdir -p claude-step/my-refactor
 ```
 
-Create `refactor/my-refactor/configuration.json`:
+Create `claude-step/my-refactor/configuration.json`:
 
 ```json
 {
@@ -45,7 +45,7 @@ Create `refactor/my-refactor/configuration.json`:
 }
 ```
 
-Create `refactor/my-refactor/spec.md`:
+Create `claude-step/my-refactor/spec.md`:
 
 ```markdown
 # My Refactoring Project
@@ -206,7 +206,7 @@ Now when you merge a PR, it immediately creates the next one!
 Create additional refactor projects:
 
 ```
-refactor/
+claude-step/
 ├── swift-migration/
 │   ├── configuration.json
 │   └── spec.md
@@ -306,10 +306,10 @@ The action uses artifacts to track PR assignments. If assignment seems wrong:
 |-------|----------|---------|-------------|
 | `anthropic_api_key` | ✅ | - | Anthropic API key for Claude Code |
 | `github_token` | ✅ | `${{ github.token }}` | GitHub token for PR operations |
-| `project_name` | ✅ | - | Project folder name under `/refactor` |
-| `config_path` | ❌ | `refactor/{project}/configuration.json` | Custom config path |
-| `spec_path` | ❌ | `refactor/{project}/spec.md` | Custom spec file path |
-| `pr_template_path` | ❌ | `refactor/{project}/pr-template.md` | Custom PR template path |
+| `project_name` | ✅ | - | Project folder name under `/claude-step` |
+| `config_path` | ❌ | `claude-step/{project}/configuration.json` | Custom config path |
+| `spec_path` | ❌ | `claude-step/{project}/spec.md` | Custom spec file path |
+| `pr_template_path` | ❌ | `claude-step/{project}/pr-template.md` | Custom PR template path |
 | `claude_model` | ❌ | `claude-sonnet-4-5` | Claude model to use (sonnet-4-5 or opus-4-5) |
 | `claude_allowed_tools` | ❌ | `Write,Read,Bash,Edit` | Comma-separated list of tools Claude can use |
 | `base_branch` | ❌ | `main` | Base branch for PRs |

@@ -47,7 +47,7 @@ def detect_project_from_pr(pr_number: str, repo: str) -> Optional[str]:
             print(f"✅ Extracted project from branch name: {project}")
 
             # Verify the project exists
-            config_path = f"refactor/{project}/configuration.json"
+            config_path = f"claude-step/{project}/configuration.json"
             if os.path.exists(config_path):
                 return project
             else:
@@ -75,10 +75,10 @@ def detect_project_paths(project_name: str, config_path_input: str = "",
     Returns:
         Tuple of (config_path, spec_path, pr_template_path, project_path)
     """
-    config_path = config_path_input or f"refactor/{project_name}/configuration.json"
-    spec_path = spec_path_input or f"refactor/{project_name}/spec.md"
-    pr_template_path = pr_template_path_input or f"refactor/{project_name}/pr-template.md"
-    project_path = f"refactor/{project_name}"
+    config_path = config_path_input or f"claude-step/{project_name}/configuration.json"
+    spec_path = spec_path_input or f"claude-step/{project_name}/spec.md"
+    pr_template_path = pr_template_path_input or f"claude-step/{project_name}/pr-template.md"
+    project_path = f"claude-step/{project_name}"
 
     print(f"Configuration paths:")
     print(f"  Project: {project_name}")

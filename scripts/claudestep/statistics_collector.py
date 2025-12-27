@@ -250,7 +250,7 @@ def collect_all_statistics(
             reviewers = [r.get("username") for r in reviewers_config if "username" in r]
 
             # Extract project name from path
-            # Path format: refactor/{project}/configuration.json
+            # Path format: claude-step/{project}/configuration.json
             project_name = os.path.basename(os.path.dirname(config_path))
 
             # Determine spec path

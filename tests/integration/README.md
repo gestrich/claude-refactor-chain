@@ -136,7 +136,7 @@ gh pr close <PR_NUMBER> --delete-branch
 
 # Remove test project from repository
 cd /path/to/claude-step-demo
-git rm -rf refactor/test-project-*
+git rm -rf claude-step/test-project-*
 git commit -m "Remove test project"
 git push origin main
 ```

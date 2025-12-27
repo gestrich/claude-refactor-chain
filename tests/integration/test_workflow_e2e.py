@@ -184,7 +184,7 @@ class TestProjectManager:
         self.repo_path = repo_path
         self.project_id = project_id
         self.project_name = f"test-project-{project_id}"
-        self.project_path = repo_path / "refactor" / self.project_name
+        self.project_path = repo_path / "claude-step" / self.project_name
 
     def create_project(self):
         """Create test project files"""

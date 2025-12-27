@@ -3,6 +3,12 @@
 
 ## V1
 
+- [ ] Use YML for configuration
+
+This app currently uses json but YML would be preferred. No backwards compatibilty needed. Just fix it. Will need to update /Users/bill/Developer/personal/claude-step-demo
+
+- [ ] 
+
 - [ ] **Trigger action off of closed, not just merged**
 
 Our linked project at /Users/bill/Developer/personal/claude-step-demo triggers off merged PRs. But we need to assume PRs may be closed without merging too. Note this may trigger the same PR to be opened again so we may want to advise against closing PRs and instead updating the markdown to remove that step if not needed and merge that change first before closing the PR to avoid a cycle of it re-opening.
@@ -37,3 +43,15 @@ Capture screenshots showing the result. Visual verification without manual testi
 - [ ] Support additional claude mentions in PR
 
 Use Claude Code mentions to update the PR
+
+- [ ] Explore using GH issues to store tasks
+
+Pros
+* Single source of truth for status and things
+* Easier to find status
+* Can edit outside PRs (completing tasks)
+* Maybe config can be eliminated
+
+Cons
+* Work defined outside repo
+* Strict structure required in unexpected place (GH issue)

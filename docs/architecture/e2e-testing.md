@@ -95,7 +95,7 @@ pytest tests/integration/test_workflow_e2e.py -v -s -m integration
 The e2e test (`test_claudestep_workflow_e2e`) performs these steps:
 
 ### Step 1: Create First PR
-1. Creates a test project with 3 tasks in `refactor/test-project-<id>/`
+1. Creates a test project with 3 tasks in `claude-step/test-project-<id>/`
 2. Commits and pushes to the demo repo's main branch
 3. Triggers the ClaudeStep workflow manually
 4. Waits for workflow to complete (usually 60-90 seconds)
