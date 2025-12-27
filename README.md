@@ -4,6 +4,8 @@
 
 An automated system for performing ongoing code refactoring using AI (Claude Code) and GitHub Actions. The system continuously generates pull requests for incremental refactoring work, reducing the manual burden and maintaining momentum on large-scale codebase improvements.
 
+**Best for:** Tedious, repeatable tasks that you can define well. Ideal for async work like code cleanup, migrations, and documentation—slow burn work that may otherwise not happen.
+
 ## Features
 
 - 🤖 **AI-Powered Refactoring** - Uses Claude Code to perform refactoring tasks
@@ -916,83 +918,4 @@ Built with [Claude Code](https://github.com/anthropics/claude-code-action) by An
 
 ## TODO
 
-- [x] **Slack Action and metrics**
-
-✅ Implemented! The Statistics action generates reports with project progress and team activity. See [Setup Slack Notifications](#5-setup-slack-notifications-optional) and [.github/workflows/claudestep-statistics.yml](.github/workflows/claudestep-statistics.yml) for setup instructions.
-
-Metrics tracked:
-- Project completion progress (with visual progress bars)
-- Tasks completed, in progress, and pending per project
-- Team member activity (merged PRs, open PRs)
-- Configurable time periods (days back)
-
-- [x] **Leaderboard & Stats**
-
-✅ Implemented! The Statistics action now includes a leaderboard that tracks and ranks team members by merged PRs.
-
-Features:
-- 🥇🥈🥉 Medal awards for top 3 contributors
-- Visual activity bars showing relative contribution
-- Ranks all active team members
-- Shows both merged and open PR counts
-- Integrated into both Slack messages and GitHub Actions summaries
-- Automatically sorted by activity level
-
-The leaderboard appears prominently at the top of statistics reports, making it easy to recognize top reviewers and encourage friendly competition. See [Setup Slack Notifications](#5-setup-slack-notifications-optional) for configuration.
-
-- [x] **Claude Code generated Summary**
-
-✅ Implemented! PRs now include AI-generated summary comments that explain what was changed and why.
-
-Features:
-- Automatically analyzes PR diffs after creation
-- Posts concise <200 word summaries as PR comments
-- Explains specific changes (files, functions, logic modified)
-- Documents the purpose and benefits of changes
-- Can be toggled via `add_pr_summary` input (defaults to enabled)
-- Costs ~$0.002-0.005 per summary
-
-See `add_pr_summary` input in [Action Inputs](#action-inputs--outputs) for configuration options.
-
-- [ ] **Cost in PR Summary**
-
-Show Claude Code cost in PR summary
-
-- [ ] **Implement PR rejection handling**
-
-Options for handling bad PRs:
-- Check out the branch, mark item as skipped in `spec.md`
-- (Future/Bonus) Use Claude Code mentions to close or update the PR automatically
-
-- [ ] **Random Code Smell Example**
-
-The idea is to support random refactors based on the most egregious code smells in the codebase.
-
-- [ ] **Local Build Script**
-
-Fetch open PRs and build locally on a schedule. Ready to run when you sit down to review.
-
-- [ ] **UI Automation Screenshots**
-
-Capture screenshots showing the result. Visual verification without manual testing.
-
-- [ ] **Resolve open questions**
-
-- Best approach for Claude token/credential management in Actions?
-- Can Claude Code mentions be used to update/close PRs?
-
-- [ ] **Test creation logic**
-
-Test label detection, max PRs per user, and per-user assignment logic.
-
-- [ ] **Record video walkthrough**
-
-Create "ClaudeStep" tutorial video.
-
-- [ ] **Write blog post**
-
-Written guide explaining the approach.
-
-- [ ] **Open source the repo**
-
-Complete setup that others can use.
+See [docs/TODO.md](docs/TODO.md) for planned features and improvements.
