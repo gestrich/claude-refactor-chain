@@ -235,6 +235,7 @@ Based on Python testing best practices:
   - Test error propagation through command chain
   - Test state management across commands
   - Test concurrent PR handling scenarios
+  - Set up CI workflow to run e2e integration tests from demo repository
 
 - [ ] **Set up coverage reporting**
   - Configure pytest-cov to track coverage (already in CI)
@@ -263,6 +264,7 @@ Based on Python testing best practices:
 - [x] **Set up CI/CD testing** ✅ MOSTLY COMPLETE
   - ✅ Add GitHub Actions workflow for running tests on PR (`.github/workflows/test.yml`)
   - ✅ Tests run on every push and PR to main branch
+  - Pending: Add integration test workflow to run e2e tests from demo repository
   - Pending: Run tests on multiple Python versions (currently 3.11 only, add 3.12, 3.13)
   - Pending: Add test status badge to README.md
   - Pending: Configure PR merge requirements (tests must pass)
@@ -470,6 +472,7 @@ class TestCheckReviewerCapacity:
 3. Add infrastructure tests for git and github operations (Phase 2)
 4. Add application service tests for reviewer_management.py (Phase 3)
 5. Add CLI command tests for prepare.py and finalize.py (Phase 4)
+6. Set up CI workflow to run e2e integration tests from demo repository (Phase 5/6)
 
 ## Progress Summary
 
