@@ -81,11 +81,19 @@ All code that fetches PRs will use this centralized function instead of duplicat
 - All new tests pass (21/21)
 - No existing tests were broken by these changes
 
-### Phase 2: Refactor PR Fetching to Use Centralized Code
-- [ ] Update `reviewer_management.py` to use `get_project_prs()`
-- [ ] Update `task_management.py` to use `get_project_prs()`
-- [ ] Update `statistics_collector.py` to use `get_project_prs()`
-- [ ] Remove duplicated PR fetching logic from all files
+### Phase 2: Refactor PR Fetching to Use Centralized Code ✅
+- [x] Update `reviewer_management.py` to use `get_project_prs()`
+- [x] Update `task_management.py` to use `get_project_prs()`
+- [x] Update `statistics_collector.py` to use `get_project_prs()`
+- [x] Remove duplicated PR fetching logic from all files
+
+**Technical Notes:**
+- Refactored `artifact_operations.py` to use `get_project_prs()` from `pr_operations.py`
+- Removed private `_get_prs_with_label()` function - this was the duplicated PR fetching logic
+- Updated `find_project_artifacts()` to call `get_project_prs()` instead of duplicating the logic
+- The other modules (`reviewer_management.py`, `task_management.py`, `statistics_collector.py`) already used the centralized `find_project_artifacts()` API, so no changes were needed there
+- All existing tests continue to pass (107 passed)
+- The 5 test failures in `test_prepare_summary.py` are pre-existing and unrelated to this refactoring
 
 ### Phase 3: Update Branch Creation and Project Detection
 - [ ] Update `prepare.py` branch creation to use `format_branch_name()`

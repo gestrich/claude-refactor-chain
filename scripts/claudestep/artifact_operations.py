@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from claudestep.exceptions import GitHubAPIError
-from claudestep.github_operations import download_artifact_json, gh_api_call, run_gh_command
+from claudestep.github_operations import download_artifact_json, gh_api_call
 
 
 @dataclass
@@ -97,46 +97,6 @@ def parse_task_index_from_name(artifact_name: str) -> Optional[int]:
         except ValueError:
             return None
     return None
-
-
-def _get_prs_with_label(
-    repo: str, label: str, state: str, limit: int = 100
-) -> List[dict]:
-    """Get PRs with label
-
-    Args:
-        repo: GitHub repository (owner/name)
-        label: GitHub label to filter
-        state: PR state ("open", "merged", "all")
-        limit: Maximum number of PRs to fetch
-
-    Returns:
-        List of PR dictionaries
-
-    Raises:
-        GitHubAPIError: If API call fails
-    """
-    try:
-        pr_output = run_gh_command(
-            [
-                "pr",
-                "list",
-                "--repo",
-                repo,
-                "--label",
-                label,
-                "--state",
-                state,
-                "--json",
-                "number,headRefName",
-                "--limit",
-                str(limit),
-            ]
-        )
-        return json.loads(pr_output) if pr_output else []
-    except (GitHubAPIError, json.JSONDecodeError) as e:
-        print(f"Warning: Failed to list PRs: {e}")
-        return []
 
 
 def _get_workflow_runs_for_branch(
@@ -227,18 +187,20 @@ def find_project_artifacts(
         List of ProjectArtifact objects, optionally with metadata populated
 
     Algorithm:
-        1. Query PRs with the given label and state
+        1. Query PRs with the given label and state using get_project_prs()
         2. Get workflow runs for those PRs' branches (or recent runs for "all")
         3. Query artifacts from successful runs
         4. Filter artifacts by project name
         5. Optionally download and parse metadata JSON
     """
+    from claudestep.pr_operations import get_project_prs
+
     result_artifacts = []
     seen_artifact_ids = set()
 
-    # Get PRs with the label
-    prs = _get_prs_with_label(repo, label, pr_state, limit)
-    print(f"Found {len(prs)} PR(s) with label '{label}' and state '{pr_state}'")
+    # Get PRs for this project
+    prs = get_project_prs(project, repo, state=pr_state, label=label)
+    print(f"Found {len(prs)} PR(s) for project '{project}' with state '{pr_state}'")
 
     if pr_state == "all":
         # For "all" state, get recent workflow runs from default branch

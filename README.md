@@ -4,15 +4,15 @@
 
 ClaudeStep runs Claude Code on individual steps that you define for your project, creating pull requests for each step one at a time. When you merge a PR, it automatically stages the next PR, creating a chain of incremental improvements.
 
-Built on Claude Code and GitHub Actions, it automates the tedious refactoring work that never gets prioritized -- migrations, code cleanup, and documentation that would otherwise sit on the backlog forever.
+Built on Claude Code and GitHub Actions, it automates the tedious refactoring work that never gets prioritized -- optional migrations, refactoring, code cleanup, and documentation that would otherwise sit on the backlog forever.
 
 ## Features
 
 - 📋 **Incremental automation** - Write your refactor spec, get automated PRs for each step
-- ⚡ **Manageable review burden** - One small PR at a time, distributed across team
+- ⚡ **Manageable review burden** - One PR at a time, distributed across team members
 - 🔄 **Continuous flow** - Merge PRs when you have time, next PR stages automatically
 - 💬 **Context for reviewers** - AI-generated summaries explain each change
-- 📊 **Visibility** - Track progress, team stats, and completion rates
+- 📊 **Visibility** - Track progress, team stats, cost, and completion rates
 
 ## Prerequisites
 
@@ -25,7 +25,7 @@ Built on Claude Code and GitHub Actions, it automates the tedious refactoring wo
 
 ClaudeStep relies on projects in the `claude-step` folder to source where to find its projects and configuration.
 
-Create this directory structure in your repo:
+Create this directory structure in your repo fro the example project "my-refactor":
 
 ```bash
 mkdir -p claude-step/my-refactor
@@ -104,23 +104,23 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           project_name: 'my-refactor'
+          # slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}  # Uncomment if you set SLACK_WEBHOOK_URL in GitHub secrets
 ```
 
 Note: Triggers on both merged and closed PRs. To prevent a closed PR from reopening, mark its step as complete in spec.md first.
 
-### Step 4: Setup Slack Notifications (Optional)
+### Step 4: Configure GitHub
 
-1. Create a Slack webhook at [api.slack.com/messaging/webhooks](https://api.slack.com/messaging/webhooks)
-2. Add as GitHub secret: `SLACK_WEBHOOK_URL`
-3. Add to workflow: `slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}`
-
-### Step 5: Configure GitHub
-
-#### Add API Key
+#### Add Secrets
 
 Settings > Secrets and variables > Actions > New repository secret:
 - Name: `ANTHROPIC_API_KEY`
 - Value: your API key
+
+**Optional - Slack Notifications:**
+- Name: `SLACK_WEBHOOK_URL`
+- Value: your Slack webhook URL from [api.slack.com/messaging/webhooks](https://api.slack.com/messaging/webhooks)
+- Uncomment `slack_webhook_url` in your workflow file to enable
 
 #### Enable PR Creation
 
@@ -136,11 +136,11 @@ In your local repository, run in Claude Code:
 
 This grants permissions for Claude to read your spec and create pull requests.
 
-### Step 6: Run & Test
+### Step 5: Run & Test
 
-#### Push Changes to Main
+#### Push Changes to your base branch
 
-Commit and push your configuration, spec, and workflow file to main.
+Commit and push your configuration, spec, and workflow file to your base branch, often named "main" 
 
 #### Trigger Initial Workflow
 
@@ -150,9 +150,9 @@ Commit and push your configuration, spec, and workflow file to main.
 
 Future PRs will trigger automatically on merge.
 
-### Step 7: Review & Iterate
+### Step 6: Review & Iterate
 
-Review the PR, verify it follows your spec, and make any needed fixes. When satisfied, merge it. The workflow will automatically create the next PR.
+Review the generated PR, verify it follows your spec, and make any needed fixes. When satisfied, merge it. The workflow will automatically create the next PR.
 
 ### Scaling Up
 
