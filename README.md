@@ -295,9 +295,6 @@ The action uses artifacts to track PR assignments. If assignment seems wrong:
 | `anthropic_api_key` | ✅ | - | Anthropic API key for Claude Code |
 | `github_token` | ✅ | `${{ github.token }}` | GitHub token for PR operations |
 | `project_name` | ✅ | - | Project folder name under `/claude-step` |
-| `config_path` | ❌ | `claude-step/{project}/configuration.yml` | Custom config path |
-| `spec_path` | ❌ | `claude-step/{project}/spec.md` | Custom spec file path |
-| `pr_template_path` | ❌ | `claude-step/{project}/pr-template.md` | Custom PR template path |
 | `claude_model` | ❌ | `claude-sonnet-4-5` | Claude model to use (sonnet-4-5 or opus-4-5) |
 | `claude_allowed_tools` | ❌ | `Write,Read,Bash,Edit` | Comma-separated list of tools Claude can use |
 | `base_branch` | ❌ | `main` | Base branch for PRs |

@@ -63,36 +63,31 @@ def detect_project_from_pr(pr_number: str, repo: str) -> Optional[str]:
         return None
 
 
-def detect_project_paths(project_name: str, config_path_input: str = "",
-                        spec_path_input: str = "", pr_template_path_input: str = "") -> Tuple[str, str, str, str]:
-    """Determine project paths from project name and optional overrides
+def detect_project_paths(project_name: str) -> Tuple[str, str, str, str]:
+    """Determine project paths from project name
+
+    Projects must be located in the claude-step/ directory with standard file names.
 
     Args:
         project_name: Name of the project
-        config_path_input: Optional override for config path
-        spec_path_input: Optional override for spec path
-        pr_template_path_input: Optional override for PR template path
 
     Returns:
         Tuple of (config_path, spec_path, pr_template_path, project_path)
     """
     # Default to .yml, but check if .json exists for backwards compatibility
-    if config_path_input:
-        config_path = config_path_input
+    yml_path = f"claude-step/{project_name}/configuration.yml"
+    json_path = f"claude-step/{project_name}/configuration.json"
+    # Prefer .yml, fall back to .json if it exists
+    if os.path.exists(yml_path):
+        config_path = yml_path
+    elif os.path.exists(json_path):
+        config_path = json_path
     else:
-        yml_path = f"claude-step/{project_name}/configuration.yml"
-        json_path = f"claude-step/{project_name}/configuration.json"
-        # Prefer .yml, fall back to .json if it exists
-        if os.path.exists(yml_path):
-            config_path = yml_path
-        elif os.path.exists(json_path):
-            config_path = json_path
-        else:
-            # Default to .yml for new projects
-            config_path = yml_path
+        # Default to .yml for new projects
+        config_path = yml_path
 
-    spec_path = spec_path_input or f"claude-step/{project_name}/spec.md"
-    pr_template_path = pr_template_path_input or f"claude-step/{project_name}/pr-template.md"
+    spec_path = f"claude-step/{project_name}/spec.md"
+    pr_template_path = f"claude-step/{project_name}/pr-template.md"
     project_path = f"claude-step/{project_name}"
 
     print(f"Configuration paths:")

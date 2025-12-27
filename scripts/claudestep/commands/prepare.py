@@ -32,9 +32,6 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         print("=== Step 1/6: Detecting project ===")
         project_name = os.environ.get("PROJECT_NAME", "")
         merged_pr_number = os.environ.get("MERGED_PR_NUMBER", "")
-        config_path_input = os.environ.get("CONFIG_PATH", "")
-        spec_path_input = os.environ.get("SPEC_PATH", "")
-        pr_template_path_input = os.environ.get("PR_TEMPLATE_PATH", "")
         repo = os.environ.get("GITHUB_REPOSITORY", "")
 
         detected_project = None
@@ -52,10 +49,8 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
             gh.set_error("project_name must be provided (use discovery action to find projects)")
             return 1
 
-        # Determine paths
-        config_path, spec_path, pr_template_path, project_path = detect_project_paths(
-            detected_project, config_path_input, spec_path_input, pr_template_path_input
-        )
+        # Determine paths (always use claude-step/ directory structure)
+        config_path, spec_path, pr_template_path, project_path = detect_project_paths(detected_project)
 
         # === STEP 2: Load and Validate Configuration ===
         print("\n=== Step 2/6: Loading configuration ===")

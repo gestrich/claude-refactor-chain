@@ -43,9 +43,25 @@ Configuration and workflow improvements for V1 release.
 - The config validation incorrectly required `branchPrefix` even though the default behavior didn't use it
 - Now users have flexibility to choose their preferred branch naming scheme
 
-- [ ] **Remove unnecessary action inputs**
+- [x] **Remove unnecessary action inputs**
 
-We have inputs for config_path, spec_path, and pr_template_path. Let's get rid of that. Instead let's require the user uses claude-step/ for their projects and let's always assume they then have project folders in there with the appropriately named files.
+**Status:** COMPLETED
+
+**Changes made:**
+- Removed `config_path`, `spec_path`, and `pr_template_path` inputs from `action.yml`
+- Updated `detect_project_paths()` function in `project_detection.py` to no longer accept override parameters
+- Modified `prepare.py` to always use the standard `claude-step/` directory structure
+- Updated README.md to remove documentation for the removed inputs
+- All projects must now be located in `claude-step/{project-name}/` with standard file names:
+  - `configuration.yml` (or `configuration.json` for backwards compatibility)
+  - `spec.md`
+  - `pr-template.md`
+
+**Technical notes:**
+- The `detect_project_paths()` function signature changed from accepting 3 optional override parameters to accepting none
+- Environment variables `CONFIG_PATH`, `SPEC_PATH`, and `PR_TEMPLATE_PATH` are no longer read from action inputs, but are still passed between workflow steps via outputs
+- Backwards compatibility is maintained for existing JSON configuration files
+- Tests pass successfully (62 passed, 5 pre-existing failures unrelated to this change)
 
 - [ ] **Trigger action off of closed PRs, not just merged**
 

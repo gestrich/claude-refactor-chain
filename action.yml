@@ -20,15 +20,6 @@ inputs:
   merged_pr_number:
     description: 'PR number that was just merged (for auto-detecting project from labels)'
     required: false
-  config_path:
-    description: 'Path to configuration.json file (overrides default)'
-    required: false
-  spec_path:
-    description: 'Path to spec.md file (overrides default)'
-    required: false
-  pr_template_path:
-    description: 'Path to pr-template.md file (overrides default)'
-    required: false
   claude_model:
     description: 'Claude model to use (e.g., claude-sonnet-4-5)'
     required: false
@@ -90,9 +81,6 @@ runs:
         GH_TOKEN: ${{ inputs.github_token }}
         PROJECT_NAME: ${{ inputs.project_name }}
         MERGED_PR_NUMBER: ${{ inputs.merged_pr_number }}
-        CONFIG_PATH: ${{ inputs.config_path }}
-        SPEC_PATH: ${{ inputs.spec_path }}
-        PR_TEMPLATE_PATH: ${{ inputs.pr_template_path }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
