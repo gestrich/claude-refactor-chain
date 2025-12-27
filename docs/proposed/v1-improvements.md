@@ -148,23 +148,24 @@ Configuration and workflow improvements for V1 release.
 - More aligned with GitHub Actions best practices for handling sensitive data
 - Demo project at /Users/bill/Developer/personal/claude-step-demo will need to be updated to pass `slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}` as an action input
 
-- [ ] **Make PR label an action input**
+- [x] **Make PR label an action input**
 
-**Status:** PENDING
+**Status:** COMPLETED
 
-**Goal:**
-- Move PR label from hardcoded value to configurable action input
-- Allow users to customize the label applied to ClaudeStep PRs
-- Fallback to "claude-step" when no value is provided
-
-**Changes needed:**
-- Add `pr_label` input to `action.yml` with default value "claude-step"
-- Update code that applies PR labels to use the input parameter
-- Update README.md to document the new optional input parameter
+**Changes made:**
+- Added `pr_label` input to `action.yml` with default value "claude-step"
+- Updated `prepare.py` to read PR label from `PR_LABEL` environment variable (passed from action input) instead of hardcoding it
+- Updated README.md:
+  - Added `pr_label` to the inputs table
+  - Added detailed documentation in the "Input Details" section explaining what the label is used for
+  - Included example showing how to use a custom label
+- All Python files compile successfully
 
 **Technical notes:**
-- Should default to "claude-step" for backwards compatibility
-- Gives users flexibility to use their own labeling conventions
+- Defaults to "claude-step" for backwards compatibility
+- The label is used to identify ClaudeStep PRs, track reviewer workload, and auto-detect projects on PR merge
+- Users can now customize the label to fit their own labeling conventions
+- The statistics collector functions still use "claudestep" as default in their parameters, but this is appropriate as they're utility functions that can be used independently
 
 - [ ] **Convert hourly job to daily in demo project**
 

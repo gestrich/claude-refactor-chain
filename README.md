@@ -301,6 +301,7 @@ The action uses artifacts to track PR assignments. If assignment seems wrong:
 | `working_directory` | ❌ | `.` | Working directory |
 | `add_pr_summary` | ❌ | `true` | Add AI-generated summary comment to PR |
 | `slack_webhook_url` | ❌ | - | Slack webhook URL for PR notifications |
+| `pr_label` | ❌ | `claude-step` | Label to apply to ClaudeStep PRs |
 
 ### Outputs
 
@@ -364,6 +365,24 @@ To set up:
     github_token: ${{ secrets.GITHUB_TOKEN }}
     project_name: 'my-refactor'
     slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+```
+
+**pr_label:**
+Label to apply to all ClaudeStep PRs. Defaults to `claude-step` if not specified.
+
+This label is used to:
+- Identify PRs created by ClaudeStep
+- Track reviewer workload and capacity
+- Auto-detect projects when a PR is merged
+
+Example to use a custom label:
+```yaml
+- uses: gestrich/claude-step@v1
+  with:
+    anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    project_name: 'my-refactor'
+    pr_label: 'refactoring'
 ```
 
 **anthropic_api_key:**

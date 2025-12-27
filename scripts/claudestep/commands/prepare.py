@@ -58,12 +58,10 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         branch_prefix = config.get("branchPrefix")  # Optional
         reviewers = config.get("reviewers")
         slack_webhook_url = os.environ.get("SLACK_WEBHOOK_URL", "")  # From action input
+        label = os.environ.get("PR_LABEL", "claude-step")  # From action input, defaults to "claude-step"
 
         if not reviewers:
             raise ConfigurationError("Missing required field: reviewers")
-
-        # Use single 'claudestep' label for all projects
-        label = "claudestep"
 
         # Ensure label exists
         ensure_label_exists(label, gh)

@@ -44,6 +44,10 @@ inputs:
     description: 'Slack webhook URL for PR notifications (optional)'
     required: false
     default: ''
+  pr_label:
+    description: 'Label to apply to ClaudeStep PRs'
+    required: false
+    default: 'claude-step'
 
 outputs:
   pr_number:
@@ -88,6 +92,7 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         ACTION_PATH: ${{ github.action_path }}
         SLACK_WEBHOOK_URL: ${{ inputs.slack_webhook_url }}
+        PR_LABEL: ${{ inputs.pr_label }}
       run: |
         export PYTHONPATH="$ACTION_PATH/scripts:$PYTHONPATH"
         python3 -m claudestep prepare
