@@ -364,9 +364,13 @@ Get your API key from [console.anthropic.com](https://console.anthropic.com), th
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `label` | string | ✅ | GitHub label for PRs |
-| `branchPrefix` | string | ✅ | Prefix for branch names |
+| `branchPrefix` | string | ❌ | Prefix for branch names (see Branch Naming below) |
 | `reviewers` | array | ✅ | List of reviewers with capacity |
 | `slackWebhookUrl` | string | ❌ | Slack webhook URL for PR notifications (optional) |
+
+**Branch Naming:**
+- **With `branchPrefix`**: Branches are named `{branchPrefix}-{task_index}` (e.g., `refactor/swift-migration-1`, `refactor/swift-migration-2`)
+- **Without `branchPrefix`**: Branches use the default YYYY-MM date format: `{YYYY-MM}-{project_name}-{task_index}` (e.g., `2025-01-my-refactor-1`)
 
 **Reviewers** array items:
 - `username` (string): GitHub username
@@ -805,10 +809,11 @@ The action validates your configuration at runtime:
 
 **configuration.yml:**
 - ✅ File exists and is valid YAML
-- ✅ Required fields present (`branchPrefix`, `reviewers`)
+- ✅ Required field present (`reviewers`)
 - ✅ Reviewers array has at least one entry
 - ✅ Each reviewer has `username` and `maxOpenPRs`
 - ✅ `maxOpenPRs` is between 1 and 10
+- ✅ Optional `branchPrefix` field (if omitted, uses YYYY-MM date format)
 
 **spec.md:**
 - ✅ File exists

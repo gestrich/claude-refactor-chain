@@ -26,13 +26,22 @@ Configuration and workflow improvements for V1 release.
 **Next steps:**
 - Will need to update /Users/bill/Developer/personal/claude-step-demo to use YAML configuration
 
-- [ ] **Improve branch name options**
+- [x] **Improve branch name options**
 
-You can specify a branch prefix in the configuration per the README.md but I'm not sure it is actually working. We should support the following:
+**Status:** COMPLETED
 
-* Branch Prefix for that project. We'd use that prefix then append the index we've already been using
-* YYYY/MM... schema we already use (default when no branch prefix given)
-* Docs should be updated to explain this
+**Changes made:**
+- Fixed branch naming logic in `prepare.py` to actually use the `branchPrefix` configuration field
+- When `branchPrefix` is specified, branches are named `{branchPrefix}-{task_index}` (e.g., `refactor/swift-migration-1`)
+- When `branchPrefix` is omitted, branches default to YYYY-MM format: `{YYYY-MM}-{project_name}-{task_index}` (e.g., `2025-01-my-refactor-1`)
+- Made `branchPrefix` optional instead of required in validation logic
+- Updated README.md to document branch naming behavior with clear examples
+- Updated validation documentation to reflect that `branchPrefix` is optional
+
+**Technical notes:**
+- Previously, the code was loading `branchPrefix` from config but never using it for branch creation
+- The config validation incorrectly required `branchPrefix` even though the default behavior didn't use it
+- Now users have flexibility to choose their preferred branch naming scheme
 
 - [ ] **Remove unnecessary action inputs**
 

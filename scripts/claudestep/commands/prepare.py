@@ -60,12 +60,12 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         # === STEP 2: Load and Validate Configuration ===
         print("\n=== Step 2/6: Loading configuration ===")
         config = load_config(config_path)
-        branch_prefix = config.get("branchPrefix")
+        branch_prefix = config.get("branchPrefix")  # Optional
         reviewers = config.get("reviewers")
         slack_webhook_url = config.get("slackWebhookUrl", "")  # Optional
 
-        if not branch_prefix or not reviewers:
-            raise ConfigurationError("Missing required fields: branchPrefix or reviewers")
+        if not reviewers:
+            raise ConfigurationError("Missing required field: reviewers")
 
         # Use single 'claudestep' label for all projects
         label = "claudestep"
@@ -116,8 +116,14 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
 
         # === STEP 5: Create Branch ===
         print("\n=== Step 5/6: Creating branch ===")
-        date_prefix = datetime.now().strftime("%Y-%m")
-        branch_name = f"{date_prefix}-{detected_project}-{task_index}"
+        # Use branch_prefix if provided, otherwise use YYYY-MM date format
+        if branch_prefix:
+            # If branch_prefix is provided, use it with the task index
+            branch_name = f"{branch_prefix}-{task_index}"
+        else:
+            # Default to YYYY-MM/project/index format
+            date_prefix = datetime.now().strftime("%Y-%m")
+            branch_name = f"{date_prefix}-{detected_project}-{task_index}"
 
         try:
             run_git_command(["checkout", "-b", branch_name])
