@@ -17,15 +17,21 @@
 - Keep mention of automated PRs but use different phrasing
 - Update feature list to be clearer
 
-## Step 2: Fix Prerequisites and Installation Sections
+## ✅ Step 2: Fix Prerequisites and Installation Sections (COMPLETED)
+
+**Technical Notes:**
+- Removed "GitHub CLI (gh) installed and authenticated" from Prerequisites (README.md:19-22)
+- Clarified that Claude Code GitHub App installation is remote GitHub configuration, not local (README.md:24-34)
+- Added explanation of what the app is used for: "allows the action to interact with your repository" and "grants necessary permissions for Claude to read your spec and create pull requests"
+- Improved wording to indicate the command is run locally but configures remotely
 
 ### Prerequisites
-- Remove "GitHub CLI (gh) installed and authenticated" - this is a workflow thing, not a user prerequisite
+- Removed "GitHub CLI (gh) installed and authenticated" - this is a workflow thing, not a user prerequisite
 
 ### Install Claude Code GitHub App
-- Make clearer that installation is at the repository level (GitHub repo level remotely)
-- Clarify: "Locally, go into your repo and install the Claude Code GitHub App"
-- Explain what the GitHub app is used for in this project (keep concise)
+- Made clearer that installation is at the repository level (GitHub repo level remotely)
+- Clarified: "In your local repository directory, run this command in Claude Code"
+- Explained what the GitHub app is used for in this project (kept concise)
 - This is GitHub configuration happening remotely, not local installation
 
 ## Step 3: Reorganize GitHub Configuration

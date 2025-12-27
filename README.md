@@ -20,17 +20,18 @@ Built on Claude Code and GitHub Actions, it automates the tedious refactoring wo
 
 - GitHub repository with code to refactor
 - Anthropic API key ([get one here](https://console.anthropic.com))
-- GitHub CLI (`gh`) installed and authenticated
 
 ### Step 1: Install the Claude Code GitHub App
 
-Run this command in Claude Code to install the GitHub app and set up authentication:
+The Claude Code GitHub App allows the action to interact with your repository. This is a remote GitHub configuration, not a local installation.
+
+In your local repository directory, run this command in Claude Code:
 
 ```
 /install-github-app
 ```
 
-This grants the necessary permissions for Claude to interact with your repository.
+This installs the app at the GitHub repository level and grants the necessary permissions for Claude to read your spec and create pull requests.
 
 ### Step 2: Create a Project
 
