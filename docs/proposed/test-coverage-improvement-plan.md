@@ -35,7 +35,7 @@ These changes reduce code duplication and simplify the testing surface area.
 - `.github/workflows/test.yml` - CI workflow for unit tests
 - `pyproject.toml` - Package configuration with test dependencies
 - Tests run on every push and PR to main branch
-- **463 tests passing** with 0 failures (up from 439)
+- **486 tests passing** with 0 failures (up from 463)
 
 ### Existing Tests (Organized by Layer)
 **Domain Layer:**
@@ -67,6 +67,7 @@ These changes reduce code duplication and simplify the testing surface area.
 - `tests/unit/cli/commands/test_statistics.py` - Statistics reporting command (15 tests)
 - `tests/unit/cli/commands/test_add_cost_comment.py` - Cost comment posting command (18 tests)
 - `tests/unit/cli/commands/test_extract_cost.py` - Cost extraction command (24 tests)
+- `tests/unit/cli/commands/test_notify_pr.py` - PR notification command (23 tests)
 
 **Integration:**
 - Demo repository: `claude-step-demo/tests/integration/test_workflow_e2e.py` - End-to-end workflow
@@ -75,7 +76,7 @@ These changes reduce code duplication and simplify the testing surface area.
 The following modules lack unit tests:
 
 **CLI Layer:**
-- `src/claudestep/cli/commands/notify_pr.py` - PR notifications (LAST REMAINING COMMAND)
+- ✅ All CLI commands have comprehensive tests
 
 ## Testing Principles to Follow
 
@@ -797,10 +798,25 @@ Before committing a test, verify:
     - Edge cases tested: empty list, list without cost items, invalid JSON, missing fields
     - All tests follow the style guide with Arrange-Act-Assert structure and descriptive names
 
-- [ ] **Test notify_pr.py** (`tests/unit/cli/commands/test_notify_pr.py`)
-  - Mock Slack webhook calls
-  - Test notification message formatting, webhook request construction
-  - Test error handling (webhook failures) and optional notification (when webhook not configured)
+- [x] **Test notify_pr.py** ✅ COMPLETE (December 27, 2025) (`tests/unit/cli/commands/test_notify_pr.py`)
+  - 23 comprehensive tests covering PR notification functionality
+  - Tests for `format_pr_notification()` - Slack mrkdwn message formatting (7 tests)
+  - Tests for `cmd_notify_pr()` - full command orchestration (16 tests)
+  - Tests for successful notification generation with all required fields
+  - Tests for graceful skipping when no PR created (missing PR_NUMBER or PR_URL)
+  - Tests for cost calculation (total = main + summary with 6 decimal precision)
+  - Tests for input validation (invalid cost values treated as zero, whitespace stripping)
+  - Tests for error handling (unexpected exceptions, missing fields)
+  - Tests for console output formatting
+  - **Technical Notes:**
+    - All 23 tests pass (total test count increased from 463 to 486)
+    - Tests verify Slack mrkdwn formatting (link syntax `<URL|text>`, code blocks with ```)
+    - Tests verify cost breakdown display with proper alignment and separator
+    - Tests confirm graceful degradation: always outputs a notification when PR exists
+    - Tests verify has_pr output flag written correctly (true/false)
+    - Tests verify environment variable handling for all inputs with default values
+    - Edge cases tested: zero costs, invalid costs, missing optional fields, whitespace inputs
+    - All tests follow the style guide with Arrange-Act-Assert structure and descriptive names
 
 ### Phase 5: Integration & Quality
 
@@ -1015,7 +1031,7 @@ class TestCheckReviewerCapacity:
 - ✅ Phase 1: 100% COMPLETE (test infrastructure, conftest.py fixtures, and domain layer tests all done)
 - ✅ Phase 2: 100% COMPLETE (all infrastructure layer tests done - git, github, filesystem operations)
 - ✅ Phase 3: 100% COMPLETE (all application layer tests done - task_management, statistics, table_formatter, reviewer_management, project_detection, artifact_operations)
-- ✅ Phase 4: ~89% complete (8 of 9 command modules done: prepare_summary, prepare, finalize, discover, discover_ready, statistics, add_cost_comment, extract_cost; only notify_pr remains)
+- ✅ Phase 4: 100% COMPLETE (all 9 command modules done: prepare_summary, prepare, finalize, discover, discover_ready, statistics, add_cost_comment, extract_cost, notify_pr)
 - Phase 5: Not started (integration tests and quality improvements)
 - ✅ Phase 6: ~40% complete (CI set up, need documentation and enhancements)
 
@@ -1023,11 +1039,11 @@ class TestCheckReviewerCapacity:
 - ✅ **Phase 1**: COMPLETE (December 27, 2025)
 - ✅ **Phase 2**: COMPLETE (December 27, 2025)
 - ✅ **Phase 3**: COMPLETE (December 27, 2025)
-- **Phase 4**: <1 day (1 remaining command module: notify_pr)
+- ✅ **Phase 4**: COMPLETE (December 27, 2025)
 - **Phase 5**: 2-3 days (integration tests, coverage reporting)
 - **Phase 6**: 1 day (documentation, CI enhancements)
 
-**Total Remaining: 3-4 days** (can be parallelized or spread over multiple contributors)
+**Total Remaining: 2-3 days** (can be parallelized or spread over multiple contributors)
 
 ## Resources
 
@@ -1056,7 +1072,7 @@ class TestCheckReviewerCapacity:
 8. ~~Add CLI command tests for discover.py and discover_ready.py (Phase 4)~~ ✅ COMPLETE (December 27, 2025)
 9. ~~Add CLI command tests for statistics.py and add_cost_comment.py (Phase 4)~~ ✅ COMPLETE (December 27, 2025)
 10. ~~Add CLI command tests for extract_cost.py (Phase 4)~~ ✅ COMPLETE (December 27, 2025)
-11. Add CLI command tests for notify_pr.py (Phase 4) - LAST COMMAND MODULE
+11. ~~Add CLI command tests for notify_pr.py (Phase 4)~~ ✅ COMPLETE (December 27, 2025)
 12. Set up CI workflow to run e2e integration tests from demo repository (Phase 5/6)
 
 ## Progress Summary
@@ -1065,7 +1081,7 @@ class TestCheckReviewerCapacity:
 - ✅ Architecture modernization with layered structure
 - ✅ Test structure reorganized to mirror src/ layout
 - ✅ CI workflow added for automated testing
-- ✅ All 463 tests passing (0 failures, up from 112 initially)
+- ✅ All 486 tests passing (0 failures, up from 112 initially)
 - ✅ E2E tests updated and working
 - ✅ Comprehensive tests for `pr_operations.py` (21 test cases)
 - ✅ Comprehensive tests for `task_management.py` (19 test cases)
@@ -1082,6 +1098,7 @@ class TestCheckReviewerCapacity:
 - ✅ Comprehensive tests for `statistics.py` (15 test cases) - December 27, 2025
 - ✅ Comprehensive tests for `add_cost_comment.py` (18 test cases) - December 27, 2025
 - ✅ Comprehensive tests for `extract_cost.py` (24 test cases) - December 27, 2025
+- ✅ Comprehensive tests for `notify_pr.py` (23 test cases) - December 27, 2025
 - ✅ **Common test fixtures** in `tests/conftest.py` (December 27, 2025)
   - 20+ reusable fixtures covering file system, git, GitHub, and configuration scenarios
   - All fixtures follow test style guide with clear docstrings and organized by category
@@ -1108,3 +1125,12 @@ class TestCheckReviewerCapacity:
   - Tests verify deduplication logic, project filtering, metadata download, and error handling
   - Documented regex limitation for hyphenated project names in artifact name parsing
   - All tests use proper mocking at system boundaries and follow the style guide
+- ✅ **Phase 4 Complete: CLI Commands Layer Tests** (December 27, 2025)
+  - `tests/unit/cli/commands/test_notify_pr.py` - PR notification command (23 tests)
+  - Total: 23 new tests added to complete Phase 4 (total test count increased from 463 to 486)
+  - Tests cover format_pr_notification() and cmd_notify_pr() functions
+  - Tests verify Slack mrkdwn formatting with proper link syntax and code blocks
+  - Tests verify cost calculation and formatting with 6 decimal precision
+  - Tests verify graceful skipping when no PR exists (missing PR_NUMBER or PR_URL)
+  - Tests verify environment variable handling, input validation, and error handling
+  - All tests use proper mocking and follow the style guide with Arrange-Act-Assert structure
