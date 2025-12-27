@@ -27,6 +27,9 @@ class TaskMetadata:
     created_at: datetime
     workflow_run_id: int
     pr_number: int
+    main_task_cost_usd: float = 0.0
+    pr_summary_cost_usd: float = 0.0
+    total_cost_usd: float = 0.0
 
     @classmethod
     def from_dict(cls, data: dict) -> "TaskMetadata":
@@ -49,6 +52,9 @@ class TaskMetadata:
             ),
             workflow_run_id=data["workflow_run_id"],
             pr_number=data["pr_number"],
+            main_task_cost_usd=data.get("main_task_cost_usd", 0.0),
+            pr_summary_cost_usd=data.get("pr_summary_cost_usd", 0.0),
+            total_cost_usd=data.get("total_cost_usd", 0.0),
         )
 
 

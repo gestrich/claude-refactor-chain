@@ -527,7 +527,7 @@ def collect_project_costs(
 - Now correctly identifies merged PRs for a project regardless of branch naming conventions
 - Cost collection is now more reliable and matches the same pattern used by reviewer_management.py and task_management.py
 
-### - [ ] Phase 5: Add Cost to Artifact Metadata (Priority: Medium, Optional)
+### - [x] Phase 5: Add Cost to Artifact Metadata (Priority: Medium, Optional) ✅ COMPLETED
 - Update TaskMetadata model with cost fields (main_task_cost_usd, pr_summary_cost_usd, total_cost_usd)
 - Update finalize.py to store costs in metadata
 - Update statistics collection to use metadata costs with comment fallback
@@ -535,8 +535,22 @@ def collect_project_costs(
 - Test with old PRs to verify fallback to comments works
 - Document cost tracking enhancement
 
-**Estimated effort**: 2 hours
-**Risk**: Low - additive change, backward compatible
+**Completed**: 2025-12-27
+**Technical Notes**:
+- Updated `TaskMetadata` dataclass in `artifact_operations.py` with three new cost fields:
+  - `main_task_cost_usd`: Cost of the main refactoring task (default: 0.0)
+  - `pr_summary_cost_usd`: Cost of PR summary generation (default: 0.0)
+  - `total_cost_usd`: Combined total cost (default: 0.0)
+- Modified `from_dict()` method to use `.get()` with default values for backward compatibility with old artifacts
+- Updated `finalize.py` to extract cost data from `MAIN_COST` and `SUMMARY_COST` environment variables
+- Cost fields are now written to artifact metadata JSON when PRs are created
+- Refactored `collect_project_costs()` in `statistics_collector.py` to:
+  - First attempt to read cost from artifact metadata (`total_cost_usd` field)
+  - Fall back to parsing PR comments if metadata doesn't have cost (backward compatible)
+  - Display separate counts for metadata vs. comment-based costs
+- All existing tests pass (86 passed, 5 pre-existing failures in test_prepare_summary.py unrelated to this change)
+- Backward compatible: Old artifacts without cost fields default to 0.0, fall back to comment parsing
+- New PRs created after this change will have cost data in both metadata and comments (redundant but ensures reliability)
 
 ### - [ ] Phase 6: Add Statistics E2E Test and Validate (Priority: High)
 - Add new test to `claude-step-demo/tests/integration/test_statistics_e2e.py`:

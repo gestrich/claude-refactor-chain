@@ -37,7 +37,7 @@ def extract_cost_from_comment(comment_body: str) -> Optional[float]:
 def collect_project_costs(
     project_name: str, repo: str, label: str = "claudestep"
 ) -> float:
-    """Collect total costs for a project from PR comments
+    """Collect total costs for a project from artifact metadata with fallback to PR comments
 
     Args:
         project_name: Name of the project to collect costs for
@@ -47,9 +47,10 @@ def collect_project_costs(
     Returns:
         Total cost in USD across all merged PRs for this project
     """
-    print(f"  Collecting costs from PR comments...")
+    print(f"  Collecting costs from artifact metadata and PR comments...")
     total_cost = 0.0
-    prs_with_cost = 0
+    prs_with_metadata_cost = 0
+    prs_with_comment_cost = 0
 
     try:
         # Get all merged PR artifacts for this project
@@ -58,17 +59,30 @@ def collect_project_costs(
             project=project_name,
             label=label,
             pr_state="merged",
-            download_metadata=True  # Need PR numbers
+            download_metadata=True  # Need metadata for costs and PR numbers
         )
 
-        # Get unique PR numbers from artifacts
-        pr_numbers = {a.metadata.pr_number for a in artifacts if a.metadata}
+        # Build a map of PR number to artifact metadata for quick lookup
+        pr_to_artifact = {}
+        for a in artifacts:
+            if a.metadata and a.metadata.pr_number:
+                pr_to_artifact[a.metadata.pr_number] = a.metadata
 
+        pr_numbers = set(pr_to_artifact.keys())
         print(f"  Found {len(pr_numbers)} merged PR(s) for {project_name}")
 
-        # For each PR, get comments and extract cost
+        # For each PR, try to get cost from metadata, fall back to comments
         for pr_number in pr_numbers:
-            # Get PR comments
+            metadata = pr_to_artifact[pr_number]
+
+            # Try to get cost from artifact metadata first
+            if hasattr(metadata, 'total_cost_usd') and metadata.total_cost_usd > 0:
+                total_cost += metadata.total_cost_usd
+                prs_with_metadata_cost += 1
+                print(f"    PR #{pr_number}: ${metadata.total_cost_usd:.6f} (from metadata)")
+                continue
+
+            # Fall back to parsing PR comments
             comments_output = run_gh_command([
                 "pr", "view", str(pr_number),
                 "--repo", repo,
@@ -82,14 +96,15 @@ def collect_project_costs(
                     cost = extract_cost_from_comment(comment_body)
                     if cost is not None:
                         total_cost += cost
-                        prs_with_cost += 1
-                        print(f"    PR #{pr_number}: ${cost:.6f}")
+                        prs_with_comment_cost += 1
+                        print(f"    PR #{pr_number}: ${cost:.6f} (from comment)")
                         break  # Found cost for this PR, move to next
 
-        if prs_with_cost > 0:
-            print(f"  Total cost: ${total_cost:.6f} ({prs_with_cost} PR(s) with cost data)")
+        total_prs_with_cost = prs_with_metadata_cost + prs_with_comment_cost
+        if total_prs_with_cost > 0:
+            print(f"  Total cost: ${total_cost:.6f} ({prs_with_metadata_cost} from metadata, {prs_with_comment_cost} from comments)")
         else:
-            print(f"  No cost data found in PR comments")
+            print(f"  No cost data found")
 
         return total_cost
 

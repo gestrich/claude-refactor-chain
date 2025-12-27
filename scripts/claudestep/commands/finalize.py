@@ -206,6 +206,11 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         # === STEP 3: Create Artifact Metadata ===
         print("\n=== Step 3/3: Creating artifact metadata ===")
 
+        # Get cost information from environment
+        main_cost = float(os.environ.get("MAIN_COST", "0"))
+        summary_cost = float(os.environ.get("SUMMARY_COST", "0"))
+        total_cost = main_cost + summary_cost
+
         metadata = {
             "task_index": int(task_index),
             "task_description": task,
@@ -214,7 +219,10 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
             "reviewer": reviewer,
             "created_at": datetime.utcnow().isoformat() + "Z",
             "workflow_run_id": int(github_run_id) if github_run_id else None,
-            "pr_number": pr_number
+            "pr_number": pr_number,
+            "main_task_cost_usd": main_cost,
+            "pr_summary_cost_usd": summary_cost,
+            "total_cost_usd": total_cost
         }
 
         # Write metadata to file
