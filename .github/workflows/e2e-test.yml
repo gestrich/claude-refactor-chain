@@ -34,6 +34,11 @@ jobs:
         run: |
           pip install pytest pyyaml
 
+      - name: Configure Git
+        run: |
+          git config --global user.name 'ClaudeStep E2E Tests'
+          git config --global user.email 'claudestep-e2e@users.noreply.github.com'
+
       - name: Run E2E tests
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
