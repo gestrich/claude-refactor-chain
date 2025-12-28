@@ -31,7 +31,8 @@ jobs:
           days_back: 7  # Last 7 days of activity
 
       - name: Post to Slack
-        if: steps.stats.outputs.has_statistics == 'true' && env.SLACK_WEBHOOK_URL != ''
+        if: steps.stats.outputs.has_statistics == 'true'
+        continue-on-error: true  # Optional: Slack posting won't fail workflow if webhook not configured
         uses: slackapi/slack-github-action@v2
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -81,7 +82,8 @@ jobs:
       #     days_back: 30
       #
       # - name: Post Project Stats to Slack
-      #   if: steps.project_stats.outputs.has_statistics == 'true' && env.SLACK_WEBHOOK_URL != ''
+      #   if: steps.project_stats.outputs.has_statistics == 'true'
+      #   continue-on-error: true  # Optional: won't fail if webhook not configured
       #   uses: slackapi/slack-github-action@v2
       #   env:
       #     SLACK_WEBHOOK_URL: ${{ secrets.MY_PROJECT_SLACK_WEBHOOK }}
