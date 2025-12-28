@@ -374,7 +374,7 @@ def collect_all_statistics(
         # Multi-project mode - discover all projects
         print("Multi-project mode: discovering projects...")
 
-        from claudestep.commands.discover import find_all_projects
+        from claudestep.cli.commands.discover import find_all_projects
 
         # Get base directory from environment or use default
         base_dir = os.environ.get("CLAUDESTEP_PROJECT_DIR", "claude-step")
