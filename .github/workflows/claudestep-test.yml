@@ -32,3 +32,4 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           project_name: ${{ inputs.project_name }}
+          claude_model: 'claude-3-haiku-20240307'  # Use cheapest model for E2E tests

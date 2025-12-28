@@ -37,6 +37,20 @@ Use an **ephemeral `e2e-test` branch** that is deleted and recreated fresh for e
 
 ## Implementation Phases
 
+- [x] **Phase 0: Use cheapest claude model** ✅ COMPLETED
+
+**What was done:**
+- Identified cheapest model: Claude 3 Haiku (`claude-3-haiku-20240307`) at $0.25 input / $1.25 output per MTok
+- Model support already existed via `claude_model` input parameter in action.yml
+- Updated `.github/workflows/claudestep-test.yml` to specify `claude_model: 'claude-3-haiku-20240307'`
+- Verified YAML syntax and Python imports
+
+**Technical notes:**
+- The application already had full support for custom models via the `claude_model` input (action.yml:23-26)
+- Default model is `claude-sonnet-4-5` ($3/$15 per MTok), so using Haiku saves ~92% on input and ~92% on output costs
+- E2E tests now use the cheapest available model while production users can still specify their preferred model
+- Cost comparison: Haiku 3 ($0.25/$1.25) vs Haiku 3.5 ($1/$5) vs Haiku 4.5 ($1/$5) - Haiku 3 is cheapest
+
 - [ ] **Phase 1: Clean Main Branch**
   - Remove `claude-step/` directory from main
   - Remove test-specific workflows from main (statistics.yml, claudestep-test.yml)
