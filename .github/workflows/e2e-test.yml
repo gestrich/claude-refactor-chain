@@ -32,7 +32,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pytest pyyaml
+          pip install pytest pytest-cov pyyaml
 
       - name: Configure Git
         run: |
