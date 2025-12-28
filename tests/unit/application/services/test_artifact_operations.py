@@ -171,17 +171,16 @@ class TestParseTaskIndexFromName:
         # Assert
         assert result == expected_index
 
-    def test_parse_task_index_returns_none_for_hyphenated_project_names(self):
-        """Should return None for project names with hyphens (regex limitation)
+    def test_parse_task_index_supports_hyphenated_project_names(self):
+        """Should correctly parse task index from project names with hyphens
 
-        Note: The current regex pattern [^-]+ cannot match project names with
-        hyphens. This is a known limitation of the current implementation.
+        Note: The regex pattern .+ supports project names with hyphens.
         """
         # Act
         result = parse_task_index_from_name("task-metadata-my-project-42.json")
 
         # Assert
-        assert result is None  # Regex doesn't support hyphenated project names
+        assert result == 42  # Regex now supports hyphenated project names
 
     @pytest.mark.parametrize(
         "invalid_name",
@@ -347,11 +346,11 @@ class TestFindProjectArtifacts:
         "claudestep.application.services.artifact_operations._get_artifacts_for_run"
     )
     @patch(
-        "claudestep.application.services.artifact_operations._get_workflow_runs_for_branch"
+        "claudestep.application.services.artifact_operations.gh_api_call"
     )
     @patch("claudestep.application.services.pr_operations.get_project_prs")
     def test_find_project_artifacts_deduplicates_artifacts(
-        self, mock_get_prs, mock_get_runs, mock_get_artifacts
+        self, mock_get_prs, mock_gh_api_call, mock_get_artifacts
     ):
         """Should not return duplicate artifacts with same ID"""
         # Arrange
@@ -359,8 +358,13 @@ class TestFindProjectArtifacts:
             {"headRefName": "claude-step-test-1"},
             {"headRefName": "claude-step-test-2"},
         ]
-        # Both branches return workflow runs
-        mock_get_runs.return_value = [{"id": 100, "conclusion": "success"}]
+        # Return two workflow runs with same artifacts (to test deduplication)
+        mock_gh_api_call.return_value = {
+            "workflow_runs": [
+                {"id": 100, "conclusion": "success"},
+                {"id": 101, "conclusion": "success"},
+            ]
+        }
         # Return same artifact from both runs (same ID = duplicate)
         mock_get_artifacts.return_value = [
             {"id": 1, "name": "task-metadata-test-1.json"}
@@ -373,8 +377,8 @@ class TestFindProjectArtifacts:
 
         # Assert
         assert len(result) == 1  # Deduplicated by artifact ID
-        assert mock_get_runs.call_count == 2  # Called for each PR
-        assert mock_get_artifacts.call_count == 2  # Called for each run
+        assert mock_gh_api_call.call_count == 1  # Called once for workflow runs
+        assert mock_get_artifacts.call_count == 2  # Called for each successful run
 
     @patch("claudestep.application.services.artifact_operations.download_artifact_json")
     @patch("claudestep.application.services.artifact_operations.gh_api_call")
