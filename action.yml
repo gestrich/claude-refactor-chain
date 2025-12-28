@@ -117,7 +117,7 @@ runs:
         prompt: ${{ steps.prepare.outputs.claude_prompt }}
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         github_token: ${{ inputs.github_token }}
-        claude_args: '--allowedTools ${{ inputs.claude_allowed_tools }}'
+        claude_args: '--allowedTools ${{ inputs.claude_allowed_tools }} --model ${{ inputs.claude_model }}'
         show_full_output: true
 
     - name: Extract cost from main task
