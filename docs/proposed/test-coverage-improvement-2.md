@@ -184,36 +184,67 @@ Successfully integrated pytest-benchmark for performance monitoring:
 
 ---
 
-### Phase 7: Coverage Improvement for Integration Code
+### Phase 7: Coverage Improvement for Integration Code ✅
 
-- [ ] **Increase coverage of `statistics_collector.py` to 50%+**
+- [x] **Increase coverage of `statistics_collector.py` to 50%+**
 
 **Purpose:** Reduce large coverage gap (currently 15%).
 
-**Current State:**
-- 164/193 lines missed
-- Tested via integration but not unit tests
-- Complex orchestration module
+**Implementation Notes (Completed 2025-12-27):**
 
-**Approach:**
-1. Review `tests/unit/cli/commands/test_statistics.py` (already mocks the collector)
-2. Add direct unit tests for `statistics_collector.py` functions:
-   - `collect_project_statistics()`
-   - `collect_team_member_statistics()`
-   - `collect_all_statistics()`
-3. Mock dependencies: `get_project_prs()`, `find_project_artifacts()`, etc.
-4. Test edge cases: empty data, API failures, parsing errors
+Successfully improved test coverage for `statistics_collector.py` from **15.03% to 82.90%**:
 
-**Dependencies:**
-- Understanding of statistics collection workflow
-- Review `docs/testing-coverage-notes.md` for why this is currently low
+1. **New Test Classes Added** (13 new tests):
+   - **TestCollectProjectCosts** (4 tests):
+     - Test cost collection from artifact metadata
+     - Test fallback to PR comments when metadata unavailable
+     - Test handling of empty artifact lists
+     - Test exception handling during cost collection
 
-**Estimated Effort:** 4-6 hours
+   - **TestCollectTeamMemberStats** (3 tests):
+     - Test basic team member stats collection with merged and open PRs
+     - Test handling of empty PR lists
+     - Test exception handling during API calls
 
-**Acceptance Criteria:**
-- statistics_collector.py coverage > 50%
-- Edge cases tested
-- Integration tests still pass
+   - **TestCollectProjectStats** (3 tests):
+     - Test successful project stats collection with all data
+     - Test handling of missing spec files
+     - Test error handling when in-progress task detection fails
+
+   - **TestCollectAllStatistics** (3 tests):
+     - Test single project statistics collection workflow
+     - Test handling of missing GITHUB_REPOSITORY environment variable
+     - Test config loading error handling
+
+2. **Test Coverage Improvements**:
+   - Added comprehensive mocking using `pytest-mock`
+   - Covered all major code paths in collector functions
+   - Tested error handling and edge cases
+   - Used realistic test data matching actual usage patterns
+
+3. **Technical Details**:
+   - Installed `pytest-mock` as new test dependency
+   - Used proper model classes (`ProjectArtifact`, `TaskMetadata`)
+   - Mocked external dependencies (`run_gh_command`, `find_project_artifacts`, `get_in_progress_task_indices`)
+   - All tests use proper fixtures and follow AAA pattern
+
+4. **Coverage Breakdown**:
+   - **Before:** 29/193 lines covered (15.03%)
+   - **After:** 160/193 lines covered (82.90%)
+   - **Improvement:** +131 lines covered (+67.87 percentage points)
+   - **Lines still uncovered (33 lines):** Mostly multi-project discovery code paths and some error handling branches
+
+5. **Test Suite Status**:
+   - **Total tests:** 506 (up from 493)
+   - **New tests added:** 13
+   - **All tests passing:** ✅
+   - **Overall coverage:** 93.20%
+
+**Acceptance Criteria Met:**
+- ✅ statistics_collector.py coverage > 50% (achieved 82.90%)
+- ✅ Edge cases tested (empty data, API failures, missing files)
+- ✅ Integration tests still pass (all 506 tests passing)
+- ✅ No regressions introduced
 
 ---
 

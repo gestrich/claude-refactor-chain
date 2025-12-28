@@ -578,7 +578,7 @@ This PR was generated using Claude Code with the following costs:
         from claudestep.application.collectors.statistics_collector import extract_cost_from_comment
 
         comment = """## 💰 Cost Breakdown
-        
+
 | Component | Cost |
 | Total | $invalid |
 """
@@ -627,3 +627,333 @@ This PR was generated using Claude Code with the following costs:
 
         # Should show "-" for zero cost
         assert "Cost" in slack_msg
+
+
+class TestCollectProjectCosts:
+    """Test project cost collection"""
+
+    def test_collect_costs_with_metadata(self, mocker):
+        """Test collecting costs from artifact metadata"""
+        from claudestep.application.collectors.statistics_collector import collect_project_costs
+        from claudestep.application.services.artifact_operations import ProjectArtifact, TaskMetadata
+        from datetime import datetime
+
+        # Mock artifact with metadata containing cost
+        metadata = TaskMetadata(
+            task_index=1,
+            task_description="Test task",
+            project="test-project",
+            branch_name="feature/test",
+            reviewer="alice",
+            created_at=datetime(2025, 1, 1),
+            workflow_run_id=123,
+            pr_number=123,
+            total_cost_usd=0.5
+        )
+        artifact = ProjectArtifact(
+            artifact_id=1,
+            artifact_name="test-artifact",
+            workflow_run_id=123,
+            metadata=metadata
+        )
+
+        # Mock find_project_artifacts
+        mock_find = mocker.patch(
+            "claudestep.application.collectors.statistics_collector.find_project_artifacts",
+            return_value=[artifact]
+        )
+
+        cost = collect_project_costs("test-project", "owner/repo", "claudestep")
+
+        assert cost == 0.5
+        mock_find.assert_called_once_with(
+            repo="owner/repo",
+            project="test-project",
+            label="claudestep",
+            pr_state="merged",
+            download_metadata=True
+        )
+
+    def test_collect_costs_from_comments(self, mocker):
+        """Test collecting costs from PR comments when metadata unavailable"""
+        from claudestep.application.collectors.statistics_collector import collect_project_costs
+        from claudestep.application.services.artifact_operations import ProjectArtifact, TaskMetadata
+        from datetime import datetime
+
+        # Mock artifact without cost in metadata
+        metadata = TaskMetadata(
+            task_index=1,
+            task_description="Test task",
+            project="test-project",
+            branch_name="feature/test",
+            reviewer="alice",
+            created_at=datetime(2025, 1, 1),
+            workflow_run_id=456,
+            pr_number=456,
+            total_cost_usd=0.0  # No cost in metadata
+        )
+        artifact = ProjectArtifact(
+            artifact_id=2,
+            artifact_name="test-artifact",
+            workflow_run_id=456,
+            metadata=metadata
+        )
+
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.find_project_artifacts",
+            return_value=[artifact]
+        )
+
+        # Mock gh command to return PR comment with cost
+        comment = """## 💰 Cost Breakdown
+| **Total** | **$0.123456** |
+"""
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.run_gh_command",
+            return_value=comment
+        )
+
+        cost = collect_project_costs("test-project", "owner/repo", "claudestep")
+
+        assert cost == 0.123456
+
+    def test_collect_costs_no_artifacts(self, mocker):
+        """Test collecting costs when no artifacts found"""
+        from claudestep.application.collectors.statistics_collector import collect_project_costs
+
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.find_project_artifacts",
+            return_value=[]
+        )
+
+        cost = collect_project_costs("test-project", "owner/repo", "claudestep")
+
+        assert cost == 0.0
+
+    def test_collect_costs_exception_handling(self, mocker):
+        """Test that exceptions are handled gracefully"""
+        from claudestep.application.collectors.statistics_collector import collect_project_costs
+
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.find_project_artifacts",
+            side_effect=Exception("API error")
+        )
+
+        cost = collect_project_costs("test-project", "owner/repo", "claudestep")
+
+        assert cost == 0.0
+
+
+class TestCollectTeamMemberStats:
+    """Test team member statistics collection"""
+
+    def test_collect_stats_basic(self, mocker):
+        """Test basic team member stats collection"""
+        from claudestep.application.collectors.statistics_collector import collect_team_member_stats
+
+        merged_prs = [
+            {
+                "number": 1,
+                "title": "Fix bug",
+                "mergedAt": "2025-12-01T10:00:00Z",
+                "assignees": [{"login": "alice"}]
+            },
+            {
+                "number": 2,
+                "title": "Add feature",
+                "mergedAt": "2025-12-15T15:00:00Z",
+                "assignees": [{"login": "bob"}]
+            }
+        ]
+
+        open_prs = [
+            {
+                "number": 3,
+                "title": "WIP",
+                "createdAt": "2025-12-20T10:00:00Z",
+                "assignees": [{"login": "alice"}]
+            }
+        ]
+
+        # Mock gh commands
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.run_gh_command",
+            side_effect=[json.dumps(merged_prs), json.dumps(open_prs)]
+        )
+
+        stats = collect_team_member_stats(["alice", "bob"], "owner/repo", days_back=30)
+
+        assert "alice" in stats
+        assert "bob" in stats
+        assert stats["alice"].merged_count >= 1
+        assert stats["alice"].open_count >= 1
+        assert stats["bob"].merged_count >= 1
+
+    def test_collect_stats_empty_prs(self, mocker):
+        """Test stats collection with no PRs"""
+        from claudestep.application.collectors.statistics_collector import collect_team_member_stats
+
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.run_gh_command",
+            return_value=json.dumps([])
+        )
+
+        stats = collect_team_member_stats(["alice"], "owner/repo")
+
+        assert "alice" in stats
+        assert stats["alice"].merged_count == 0
+        assert stats["alice"].open_count == 0
+
+    def test_collect_stats_exception_handling(self, mocker):
+        """Test that exceptions during collection are handled"""
+        from claudestep.application.collectors.statistics_collector import collect_team_member_stats
+
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.run_gh_command",
+            side_effect=Exception("API error")
+        )
+
+        stats = collect_team_member_stats(["alice"], "owner/repo")
+
+        # Should return empty stats but not crash
+        assert "alice" in stats
+        assert stats["alice"].merged_count == 0
+
+
+class TestCollectProjectStats:
+    """Test project statistics collection"""
+
+    def test_collect_stats_success(self, tmp_path, mocker):
+        """Test successful project stats collection"""
+        from claudestep.application.collectors.statistics_collector import collect_project_stats
+
+        # Create spec file
+        spec = tmp_path / "spec.md"
+        spec.write_text("""
+- [x] Task 1
+- [x] Task 2
+- [ ] Task 3
+- [ ] Task 4
+        """)
+
+        # Mock in-progress tasks
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.get_in_progress_task_indices",
+            return_value=[2]
+        )
+
+        # Mock cost collection
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.collect_project_costs",
+            return_value=1.5
+        )
+
+        stats = collect_project_stats("test-project", str(spec), "owner/repo")
+
+        assert stats.project_name == "test-project"
+        assert stats.total_tasks == 4
+        assert stats.completed_tasks == 2
+        assert stats.in_progress_tasks == 1
+        assert stats.pending_tasks == 1
+        assert stats.total_cost_usd == 1.5
+
+    def test_collect_stats_missing_spec(self, mocker):
+        """Test stats collection with missing spec file"""
+        from claudestep.application.collectors.statistics_collector import collect_project_stats
+
+        stats = collect_project_stats("test-project", "/nonexistent/spec.md", "owner/repo")
+
+        assert stats.project_name == "test-project"
+        assert stats.total_tasks == 0
+        assert stats.completed_tasks == 0
+
+    def test_collect_stats_in_progress_error(self, tmp_path, mocker):
+        """Test stats collection when in-progress task detection fails"""
+        from claudestep.application.collectors.statistics_collector import collect_project_stats
+
+        spec = tmp_path / "spec.md"
+        spec.write_text("- [ ] Task 1\n- [x] Task 2")
+
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.get_in_progress_task_indices",
+            side_effect=Exception("API error")
+        )
+
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.collect_project_costs",
+            return_value=0.0
+        )
+
+        stats = collect_project_stats("test-project", str(spec), "owner/repo")
+
+        assert stats.in_progress_tasks == 0
+        assert stats.pending_tasks == 1
+
+
+class TestCollectAllStatistics:
+    """Test full statistics collection"""
+
+    def test_collect_all_single_project(self, tmp_path, mocker):
+        """Test collecting stats for a single project"""
+        from claudestep.application.collectors.statistics_collector import collect_all_statistics
+
+        # Set up environment
+        mocker.patch.dict("os.environ", {"GITHUB_REPOSITORY": "owner/repo"})
+
+        # Create config file
+        config_path = tmp_path / "project1" / "configuration.yml"
+        config_path.parent.mkdir()
+        config_path.write_text("""
+reviewers:
+  - username: alice
+    max_prs: 2
+  - username: bob
+    max_prs: 1
+        """)
+
+        # Create spec file
+        spec_path = tmp_path / "project1" / "spec.md"
+        spec_path.write_text("- [x] Task 1\n- [ ] Task 2")
+
+        # Mock dependencies
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.get_in_progress_task_indices",
+            return_value=[]
+        )
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.collect_project_costs",
+            return_value=0.5
+        )
+        mocker.patch(
+            "claudestep.application.collectors.statistics_collector.run_gh_command",
+            return_value=json.dumps([])
+        )
+
+        report = collect_all_statistics(str(config_path))
+
+        assert len(report.project_stats) == 1
+        assert "project1" in report.project_stats
+        assert len(report.team_stats) == 2
+        assert "alice" in report.team_stats
+        assert "bob" in report.team_stats
+
+    def test_collect_all_no_repository(self, mocker):
+        """Test that missing GITHUB_REPOSITORY returns empty report"""
+        from claudestep.application.collectors.statistics_collector import collect_all_statistics
+
+        mocker.patch.dict("os.environ", {}, clear=True)
+
+        report = collect_all_statistics()
+
+        assert len(report.project_stats) == 0
+        assert len(report.team_stats) == 0
+
+    def test_collect_all_config_error(self, mocker):
+        """Test handling of config loading errors"""
+        from claudestep.application.collectors.statistics_collector import collect_all_statistics
+
+        mocker.patch.dict("os.environ", {"GITHUB_REPOSITORY": "owner/repo"})
+
+        report = collect_all_statistics("/nonexistent/config.yml")
+
+        assert len(report.project_stats) == 0
