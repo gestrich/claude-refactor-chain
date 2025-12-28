@@ -1,0 +1,42 @@
+name: E2E Integration Tests
+
+# This workflow runs the E2E test suite which validates ClaudeStep by testing it
+# against test projects within this repository (recursive workflow pattern).
+#
+# The tests create temporary test projects, trigger the claudestep-test.yml workflow,
+# verify PRs are created correctly, and clean up all test resources.
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_project_name:
+        description: 'Test project name to create and test (optional)'
+        required: false
+
+permissions:
+  contents: write       # Create/delete test projects, commit changes
+  pull-requests: write  # Create/close test PRs
+  actions: read         # Trigger workflows
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pyyaml
+
+      - name: Run E2E tests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ./tests/e2e/run_test.sh

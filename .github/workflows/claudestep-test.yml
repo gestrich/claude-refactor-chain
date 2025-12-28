@@ -1,0 +1,34 @@
+name: ClaudeStep Test Workflow
+
+# This workflow is the TARGET of E2E tests (recursive workflow pattern).
+# E2E tests trigger this workflow manually, which then runs the ClaudeStep action
+# on test projects within this repository. The E2E tests verify that this workflow
+# creates PRs correctly.
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: 'Test project name to process'
+        required: true
+
+permissions:
+  contents: write       # Create branches and commits
+  pull-requests: write  # Create PRs
+  actions: read         # Read workflow status
+
+jobs:
+  run-claudestep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # RECURSIVE PART: Use the action from the current repository
+      # This allows testing the action against itself
+      - name: Run ClaudeStep action
+        uses: ./
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          project_name: ${{ inputs.project_name }}
