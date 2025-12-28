@@ -100,11 +100,10 @@ Test projects are created here during test runs and cleaned up afterwards.
         )
 
     def setup_test_branch(self) -> None:
-        """Complete setup: delete old branch, create fresh one with workflows."""
+        """Complete setup: delete old branch, create fresh one with test workspace."""
         print("Setting up ephemeral E2E test branch...")
         self.delete_remote_branch()
         self.create_fresh_branch()
-        self.create_test_workflows()
         self.create_test_workspace()
         self.push_test_branch()
         print(f"✓ Test branch '{self.test_branch}' ready for testing")

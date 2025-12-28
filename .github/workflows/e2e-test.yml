@@ -17,7 +17,6 @@ permissions:
   contents: write       # Create/delete test projects, commit changes
   pull-requests: write  # Create/close test PRs
   actions: write        # Trigger workflows
-  workflows: write      # Create/update workflows on ephemeral test branch
 
 jobs:
   e2e-tests:
