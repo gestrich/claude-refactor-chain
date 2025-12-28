@@ -18,6 +18,8 @@ permissions:
 jobs:
   statistics:
     runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,11 +33,8 @@ jobs:
           days_back: 7  # Last 7 days of activity
 
       - name: Post to Slack
-        if: steps.stats.outputs.has_statistics == 'true'
-        continue-on-error: true  # Optional: Slack posting won't fail workflow if webhook not configured
+        if: steps.stats.outputs.has_statistics == 'true' && env.SLACK_WEBHOOK_URL != ''
         uses: slackapi/slack-github-action@v2
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         with:
           webhook-type: incoming-webhook
           payload: |
@@ -73,6 +72,8 @@ jobs:
 
       # Example: Per-project statistics
       # Uncomment to generate stats for a specific project only
+      # Note: To check if webhook exists before running, add MY_PROJECT_SLACK_WEBHOOK
+      # to job-level env and update the condition below
       #
       # - name: Generate Project-Specific Statistics
       #   id: project_stats
@@ -84,7 +85,6 @@ jobs:
       #
       # - name: Post Project Stats to Slack
       #   if: steps.project_stats.outputs.has_statistics == 'true'
-      #   continue-on-error: true  # Optional: won't fail if webhook not configured
       #   uses: slackapi/slack-github-action@v2
       #   env:
       #     SLACK_WEBHOOK_URL: ${{ secrets.MY_PROJECT_SLACK_WEBHOOK }}
