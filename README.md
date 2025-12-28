@@ -174,7 +174,7 @@ Review the generated PR, verify it follows your spec, and make any needed fixes.
 | `anthropic_api_key` | Y | - | Anthropic API key for Claude Code |
 | `github_token` | Y | `${{ github.token }}` | GitHub token for PR operations |
 | `project_name` | Y | - | Project folder name under `/claude-step` |
-| `claude_model` | N | `claude-sonnet-4-5` | Claude model to use (sonnet-4-5 or opus-4-5) |
+| `claude_model` | N | `claude-sonnet-4-5` | Claude model to use (e.g., claude-3-haiku-20240307, claude-sonnet-4-5, claude-opus-4-5) |
 | `claude_allowed_tools` | N | `Write,Read,Bash,Edit` | Comma-separated list of tools Claude can use |
 | `base_branch` | N | `main` | Base branch for PRs |
 | `working_directory` | N | `.` | Working directory |
@@ -195,7 +195,10 @@ Review the generated PR, verify it follows your spec, and make any needed fixes.
 
 ### Input Details
 
-**claude_model:** `claude-sonnet-4-5` (recommended, balanced) or `claude-opus-4-5` (highest capability, higher cost)
+**claude_model:** Specify which Claude model to use:
+- `claude-3-haiku-20240307` - Fastest, most cost-effective ($0.25/$1.25 per MTok)
+- `claude-sonnet-4-5` - Recommended, balanced performance and cost (default)
+- `claude-opus-4-5` - Highest capability, higher cost
 
 **claude_allowed_tools:** Available: `Write`, `Read`, `Bash`, `Edit`, `Glob`, `Grep`. Default: `Write,Read,Bash,Edit`
 
