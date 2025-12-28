@@ -271,27 +271,55 @@ E2E tests should NOT test:
 
 **Expected Result**: Runtime drops from ~8-10m (Phase 0) to ~4-5m (Phase 1) by eliminating 2 redundant workflow runs
 
-### Phase 2: Fix Reviewer Capacity Bug (2-4 hours)
+### Phase 2: Fix Reviewer Capacity Bug (2-4 hours) ✅ COMPLETED
 **Goal**: Understand why maxOpenPRs isn't working
 
-1. **Investigate the ClaudeStep workflow logic**:
-   - Check how `prepare` step reads configuration
-   - Verify `maxOpenPRs` is passed to capacity check
-   - Check if workflow is designed to create multiple PRs per run
+**Status**: Completed on 2025-12-28
 
-2. **Determine expected behavior**:
-   - Should one workflow run create multiple PRs up to capacity?
-   - Or should it create one PR per run and rely on re-triggering?
+**Investigation Findings**:
 
-3. **Fix the bug**:
-   - If capacity logic is broken, fix it in `src/claudestep/prepare.py`
-   - If test expectations are wrong, update the test
+The test was expecting incorrect behavior. After investigating the ClaudeStep workflow architecture:
 
-4. **Re-enable the test**:
-   - Remove `pytest.skip()`
-   - Verify it passes consistently
+1. **Workflow Design** (action.yml):
+   - Each workflow run executes: prepare → claude_code → finalize → summary
+   - The workflow creates **ONE PR per run** (by design)
+   - The prepare step finds ONE task, creates ONE branch, and runs Claude Code once
 
-**Result**: Reviewer capacity feature works correctly, test validates it
+2. **Reviewer Capacity Logic** (reviewer_management.py):
+   - `find_available_reviewer()` checks open PRs against `maxOpenPRs` configuration
+   - Returns `None` (no capacity) when reviewer has reached their limit
+   - The capacity check works correctly - unit tests confirm this
+
+3. **Expected Behavior**:
+   - **First workflow run**: Creates PR #1 (reviewer: 1/2 open PRs)
+   - **Second workflow run**: Creates PR #2 (reviewer: 2/2 open PRs - at capacity)
+   - **Third workflow run**: Skips PR creation (reviewer at capacity, workflow returns early)
+
+**Changes Made**:
+
+1. **Fixed test_reviewer_capacity_limits** ✅:
+   - Removed the `pytest.skip()` marker - test is now active
+   - Updated test to trigger workflow **3 times** (not just once)
+   - First run: verify PR #1 is created
+   - Second run: verify PR #2 is created
+   - Third run: verify PR #3 is NOT created (capacity limit reached)
+   - Added clear documentation explaining the one-PR-per-run behavior
+
+2. **Root Cause**:
+   - The "bug" was actually in the test expectations, not the ClaudeStep code
+   - The test incorrectly expected a single workflow run to create 2 PRs
+   - The capacity checking logic in `reviewer_management.py` works correctly
+
+**Technical Notes**:
+- No changes to production code were needed - the capacity logic was already working correctly
+- Unit tests in `test_reviewer_management.py` comprehensively verify capacity checking
+- The E2E test now correctly validates the end-to-end workflow behavior
+- Each workflow run is independent and creates at most 1 PR
+
+**Files Modified**:
+- `tests/e2e/test_workflow_e2e.py` - Fixed test expectations, removed skip marker, added 3 workflow runs
+
+**Expected Result**: Test now correctly validates that reviewer capacity limits are respected across multiple workflow runs
 
 ### Phase 3: Enhance Statistics Testing (1 hour)
 **Goal**: Ensure comprehensive statistics test coverage
@@ -387,12 +415,13 @@ E2E tests should NOT test:
 
 | Metric | Before | After Phase 0 | After Phase 1 | After Phase 2 |
 |--------|--------|---------------|---------------|---------------|
-| Total Runtime | 25m 34s | ~8-10m | ~4-5m ✅ | ~4-5m |
-| Test Count | 9 tests | 6 tests (3 stats → 1) | 4 tests ✅ | 5 tests |
-| Failures | 4 | 0 | 0 ✅ | 0 |
-| Skipped | 1 | 2 | 2 ✅ | 1 |
-| Statistics Coverage | Broken (timeouts) | Working E2E | Working E2E ✅ | E2E + unit tests |
-| Coverage Focus | Mixed | Improved | Integration only ✅ | Complete |
+| Total Runtime | 25m 34s | ~8-10m | ~4-5m ✅ | ~10-12m (3 extra workflow runs) ✅ |
+| Test Count | 9 tests | 6 tests (3 stats → 1) | 4 tests ✅ | 4 tests ✅ |
+| Failures | 4 | 0 | 0 ✅ | 0 ✅ |
+| Skipped | 1 | 2 | 2 ✅ | 1 ✅ |
+| Reviewer Capacity Test | Failing | Skipped | Skipped ✅ | Working ✅ |
+| Statistics Coverage | Broken (timeouts) | Working E2E | Working E2E ✅ | Working E2E ✅ |
+| Coverage Focus | Mixed | Improved | Integration only ✅ | Integration only ✅ |
 
 ## Risk Assessment
 

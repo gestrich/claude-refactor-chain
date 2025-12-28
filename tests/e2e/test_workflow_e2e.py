@@ -127,7 +127,12 @@ def test_reviewer_capacity_limits(
     """Test that ClaudeStep respects reviewer capacity limits.
 
     This test creates a project with multiple tasks and a reviewer capacity
-    limit, then verifies that the workflow only creates PRs up to the limit.
+    limit of 2, then verifies that:
+    1. The workflow creates PRs up to the capacity limit (2 PRs)
+    2. The workflow skips PR creation when reviewer is at capacity
+
+    Note: Each workflow run creates ONE PR. The workflow must be triggered
+    multiple times to create multiple PRs up to the capacity limit.
 
     Args:
         gh: GitHub helper fixture
@@ -135,8 +140,6 @@ def test_reviewer_capacity_limits(
         project_id: Unique project ID fixture
         cleanup_prs: PR cleanup fixture
     """
-    pytest.skip("Temporarily skipped - test reveals a bug in maxOpenPRs logic that needs investigation")
-
     # Create a project with multiple tasks and capacity limit of 2
     spec_content = """# Test Project Spec
 
@@ -163,33 +166,74 @@ def test_reviewer_capacity_limits(
         # Commit and push the test project
         project_manager.commit_and_push_project(project_name, branch="e2e-test")
 
-        # Trigger the workflow
+        # === First workflow run: should create PR for task 1 ===
         gh.trigger_workflow(
             workflow_name="claudestep-test.yml",
             inputs={"project_name": project_name},
             ref="e2e-test"
         )
-
-        # Wait for workflow completion
         time.sleep(5)
-        gh.wait_for_workflow_completion(
+        workflow_run_1 = gh.wait_for_workflow_completion(
             workflow_name="claudestep-test.yml",
             timeout=600
         )
+        assert workflow_run_1["conclusion"] == "success", \
+            "First workflow run should succeed"
 
-        # Check how many PRs were created
-        # With max_prs_per_reviewer=2, only 2 PRs should be created
+        # Verify first PR was created
+        pr1 = gh.get_pull_request(f"claude-step-{project_name}-1")
+        assert pr1 is not None, "First PR should be created"
+        cleanup_prs.append(pr1["number"])
+
+        # === Second workflow run: should create PR for task 2 ===
+        gh.trigger_workflow(
+            workflow_name="claudestep-test.yml",
+            inputs={"project_name": project_name},
+            ref="e2e-test"
+        )
+        time.sleep(5)
+        workflow_run_2 = gh.wait_for_workflow_completion(
+            workflow_name="claudestep-test.yml",
+            timeout=600
+        )
+        assert workflow_run_2["conclusion"] == "success", \
+            "Second workflow run should succeed"
+
+        # Verify second PR was created
+        pr2 = gh.get_pull_request(f"claude-step-{project_name}-2")
+        assert pr2 is not None, "Second PR should be created"
+        cleanup_prs.append(pr2["number"])
+
+        # === Third workflow run: should NOT create PR (at capacity) ===
+        gh.trigger_workflow(
+            workflow_name="claudestep-test.yml",
+            inputs={"project_name": project_name},
+            ref="e2e-test"
+        )
+        time.sleep(5)
+        workflow_run_3 = gh.wait_for_workflow_completion(
+            workflow_name="claudestep-test.yml",
+            timeout=600
+        )
+        # Workflow should still succeed, but not create a PR
+        assert workflow_run_3["conclusion"] == "success", \
+            "Third workflow run should succeed (but not create PR)"
+
+        # Verify third PR was NOT created (reviewer at capacity)
+        pr3 = gh.get_pull_request(f"claude-step-{project_name}-3")
+        assert pr3 is None, \
+            "Third PR should NOT be created (reviewer at capacity: 2/2)"
+
+        # Verify only 2 PRs exist (respecting capacity limit)
         created_prs = []
         for i in range(1, 5):  # Check for tasks 1-4
             branch = f"claude-step-{project_name}-{i}"
             pr = gh.get_pull_request(branch)
             if pr:
                 created_prs.append(pr)
-                cleanup_prs.append(pr["number"])
 
-        # Verify only 2 PRs were created (respecting capacity limit)
         assert len(created_prs) == 2, \
-            f"Expected 2 PRs (capacity limit), but found {len(created_prs)}"
+            f"Expected exactly 2 PRs (capacity limit), but found {len(created_prs)}"
 
         # Clean up branches
         for i in range(1, len(created_prs) + 1):
