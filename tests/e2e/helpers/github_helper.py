@@ -25,7 +25,7 @@ class GitHubHelper:
         self,
         workflow_name: str,
         inputs: Dict[str, str],
-        ref: str = "main"
+        ref: str = "e2e-test"
     ) -> None:
         """Trigger a GitHub workflow manually.
 
@@ -45,7 +45,7 @@ class GitHubHelper:
     def get_latest_workflow_run(
         self,
         workflow_name: str,
-        branch: str = "main"
+        branch: str = "e2e-test"
     ) -> Optional[Dict[str, Any]]:
         """Get the latest workflow run for a given workflow.
 

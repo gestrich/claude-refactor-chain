@@ -98,7 +98,7 @@ class TestProjectManager:
     def commit_and_push_project(
         self,
         project_name: str,
-        branch: str = "main"
+        branch: str = "e2e-test"
     ) -> None:
         """Commit and push a test project to the repository.
 
@@ -133,7 +133,7 @@ class TestProjectManager:
     def remove_and_commit_project(
         self,
         project_name: str,
-        branch: str = "main"
+        branch: str = "e2e-test"
     ) -> None:
         """Remove a test project and commit the removal.
 

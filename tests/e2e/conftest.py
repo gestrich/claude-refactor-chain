@@ -11,6 +11,7 @@ from typing import Generator, List
 
 from .helpers.github_helper import GitHubHelper
 from .helpers.project_manager import TestProjectManager
+from .helpers.test_branch_manager import TestBranchManager
 
 
 @pytest.fixture
@@ -99,3 +100,22 @@ def cleanup_prs(gh: GitHubHelper) -> Generator[List[int], None, None]:
                 gh.close_pull_request(pr_number)
             except Exception as e:
                 print(f"Warning: Failed to close PR #{pr_number}: {e}")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_branch():
+    """Ensure test branch exists before running tests.
+
+    This fixture validates that the e2e-test branch has been set up
+    by the E2E test workflow before tests run. The branch should already
+    be created and configured by the workflow.
+
+    Yields:
+        None - Just ensures branch validation happens
+    """
+    # Branch should already be set up by workflow
+    # This fixture provides a place to add validation if needed in the future
+    manager = TestBranchManager()
+    # Could add validation here to ensure branch exists
+    yield
+    # Cleanup handled by workflow

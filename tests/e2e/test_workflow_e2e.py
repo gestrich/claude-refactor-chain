@@ -40,13 +40,13 @@ def test_basic_workflow_creates_pr(
         cleanup_prs: PR cleanup fixture
     """
     # Commit and push the test project
-    project_manager.commit_and_push_project(test_project, branch="main")
+    project_manager.commit_and_push_project(test_project, branch="e2e-test")
 
     # Trigger the claudestep-test workflow
     gh.trigger_workflow(
         workflow_name="claudestep-test.yml",
         inputs={"project_name": test_project},
-        ref="main"
+        ref="e2e-test"
     )
 
     # Wait a moment for workflow to start
@@ -80,7 +80,7 @@ def test_basic_workflow_creates_pr(
     assert pr["body"], "PR should have a body/description"
 
     # Clean up: remove test project from repository
-    project_manager.remove_and_commit_project(test_project, branch="main")
+    project_manager.remove_and_commit_project(test_project, branch="e2e-test")
 
     # Clean up: delete the PR branch
     gh.delete_branch(expected_branch)
@@ -104,13 +104,13 @@ def test_pr_has_ai_summary(
         cleanup_prs: PR cleanup fixture
     """
     # Commit and push the test project
-    project_manager.commit_and_push_project(test_project, branch="main")
+    project_manager.commit_and_push_project(test_project, branch="e2e-test")
 
     # Trigger the workflow
     gh.trigger_workflow(
         workflow_name="claudestep-test.yml",
         inputs={"project_name": test_project},
-        ref="main"
+        ref="e2e-test"
     )
 
     # Wait for workflow completion
@@ -141,7 +141,7 @@ def test_pr_has_ai_summary(
     assert has_summary, "PR should have an AI-generated summary comment"
 
     # Clean up
-    project_manager.remove_and_commit_project(test_project, branch="main")
+    project_manager.remove_and_commit_project(test_project, branch="e2e-test")
     gh.delete_branch(expected_branch)
 
 
@@ -163,13 +163,13 @@ def test_pr_has_cost_information(
         cleanup_prs: PR cleanup fixture
     """
     # Commit and push the test project
-    project_manager.commit_and_push_project(test_project, branch="main")
+    project_manager.commit_and_push_project(test_project, branch="e2e-test")
 
     # Trigger the workflow
     gh.trigger_workflow(
         workflow_name="claudestep-test.yml",
         inputs={"project_name": test_project},
-        ref="main"
+        ref="e2e-test"
     )
 
     # Wait for workflow completion
@@ -203,7 +203,7 @@ def test_pr_has_cost_information(
     assert has_cost_info, "PR should have cost/usage information in comments"
 
     # Clean up
-    project_manager.remove_and_commit_project(test_project, branch="main")
+    project_manager.remove_and_commit_project(test_project, branch="e2e-test")
     gh.delete_branch(expected_branch)
 
 
@@ -248,13 +248,13 @@ def test_reviewer_capacity_limits(
 
     try:
         # Commit and push the test project
-        project_manager.commit_and_push_project(project_name, branch="main")
+        project_manager.commit_and_push_project(project_name, branch="e2e-test")
 
         # Trigger the workflow
         gh.trigger_workflow(
             workflow_name="claudestep-test.yml",
             inputs={"project_name": project_name},
-            ref="main"
+            ref="e2e-test"
         )
 
         # Wait for workflow completion
@@ -285,7 +285,7 @@ def test_reviewer_capacity_limits(
 
     finally:
         # Clean up: remove test project
-        project_manager.remove_and_commit_project(project_name, branch="main")
+        project_manager.remove_and_commit_project(project_name, branch="e2e-test")
 
 
 def test_merge_triggered_workflow(
@@ -350,13 +350,13 @@ def test_workflow_handles_empty_spec(
 
     try:
         # Commit and push the test project
-        project_manager.commit_and_push_project(project_name, branch="main")
+        project_manager.commit_and_push_project(project_name, branch="e2e-test")
 
         # Trigger the workflow
         gh.trigger_workflow(
             workflow_name="claudestep-test.yml",
             inputs={"project_name": project_name},
-            ref="main"
+            ref="e2e-test"
         )
 
         # Wait for workflow completion
