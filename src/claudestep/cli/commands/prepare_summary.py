@@ -44,7 +44,8 @@ def cmd_prepare_summary(args: argparse.Namespace, gh: GitHubActionsHelper) -> in
         workflow_url = f"https://github.com/{repo}/actions/runs/{run_id}"
 
         # Load prompt template
-        template_path = os.path.join(action_path, "scripts/claudestep/prompts/summary_prompt.md")
+        # Use new resources path in src/claudestep/resources/prompts/
+        template_path = os.path.join(action_path, "src/claudestep/resources/prompts/summary_prompt.md")
 
         try:
             with open(template_path, "r") as f:
