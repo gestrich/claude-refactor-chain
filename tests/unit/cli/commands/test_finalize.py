@@ -664,3 +664,317 @@ class TestCmdFinalize:
                                     assert result == 0
                                     expected_url = f"https://x-access-token:{mock_env['GH_TOKEN']}@github.com/{mock_env['GITHUB_REPOSITORY']}.git"
                                     assert call(["remote", "set-url", "origin", expected_url]) in mock_git.call_args_list
+
+    def test_finalization_creates_git_exclude_file_when_missing(self, args, mock_gh, mock_env):
+        """Should create .git/info/exclude file when it doesn't exist"""
+        # Arrange
+        with patch.dict("os.environ", mock_env):
+            with patch("claudestep.cli.commands.finalize.run_git_command") as mock_git:
+                with patch("claudestep.cli.commands.finalize.run_gh_command") as mock_gh_cmd:
+                    with patch("claudestep.cli.commands.finalize.mark_task_complete"):
+                        with patch("os.path.exists") as mock_exists:
+                            with patch("os.getcwd") as mock_cwd:
+                                with patch("os.makedirs") as mock_makedirs:
+                                    with patch("builtins.open", mock_open()) as mock_file:
+                                        # Setup mocks
+                                        mock_cwd.return_value = "/workspace"
+
+                                        def exists_side_effect(path):
+                                            if path == "/workspace/.action":
+                                                return True
+                                            if path.endswith(".git/info/exclude"):
+                                                return False  # File doesn't exist, trigger FileNotFoundError
+                                            return False
+
+                                        mock_exists.side_effect = exists_side_effect
+
+                                        # Configure mock_open to raise FileNotFoundError on read
+                                        read_mock = mock_open()
+                                        read_mock.side_effect = FileNotFoundError()
+
+                                        def open_side_effect(path, mode="r"):
+                                            if mode == "r" and path.endswith(".git/info/exclude"):
+                                                raise FileNotFoundError()
+                                            return mock_open()(path, mode)
+
+                                        mock_file.side_effect = open_side_effect
+
+                                        mock_git.side_effect = [
+                                            None, None, "", "1", None, None, "", None
+                                        ]
+                                        mock_gh_cmd.side_effect = [
+                                            "https://github.com/owner/repo/pull/42",
+                                            json.dumps({"number": 42})
+                                        ]
+
+                                        # Act
+                                        result = cmd_finalize(args, mock_gh)
+
+                                        # Assert
+                                        assert result == 0
+                                        # Verify directory was created
+                                        mock_makedirs.assert_called()
+                                        # Verify file was opened for writing
+                                        write_calls = [c for c in mock_file.call_args_list if len(c[0]) > 1 and c[0][1] == "w"]
+                                        assert any(".git/info/exclude" in str(c) for c in write_calls)
+
+    def test_finalization_handles_no_staged_changes_after_add(self, args, mock_gh, mock_env):
+        """Should detect when no changes remain after git add"""
+        # Arrange
+        with patch.dict("os.environ", mock_env):
+            with patch("claudestep.cli.commands.finalize.run_git_command") as mock_git:
+                with patch("claudestep.cli.commands.finalize.run_gh_command") as mock_gh_cmd:
+                    with patch("claudestep.cli.commands.finalize.mark_task_complete"):
+                        with patch("os.path.exists") as mock_exists:
+                            with patch("os.getcwd") as mock_cwd:
+                                with patch("builtins.open", mock_open()):
+                                    # Setup mocks
+                                    mock_cwd.return_value = "/workspace"
+                                    mock_exists.return_value = False
+                                    mock_git.side_effect = [
+                                        None,  # config user.name
+                                        None,  # config user.email
+                                        "M  file.py",  # status --porcelain (has changes)
+                                        None,  # add -A
+                                        "",  # diff --cached --name-only (NO staged changes - already committed by Claude Code)
+                                        "1",  # rev-list --count
+                                        None,  # remote set-url
+                                        None,  # add spec
+                                        "",  # status --porcelain
+                                        None,  # push
+                                    ]
+                                    mock_gh_cmd.side_effect = [
+                                        "https://github.com/owner/repo/pull/42",
+                                        json.dumps({"number": 42})
+                                    ]
+
+                                    # Act
+                                    result = cmd_finalize(args, mock_gh)
+
+                                    # Assert
+                                    assert result == 0
+                                    # Should not create a commit since no staged changes
+                                    commit_calls = [c for c in mock_git.call_args_list if "commit" in c[0][0]]
+                                    assert len(commit_calls) == 0
+
+    def test_finalization_handles_rev_list_value_error(self, args, mock_gh, mock_env):
+        """Should handle ValueError when parsing commit count"""
+        # Arrange
+        with patch.dict("os.environ", mock_env):
+            with patch("claudestep.cli.commands.finalize.run_git_command") as mock_git:
+                with patch("claudestep.cli.commands.finalize.run_gh_command") as mock_gh_cmd:
+                    with patch("claudestep.cli.commands.finalize.mark_task_complete"):
+                        with patch("os.path.exists") as mock_exists:
+                            with patch("os.getcwd") as mock_cwd:
+                                with patch("builtins.open", mock_open()):
+                                    # Setup mocks
+                                    mock_cwd.return_value = "/workspace"
+                                    mock_exists.return_value = False
+                                    mock_git.side_effect = [
+                                        None,  # config user.name
+                                        None,  # config user.email
+                                        "",  # status --porcelain (no changes)
+                                        "invalid",  # rev-list --count (invalid value)
+                                        None,  # remote set-url
+                                        None,  # add spec
+                                        "M  spec.md",  # status --porcelain (spec changed)
+                                        None,  # commit for spec
+                                        None,  # push
+                                    ]
+                                    mock_gh_cmd.side_effect = [
+                                        "https://github.com/owner/repo/pull/42",
+                                        json.dumps({"number": 42})
+                                    ]
+
+                                    # Act
+                                    result = cmd_finalize(args, mock_gh)
+
+                                    # Assert
+                                    assert result == 0
+                                    # Should treat as 0 commits and create a new commit for spec
+                                    spec_commit_call = [c for c in mock_git.call_args_list
+                                                       if "commit" in c[0][0] and "Mark task complete" in str(c)]
+                                    assert len(spec_commit_call) > 0
+
+    def test_finalization_amends_commit_when_spec_changed_with_existing_commit(self, args, mock_gh, mock_env):
+        """Should amend existing commit when spec.md changes and commits exist"""
+        # Arrange
+        with patch.dict("os.environ", mock_env):
+            with patch("claudestep.cli.commands.finalize.run_git_command") as mock_git:
+                with patch("claudestep.cli.commands.finalize.run_gh_command") as mock_gh_cmd:
+                    with patch("claudestep.cli.commands.finalize.mark_task_complete"):
+                        with patch("os.path.exists") as mock_exists:
+                            with patch("os.getcwd") as mock_cwd:
+                                with patch("builtins.open", mock_open()):
+                                    # Setup mocks
+                                    mock_cwd.return_value = "/workspace"
+                                    mock_exists.return_value = False
+                                    mock_git.side_effect = [
+                                        None,  # config user.name
+                                        None,  # config user.email
+                                        "M  file.py",  # status --porcelain (has changes)
+                                        None,  # add -A
+                                        "file.py",  # diff --cached --name-only (has staged)
+                                        None,  # commit
+                                        "1",  # rev-list --count (1 commit exists)
+                                        None,  # remote set-url
+                                        None,  # add spec
+                                        "M  spec.md",  # status --porcelain (spec changed)
+                                        None,  # commit --amend --no-edit
+                                        None,  # push
+                                    ]
+                                    mock_gh_cmd.side_effect = [
+                                        "https://github.com/owner/repo/pull/42",
+                                        json.dumps({"number": 42})
+                                    ]
+
+                                    # Act
+                                    result = cmd_finalize(args, mock_gh)
+
+                                    # Assert
+                                    assert result == 0
+                                    # Should amend the existing commit
+                                    assert call(["commit", "--amend", "--no-edit"]) in mock_git.call_args_list
+
+    def test_finalization_creates_separate_commit_when_amend_fails(self, args, mock_gh, mock_env):
+        """Should create separate commit when amend fails"""
+        # Arrange
+        with patch.dict("os.environ", mock_env):
+            with patch("claudestep.cli.commands.finalize.run_git_command") as mock_git:
+                with patch("claudestep.cli.commands.finalize.run_gh_command") as mock_gh_cmd:
+                    with patch("claudestep.cli.commands.finalize.mark_task_complete"):
+                        with patch("os.path.exists") as mock_exists:
+                            with patch("os.getcwd") as mock_cwd:
+                                with patch("builtins.open", mock_open()):
+                                    # Setup mocks
+                                    mock_cwd.return_value = "/workspace"
+                                    mock_exists.return_value = False
+
+                                    git_calls = [
+                                        None,  # config user.name
+                                        None,  # config user.email
+                                        "M  file.py",  # status --porcelain (has changes)
+                                        None,  # add -A
+                                        "file.py",  # diff --cached --name-only (has staged)
+                                        None,  # commit
+                                        "1",  # rev-list --count (1 commit exists)
+                                        None,  # remote set-url
+                                        None,  # add spec
+                                        "M  spec.md",  # status --porcelain (spec changed)
+                                    ]
+
+                                    def git_side_effect(args_list):
+                                        if args_list[0] == "commit" and "--amend" in args_list:
+                                            raise GitError("Amend failed")
+                                        if git_calls:
+                                            return git_calls.pop(0)
+                                        return None
+
+                                    mock_git.side_effect = git_side_effect
+                                    mock_gh_cmd.side_effect = [
+                                        "https://github.com/owner/repo/pull/42",
+                                        json.dumps({"number": 42})
+                                    ]
+
+                                    # Act
+                                    result = cmd_finalize(args, mock_gh)
+
+                                    # Assert
+                                    assert result == 0
+                                    # Should fall back to creating a separate commit
+                                    separate_commit_call = [c for c in mock_git.call_args_list
+                                                           if "commit" in c[0][0] and "Mark task complete" in str(c)]
+                                    assert len(separate_commit_call) > 0
+
+    def test_finalization_creates_commit_for_spec_when_no_prior_commits(self, args, mock_gh, mock_env):
+        """Should create new commit for spec.md when no prior commits exist"""
+        # Arrange
+        with patch.dict("os.environ", mock_env):
+            with patch("claudestep.cli.commands.finalize.run_git_command") as mock_git:
+                with patch("claudestep.cli.commands.finalize.run_gh_command") as mock_gh_cmd:
+                    with patch("claudestep.cli.commands.finalize.mark_task_complete"):
+                        with patch("os.path.exists") as mock_exists:
+                            with patch("os.getcwd") as mock_cwd:
+                                with patch("builtins.open", mock_open()):
+                                    # Setup mocks
+                                    mock_cwd.return_value = "/workspace"
+                                    mock_exists.return_value = False
+                                    mock_git.side_effect = [
+                                        None,  # config user.name
+                                        None,  # config user.email
+                                        "",  # status --porcelain (no initial changes)
+                                        "0",  # rev-list --count (no commits)
+                                        None,  # remote set-url
+                                        None,  # add spec
+                                        "M  spec.md",  # status --porcelain (spec changed)
+                                        None,  # commit for spec
+                                        None,  # push
+                                    ]
+                                    mock_gh_cmd.side_effect = [
+                                        "https://github.com/owner/repo/pull/42",
+                                        json.dumps({"number": 42})
+                                    ]
+
+                                    # Act
+                                    result = cmd_finalize(args, mock_gh)
+
+                                    # Assert
+                                    assert result == 0
+                                    # Should create a new commit for spec (not amend)
+                                    commit_call = [c for c in mock_git.call_args_list
+                                                  if "commit" in c[0][0] and "Mark task complete" in str(c)]
+                                    assert len(commit_call) > 0
+                                    # Should not attempt amend
+                                    amend_call = [c for c in mock_git.call_args_list if "--amend" in str(c)]
+                                    assert len(amend_call) == 0
+
+    def test_finalization_uses_default_pr_body_when_template_missing(self, args, mock_gh, mock_env):
+        """Should use default PR body when template file doesn't exist"""
+        # Arrange
+        with patch.dict("os.environ", mock_env):
+            with patch("claudestep.cli.commands.finalize.run_git_command") as mock_git:
+                with patch("claudestep.cli.commands.finalize.run_gh_command") as mock_gh_cmd:
+                    with patch("claudestep.cli.commands.finalize.mark_task_complete"):
+                        with patch("os.path.exists") as mock_exists:
+                            with patch("os.getcwd") as mock_cwd:
+                                with patch("os.remove") as mock_remove:
+                                    with patch("builtins.open", mock_open()) as mock_file:
+                                        with patch("tempfile.NamedTemporaryFile") as mock_temp:
+                                            # Setup mocks
+                                            mock_cwd.return_value = "/workspace"
+
+                                            def exists_side_effect(path):
+                                                if path == "/workspace/.action":
+                                                    return False
+                                                if path == mock_env["PR_TEMPLATE_PATH"]:
+                                                    return False  # Template doesn't exist
+                                                if path.endswith("temp_pr_body") or path == "/tmp/temp_pr_body":
+                                                    return True
+                                                return False
+
+                                            mock_exists.side_effect = exists_side_effect
+
+                                            temp_file_mock = MagicMock()
+                                            temp_file_mock.name = "/tmp/temp_pr_body"
+                                            temp_file_mock.__enter__ = Mock(return_value=temp_file_mock)
+                                            temp_file_mock.__exit__ = Mock(return_value=False)
+                                            mock_temp.return_value = temp_file_mock
+
+                                            mock_git.side_effect = [
+                                                None, None, "", "1", None, None, "", None
+                                            ]
+                                            mock_gh_cmd.side_effect = [
+                                                "https://github.com/owner/repo/pull/42",
+                                                json.dumps({"number": 42})
+                                            ]
+
+                                            # Act
+                                            result = cmd_finalize(args, mock_gh)
+
+                                            # Assert
+                                            assert result == 0
+                                            # Verify default PR body was written
+                                            write_calls = [c[0][0] for c in temp_file_mock.write.call_args_list]
+                                            assert any("## Task" in str(c) for c in write_calls)
+                                            # Verify temp file was removed
+                                            mock_remove.assert_called_once_with("/tmp/temp_pr_body")

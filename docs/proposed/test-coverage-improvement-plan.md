@@ -35,7 +35,8 @@ These changes reduce code duplication and simplify the testing surface area.
 - `.github/workflows/test.yml` - CI workflow for unit tests
 - `pyproject.toml` - Package configuration with test dependencies
 - Tests run on every push and PR to main branch
-- **486 tests passing** with 0 failures (up from 463)
+- **493 tests passing** with 0 failures (up from 486)
+- **Coverage: 85.03%** (exceeding 70% minimum threshold)
 
 ### Existing Tests (Organized by Layer)
 **Domain Layer:**
@@ -61,7 +62,7 @@ These changes reduce code duplication and simplify the testing surface area.
 **CLI Layer:**
 - `tests/unit/cli/commands/test_prepare_summary.py` - PR summary command (9 tests)
 - `tests/unit/cli/commands/test_prepare.py` - Preparation workflow command (19 tests)
-- `tests/unit/cli/commands/test_finalize.py` - Finalization workflow command (20 tests)
+- `tests/unit/cli/commands/test_finalize.py` - Finalization workflow command (27 tests)
 - `tests/unit/cli/commands/test_discover.py` - Project discovery command (16 tests)
 - `tests/unit/cli/commands/test_discover_ready.py` - Ready project discovery command (18 tests)
 - `tests/unit/cli/commands/test_statistics.py` - Statistics reporting command (15 tests)
@@ -676,7 +677,7 @@ Before committing a test, verify:
     - All tests follow the style guide with Arrange-Act-Assert structure and descriptive names
 
 - [x] **Test finalize.py** ✅ COMPLETE (December 27, 2025) (`tests/unit/cli/commands/test_finalize.py`)
-  - 20 comprehensive tests covering the full finalization workflow
+  - 27 comprehensive tests covering the full finalization workflow (expanded from 20)
   - Tests for early exits (no capacity, no task, missing env vars)
   - Tests for git configuration (.action exclusion, user configuration)
   - Tests for commit workflow (changes detected, no changes, staged files)
@@ -686,9 +687,15 @@ Before committing a test, verify:
   - Tests for output variables and step summary writing
   - Tests for error handling (GitError, GitHubAPIError, unexpected errors)
   - Tests for git remote auth reconfiguration
+  - Tests for .git/info/exclude creation when missing (FileNotFoundError path)
+  - Tests for no staged changes after git add (Claude Code pre-commit scenario)
+  - Tests for ValueError in commit count parsing
+  - Tests for spec.md commit amend scenarios (success, failure, no commits)
+  - Tests for default PR body when template missing
   - **Technical Notes:**
-    - All 20 tests pass with comprehensive coverage of finalize command
-    - Total test count increased from 352 to 372 tests
+    - All 27 tests pass with comprehensive coverage of finalize command (expanded from 20)
+    - Total test count increased from 486 to 493 tests
+    - Coverage of finalize.py improved from 86.36% to 98.70%
     - Tests mock at system boundaries (git, GitHub CLI, file system)
     - Tests verify the 3-step workflow: commit changes, create PR, create artifact
     - Tests verify early exit scenarios don't attempt PR creation
@@ -818,12 +825,25 @@ Before committing a test, verify:
     - Edge cases tested: zero costs, invalid costs, missing optional fields, whitespace inputs
     - All tests follow the style guide with Arrange-Act-Assert structure and descriptive names
 
-### Phase 5: Integration & Quality
+### Phase 5: Integration & Quality ⏳ IN PROGRESS
 
-- [ ] **Improve existing tests**
-  - Review existing tests for additional edge cases and parametrization opportunities
-  - Consider adding more boundary condition tests
-  - Add tests for error scenarios not currently covered
+- [x] **Improve existing tests** ✅ COMPLETE (December 27, 2025)
+  - ✅ Added 7 new tests to `test_finalize.py` for uncovered edge cases
+  - ✅ Tests for .git/info/exclude file creation when missing (lines 82-87)
+  - ✅ Tests for no staged changes after add scenario (line 105)
+  - ✅ Tests for ValueError when parsing rev-list count (lines 116-117)
+  - ✅ Tests for spec.md commit scenarios: amend success, amend failure, no prior commits (lines 134-145)
+  - ✅ Tests for PR template missing scenario (lines 165-166)
+  - ✅ Tests for temp file cleanup (line 194)
+  - **Technical Notes:**
+    - Test count increased from 486 to 493 tests (all passing)
+    - Coverage improved from 83.84% to **85.03%**
+    - finalize.py coverage improved from 86.36% to **98.70%** (only 2 lines uncovered)
+    - All new tests follow the style guide with Arrange-Act-Assert structure
+    - Tests use proper mocking at system boundaries (os.remove, os.makedirs, tempfile)
+    - Complex mock scenarios handled with side_effect functions for git commands
+    - Edge cases tested: FileNotFoundError handling, amend failures with fallback, invalid commit count parsing
+    - Tests verify both success and failure paths for spec.md commit workflows
 
 - [ ] **Add integration test coverage**
   - Test full prepare → finalize workflow (mocked)
@@ -835,7 +855,7 @@ Before committing a test, verify:
 - [x] **Set up coverage reporting** ✅ COMPLETE (December 27, 2025)
   - ✅ Configure pytest-cov to track coverage (added to pytest.ini)
   - ✅ Add coverage report to CI/CD pipeline
-  - ✅ Set minimum coverage threshold (70% in pyproject.toml and pytest.ini, currently achieving 83.84%)
+  - ✅ Set minimum coverage threshold (70% in pyproject.toml and pytest.ini, currently achieving 85.03%)
   - ✅ Generate HTML coverage reports for local development (htmlcov/ directory)
   - Pending: Add coverage badge to README.md
   - Pending: Identify and document intentionally untested code
@@ -843,12 +863,12 @@ Before committing a test, verify:
     - Added `fail_under = 70` to `[tool.coverage.report]` in pyproject.toml
     - Added coverage options to pytest.ini: `--cov=src/claudestep`, `--cov-report=term-missing`, `--cov-report=html`, `--cov-fail-under=70`
     - Updated CI workflow to generate and upload HTML coverage reports as artifacts
-    - Current coverage: **83.84%** (1603 statements, 259 missed)
+    - Current coverage: **85.03%** (1603 statements, 240 missed - down from 259)
     - Low coverage areas:
       - `statistics_collector.py`: 15.03% (integration logic that's tested via CLI commands)
       - `__main__.py`: 0% (CLI entry point, tested via E2E tests)
       - `parser.py`: 0% (CLI argument parsing, tested via E2E tests)
-      - `finalize.py`: 86.36% (some error paths not covered)
+      - `finalize.py`: 98.70% (excellent coverage with edge cases tested)
     - HTML reports available locally after running `pytest tests/unit/`
     - Coverage reports uploaded to GitHub Actions artifacts for every CI run
 
@@ -1093,7 +1113,7 @@ class TestCheckReviewerCapacity:
 - ✅ Architecture modernization with layered structure
 - ✅ Test structure reorganized to mirror src/ layout
 - ✅ CI workflow added for automated testing
-- ✅ All 486 tests passing (0 failures, up from 112 initially)
+- ✅ All 493 tests passing (0 failures, up from 112 initially)
 - ✅ E2E tests updated and working
 - ✅ Comprehensive tests for `pr_operations.py` (21 test cases)
 - ✅ Comprehensive tests for `task_management.py` (19 test cases)
@@ -1104,7 +1124,7 @@ class TestCheckReviewerCapacity:
 - ✅ Comprehensive tests for `project_detection.py` (17 test cases) - December 27, 2025
 - ✅ Comprehensive tests for `artifact_operations.py` (31 test cases) - December 27, 2025
 - ✅ Comprehensive tests for `prepare.py` (19 test cases) - December 27, 2025
-- ✅ Comprehensive tests for `finalize.py` (20 test cases) - December 27, 2025
+- ✅ Comprehensive tests for `finalize.py` (27 test cases) - December 27, 2025
 - ✅ Comprehensive tests for `discover.py` (16 test cases) - December 27, 2025
 - ✅ Comprehensive tests for `discover_ready.py` (18 test cases) - December 27, 2025
 - ✅ Comprehensive tests for `statistics.py` (15 test cases) - December 27, 2025
