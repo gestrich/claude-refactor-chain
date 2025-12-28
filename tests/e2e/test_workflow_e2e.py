@@ -2,10 +2,14 @@
 
 This module contains E2E integration tests that verify the ClaudeStep workflow
 creates PRs correctly, generates AI summaries, includes cost information, and
-handles reviewer capacity limits.
+handles edge cases like empty specs.
 
 The tests use a recursive workflow pattern where the claude-step repository
 tests itself by triggering the claudestep-test.yml workflow.
+
+Note: These tests have been optimized to reduce redundant workflow executions.
+The main workflow test (test_basic_workflow_end_to_end) validates PR creation,
+AI summaries, and cost information in a single test run.
 """
 
 import time
@@ -16,22 +20,27 @@ from .helpers.github_helper import GitHubHelper
 from .helpers.project_manager import TestProjectManager
 
 
-def test_basic_workflow_creates_pr(
+def test_basic_workflow_end_to_end(
     gh: GitHubHelper,
     project_manager: TestProjectManager,
     test_project: str,
     cleanup_prs: List[int]
 ) -> None:
-    """Test that ClaudeStep workflow creates a PR for the first task.
+    """Test complete ClaudeStep workflow: spec → PR with summary and cost info.
 
-    This test:
-    1. Creates a test project with a spec containing tasks
-    2. Commits and pushes the project to main
-    3. Triggers the claudestep-test.yml workflow
-    4. Waits for workflow completion
-    5. Verifies a PR was created
-    6. Verifies the PR has expected content
-    7. Cleans up test resources
+    This consolidated test verifies the entire E2E workflow by:
+    1. Creating a test project with a spec containing tasks
+    2. Committing and pushing the project to e2e-test branch
+    3. Triggering the claudestep-test.yml workflow
+    4. Waiting for workflow completion
+    5. Verifying a PR was created with expected content
+    6. Verifying the PR has an AI-generated summary comment
+    7. Verifying the PR has cost/usage information
+    8. Cleaning up test resources
+
+    This test replaces three separate tests (test_basic_workflow_creates_pr,
+    test_pr_has_ai_summary, test_pr_has_cost_information) to reduce redundant
+    workflow executions and speed up the E2E test suite.
 
     Args:
         gh: GitHub helper fixture
@@ -73,125 +82,26 @@ def test_basic_workflow_creates_pr(
     # Track PR for cleanup
     cleanup_prs.append(pr["number"])
 
-    # Verify PR has a title
+    # Verify PR has a title and body
     assert pr["title"], "PR should have a title"
-
-    # Verify PR has a body
     assert pr["body"], "PR should have a body/description"
 
-    # Clean up: remove test project from repository
-    project_manager.remove_and_commit_project(test_project, branch="e2e-test")
-
-    # Clean up: delete the PR branch
-    gh.delete_branch(expected_branch)
-
-
-def test_pr_has_ai_summary(
-    gh: GitHubHelper,
-    project_manager: TestProjectManager,
-    test_project: str,
-    cleanup_prs: List[int]
-) -> None:
-    """Test that ClaudeStep adds an AI-generated summary comment to PRs.
-
-    This test verifies that the workflow posts a comment with an AI-generated
-    summary of the changes to the PR.
-
-    Args:
-        gh: GitHub helper fixture
-        project_manager: Test project manager fixture
-        test_project: Test project name from fixture
-        cleanup_prs: PR cleanup fixture
-    """
-    # Commit and push the test project
-    project_manager.commit_and_push_project(test_project, branch="e2e-test")
-
-    # Trigger the workflow
-    gh.trigger_workflow(
-        workflow_name="claudestep-test.yml",
-        inputs={"project_name": test_project},
-        ref="e2e-test"
-    )
-
-    # Wait for workflow completion
-    time.sleep(5)
-    gh.wait_for_workflow_completion(
-        workflow_name="claudestep-test.yml",
-        timeout=600
-    )
-
-    # Get the PR
-    expected_branch = f"claude-step-{test_project}-1"
-    pr = gh.get_pull_request(expected_branch)
-
-    assert pr is not None, "PR should exist"
-    cleanup_prs.append(pr["number"])
-
-    # Get PR comments
+    # Get PR comments for summary and cost verification
     comments = gh.get_pr_comments(pr["number"])
 
-    # Verify there's at least one comment (AI summary)
+    # Verify there's at least one comment
     assert len(comments) > 0, "PR should have at least one comment"
 
-    # Look for AI summary indicators in comments
-    # The AI summary typically mentions "Summary" or similar
+    # Extract comment bodies for analysis
     comment_bodies = [c.get("body", "") for c in comments]
-    has_summary = any("Summary" in body or "Changes" in body for body in comment_bodies)
 
+    # Verify PR has an AI-generated summary comment
+    # The AI summary typically mentions "Summary" or "Changes"
+    has_summary = any("Summary" in body or "Changes" in body for body in comment_bodies)
     assert has_summary, "PR should have an AI-generated summary comment"
 
-    # Clean up
-    project_manager.remove_and_commit_project(test_project, branch="e2e-test")
-    gh.delete_branch(expected_branch)
-
-
-def test_pr_has_cost_information(
-    gh: GitHubHelper,
-    project_manager: TestProjectManager,
-    test_project: str,
-    cleanup_prs: List[int]
-) -> None:
-    """Test that ClaudeStep includes cost information in PR comments.
-
-    This test verifies that the workflow posts cost/usage information
-    for the AI API calls made during PR generation.
-
-    Args:
-        gh: GitHub helper fixture
-        project_manager: Test project manager fixture
-        test_project: Test project name from fixture
-        cleanup_prs: PR cleanup fixture
-    """
-    # Commit and push the test project
-    project_manager.commit_and_push_project(test_project, branch="e2e-test")
-
-    # Trigger the workflow
-    gh.trigger_workflow(
-        workflow_name="claudestep-test.yml",
-        inputs={"project_name": test_project},
-        ref="e2e-test"
-    )
-
-    # Wait for workflow completion
-    time.sleep(5)
-    gh.wait_for_workflow_completion(
-        workflow_name="claudestep-test.yml",
-        timeout=600
-    )
-
-    # Get the PR
-    expected_branch = f"claude-step-{test_project}-1"
-    pr = gh.get_pull_request(expected_branch)
-
-    assert pr is not None, "PR should exist"
-    cleanup_prs.append(pr["number"])
-
-    # Get PR comments
-    comments = gh.get_pr_comments(pr["number"])
-
-    # Look for cost information in comments
+    # Verify PR has cost/usage information
     # Cost info typically includes words like "cost", "tokens", "usage", or "$"
-    comment_bodies = [c.get("body", "") for c in comments]
     has_cost_info = any(
         "cost" in body.lower() or
         "token" in body.lower() or
@@ -199,11 +109,12 @@ def test_pr_has_cost_information(
         "$" in body
         for body in comment_bodies
     )
-
     assert has_cost_info, "PR should have cost/usage information in comments"
 
-    # Clean up
+    # Clean up: remove test project from repository
     project_manager.remove_and_commit_project(test_project, branch="e2e-test")
+
+    # Clean up: delete the PR branch
     gh.delete_branch(expected_branch)
 
 
