@@ -16,7 +16,7 @@ on:
 permissions:
   contents: write       # Create/delete test projects, commit changes
   pull-requests: write  # Create/close test PRs
-  actions: read         # Trigger workflows
+  actions: write        # Trigger workflows
 
 jobs:
   e2e-tests:
