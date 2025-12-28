@@ -68,7 +68,7 @@ def test_basic_workflow_creates_pr(
     pr = gh.get_pull_request(expected_branch)
 
     assert pr is not None, f"PR should be created on branch {expected_branch}"
-    assert pr["state"] == "open", "PR should be open"
+    assert pr["state"] == "OPEN", "PR should be open"
 
     # Track PR for cleanup
     cleanup_prs.append(pr["number"])
