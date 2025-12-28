@@ -10,6 +10,10 @@ on:
         description: 'Base branch for pull requests'
         required: false
         default: 'e2e-test'
+      checkout_ref:
+        description: 'Branch/ref to checkout (defaults to e2e-test)'
+        required: false
+        default: 'e2e-test'
 
 permissions:
   contents: write       # Commit and push changes
@@ -25,7 +29,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: e2e-test
+          ref: ${{ github.event.inputs.checkout_ref || 'e2e-test' }}
 
       - name: Run ClaudeStep action
         uses: ./
