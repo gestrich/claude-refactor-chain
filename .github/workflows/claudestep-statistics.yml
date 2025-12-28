@@ -31,7 +31,7 @@ jobs:
           days_back: 7  # Last 7 days of activity
 
       - name: Post to Slack
-        if: steps.stats.outputs.has_statistics == 'true'
+        if: steps.stats.outputs.has_statistics == 'true' && secrets.SLACK_WEBHOOK_URL != ''
         uses: slackapi/slack-github-action@v2
         with:
           payload: |
@@ -81,7 +81,7 @@ jobs:
       #     days_back: 30
       #
       # - name: Post Project Stats to Slack
-      #   if: steps.project_stats.outputs.has_statistics == 'true'
+      #   if: steps.project_stats.outputs.has_statistics == 'true' && secrets.MY_PROJECT_SLACK_WEBHOOK != ''
       #   uses: slackapi/slack-github-action@v2
       #   with:
       #     payload: |
