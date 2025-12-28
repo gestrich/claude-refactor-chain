@@ -37,6 +37,7 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         with:
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "ClaudeStep Weekly Report",
@@ -88,6 +89,7 @@ jobs:
       #   env:
       #     SLACK_WEBHOOK_URL: ${{ secrets.MY_PROJECT_SLACK_WEBHOOK }}
       #   with:
+      #     webhook-type: incoming-webhook
       #     payload: |
       #       {
       #         "text": "My Project Statistics",
