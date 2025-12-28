@@ -246,16 +246,29 @@ coverage report --show-missing
 coverage html  # Generates htmlcov/index.html
 ```
 
-**Running Integration Tests:**
+**Running End-to-End Tests:**
 
-Integration tests are located in the [demo repository](https://github.com/gestrich/claude-step-demo) at `/tests/integration/`.
+End-to-end integration tests are now located in this repository at `tests/e2e/`. These tests validate the complete ClaudeStep workflow using a recursive pattern where the action tests itself.
 
 ```bash
-cd /path/to/claude-step-demo
-./tests/integration/run_test.sh
+cd /path/to/claude-step
+./tests/e2e/run_test.sh
 ```
 
-Prerequisites: GitHub CLI, Python 3.11+, pytest. See [claude-step-demo/tests/integration/README.md](https://github.com/gestrich/claude-step-demo/blob/main/tests/integration/README.md) for details.
+Prerequisites:
+- GitHub CLI (`gh`) installed and authenticated
+- Python 3.11+ with pytest
+- Repository write access
+- `ANTHROPIC_API_KEY` environment variable or GitHub secret
+
+The E2E tests will:
+- Create temporary test projects in `claude-step/test-*`
+- Trigger the ClaudeStep workflow on itself
+- Verify PRs are created with AI-generated summaries
+- Test reviewer capacity limits
+- Clean up all test resources automatically
+
+See [tests/e2e/README.md](tests/e2e/README.md) for detailed documentation.
 
 **Configuring PR Merge Requirements (Maintainers):**
 

@@ -2,18 +2,29 @@
 
 This guide explains how to run the ClaudeStep end-to-end integration tests.
 
-> **Note:** The E2E tests are located in the demo project at `claude-step-demo/tests/integration/`. See `claude-step-demo/tests/integration/README.md` for the latest documentation.
-
 ## Overview
 
-The e2e tests validate the complete ClaudeStep workflow in a real GitHub environment:
-- Creates test projects in the demo repository
-- Triggers actual GitHub Actions workflows
+The E2E tests are located in this repository at `tests/e2e/` and use a **recursive workflow pattern** where ClaudeStep tests itself. The tests validate the complete ClaudeStep workflow in a real GitHub environment:
+- Creates test projects in the same repository (`claude-step/test-*`)
+- Triggers the `claudestep-test.yml` workflow which runs the action on itself
 - Verifies PRs are created correctly
-- **Verifies AI-generated PR summaries are posted as comments**
+- Verifies AI-generated PR summaries are posted as comments
+- Verifies cost information in PR comments
 - Tests reviewer capacity limits
 - Tests merge trigger functionality
 - Cleans up all created resources
+
+### Recursive Workflow Pattern
+
+The key innovation is that the `claude-step` repository tests itself:
+
+1. **E2E Test Workflow** (`.github/workflows/e2e-test.yml`) runs the test suite
+2. **Tests create** temporary projects in `claude-step/test-project-{id}/`
+3. **Tests trigger** the ClaudeStep Test Workflow (`.github/workflows/claudestep-test.yml`)
+4. **ClaudeStep Test Workflow** runs the action using `uses: ./` (current repository)
+5. **Action creates PRs** in the same repository for the test project tasks
+6. **Tests verify** the PRs were created correctly with summaries
+7. **Tests clean up** all test resources (projects, PRs, branches)
 
 ## Prerequisites
 
@@ -56,9 +67,10 @@ git config --global user.email "your.email@example.com"
 
 ### 4. Repository Access
 
-You need write access to the test repository:
-- Default: `gestrich/claude-step-demo`
-- The tests will create/delete test projects and PRs
+You need write access to the `claude-step` repository:
+- The tests will create/delete test projects in `claude-step/test-*`
+- The tests will create and close test PRs
+- The tests will create and delete test branches
 
 ## Running the Tests
 
@@ -67,103 +79,130 @@ You need write access to the test repository:
 The easiest way to run the tests:
 
 ```bash
-# From the demo repository root
-cd /path/to/claude-step-demo
-./tests/integration/run_test.sh
+# From the claude-step repository root
+cd /path/to/claude-step
+./tests/e2e/run_test.sh
 ```
 
 This script will:
-- Check all prerequisites automatically
-- Install pytest if needed
-- Configure git if needed
-- Run the integration tests with proper settings
+- Check all prerequisites automatically (gh CLI, pytest, Python 3.11+, git config)
+- Optionally check for ANTHROPIC_API_KEY (with user confirmation)
+- Run the E2E test suite with proper settings
 - Display colored output for easy reading
+- Support passing pytest arguments (e.g., `-v`, `-k test_name`, `--pdb`)
 
 ### Option 2: Run pytest Directly
 
 If you prefer to run pytest directly:
 
 ```bash
-# From the demo repository root
-cd /path/to/claude-step-demo
-pytest tests/integration/test_workflow_e2e.py -v -s -m integration
+# From the claude-step repository root
+cd /path/to/claude-step
+pytest tests/e2e/test_workflow_e2e.py -v -s
 ```
 
 **Flags explained:**
 - `-v` - Verbose output (shows test names)
 - `-s` - Show print statements (important for test progress)
-- `-m integration` - Only run tests marked as integration tests
+- `-k <pattern>` - Run only tests matching the pattern
+
+### Running Individual Tests
+
+```bash
+# Run only the workflow test
+pytest tests/e2e/test_workflow_e2e.py -v -s
+
+# Run only the statistics test
+pytest tests/e2e/test_statistics_e2e.py -v -s
+
+# Run a specific test function
+pytest tests/e2e/test_workflow_e2e.py::test_creates_pr_with_summary -v -s
+```
 
 ## What the Tests Do
 
-The e2e test (`test_claudestep_workflow_e2e`) performs these steps:
+### test_workflow_e2e.py
 
-### Step 1: Create First PR
+This file contains comprehensive tests of the main ClaudeStep workflow:
+
+**test_creates_pr_with_summary:**
 1. Creates a test project with 3 tasks in `claude-step/test-project-<id>/`
-2. Commits and pushes to the demo repo's main branch
-3. Triggers the ClaudeStep workflow manually
-4. Waits for workflow to complete (usually 60-90 seconds)
-5. Verifies PR #1 was created for the first task
-6. **NEW: Verifies AI-generated summary comment appears on PR #1** (90s timeout)
+2. Commits and pushes to the claude-step repo's main branch
+3. Triggers the `claudestep-test.yml` workflow manually
+4. Waits for workflow to complete (usually 60-120 seconds)
+5. Verifies PR was created for the first task
+6. Verifies AI-generated summary comment appears on the PR
+7. Verifies cost information appears in the summary
 
-### Step 2: Create Second PR
-1. Triggers workflow again (tests concurrent capacity)
-2. Waits for workflow to complete
-3. Verifies PR #2 was created for the second task
-4. **NEW: Verifies AI-generated summary comment appears on PR #2** (90s timeout)
-5. Verifies reviewer is at capacity (2 open PRs)
+**test_creates_pr_with_cost_info:**
+- Validates that cost information is included in PR comments
+- Checks for token usage and estimated cost
 
-### Step 3: Test Merge Trigger
-1. Merges PR #1
-2. Waits for merge trigger to start new workflow run (10-20 seconds)
-3. Waits for workflow to complete
-4. Verifies PR #3 was created for the third task
-5. **NEW: Verifies AI-generated summary comment appears on PR #3** (90s timeout)
+**test_reviewer_capacity:**
+- Creates multiple test projects
+- Triggers workflows to test `maxOpenPRs` limits
+- Verifies reviewers don't exceed capacity
 
-### Step 4: Cleanup
-1. Closes remaining test PRs (PR #2, PR #3)
-2. Removes test project from demo repo
-3. Reports success/failure
+**test_merge_triggers_next_pr:**
+- Creates a PR and merges it
+- Verifies merge triggers the next workflow run
+- Confirms the next task's PR is created automatically
+
+**test_empty_spec:**
+- Tests handling of projects with no tasks
+- Verifies workflow completes successfully without creating PRs
+
+### test_statistics_e2e.py
+
+Tests the statistics collection workflow:
+
+**test_statistics_workflow_runs_successfully:**
+1. Triggers the `claudestep-statistics.yml` workflow
+2. Waits for workflow completion
+3. Verifies workflow succeeds or is skipped appropriately
+
+**test_statistics_workflow_with_custom_days:**
+- Tests statistics with default configuration
+- Verifies workflow accepts the days_back parameter
+
+**test_statistics_output_format:**
+- Validates statistics workflow produces expected output
+- Checks for proper completion status
 
 ## Expected Duration
 
-- **Total test time**: 6-10 minutes
+- **Total test time**: 5-10 minutes (for full suite)
 - **Per workflow run**: 60-120 seconds
 - **PR summary posting**: Usually within 60 seconds of PR creation
-- **Cleanup**: 10-20 seconds
+- **Cleanup**: 5-10 seconds per test
 
 ## Understanding Test Output
 
-The test provides detailed progress output:
+The tests provide detailed progress output using pytest's verbose mode:
 
 ```
-============================================================
-Testing ClaudeStep workflow with project: test-project-abc123
-============================================================
+tests/e2e/test_workflow_e2e.py::test_creates_pr_with_summary
+Creating test project: test-project-abc123
+Workflow run ID: 12345678
+Waiting for workflow completion...
+  Status: queued
+  Status: in_progress
+  Status: completed (success)
+Checking for PR...
+  ✓ PR #42 created: refactor/test-project-abc123-1
+  ✓ AI-generated summary found
+  ✓ Cost information found
+Cleaning up test resources...
+  ✓ Closed PR #42
+  ✓ Deleted branch refactor/test-project-abc123-1
+  ✓ Removed test project
+PASSED
 
-[STEP 1] Triggering workflow for first task...
-  Workflow run ID: 12345678
-Waiting for workflow run 12345678...
-  Status: queued, Conclusion:
-  Status: in_progress, Conclusion:
-  Status: completed, Conclusion: success
-  ✓ Workflow completed successfully
-  ✓ PR #42 created: ClaudeStep: Create test-file-1.txt
-  Checking for AI-generated summary on PR #42...
-  ✓ Found AI-generated summary on PR #42
-  Waiting for PR to be fully indexed...
-
-[STEP 2] Triggering workflow for second task...
-  ...
-
-============================================================
-✓ All tests passed!
-============================================================
-
-Created PRs:
-  - PR #42: ClaudeStep: Create test-file-1.txt (MERGED) - Summary: ✓
-  - PR #43: ClaudeStep: Create test-file-2.txt (OPEN) - Summary: ✓
-  - PR #44: ClaudeStep: Create test-file-3.txt (OPEN) - Summary: ✓
+tests/e2e/test_statistics_e2e.py::test_statistics_workflow_runs_successfully
+Workflow run ID: 87654321
+Waiting for workflow completion...
+  Status: completed (success)
+PASSED
 ```
 
 ## Common Issues and Solutions
@@ -191,17 +230,17 @@ git config --global user.name "Your Name"
 git config --global user.email "your.email@example.com"
 ```
 
-### Issue: "No AI-generated summary found after 90s"
+### Issue: "No AI-generated summary found"
 
 This usually means:
 1. The PR summary feature is not enabled in the workflow (check `add_pr_summary` input)
-2. The workflow is using an old version without the feature
-3. The claude-code-action step failed (check workflow logs)
+2. The ANTHROPIC_API_KEY secret is not configured
+3. The workflow step failed (check workflow logs)
 
 **Solution:** Check the workflow run logs:
 ```bash
 # Get the workflow run ID from test output
-gh run view <run_id> --repo gestrich/claude-step-demo --log | grep -i summary
+gh run view <run_id> --repo gestrich/claude-step --log | grep -i summary
 ```
 
 ### Issue: Test hangs or times out
@@ -220,53 +259,71 @@ After the test completes, you can view the actual PRs and workflow runs:
 
 ```bash
 # View a specific PR (number from test output)
-gh pr view <pr_number> --repo gestrich/claude-step-demo
+gh pr view <pr_number> --repo gestrich/claude-step
 
 # View PR comments (including AI summary)
-gh pr view <pr_number> --repo gestrich/claude-step-demo --json comments
+gh pr view <pr_number> --repo gestrich/claude-step --json comments
 
 # View workflow run logs
-gh run view <run_id> --repo gestrich/claude-step-demo --log
+gh run view <run_id> --repo gestrich/claude-step --log
 ```
 
 ## Test Configuration
 
-The test is configured via fixtures in `tests/integration/test_workflow_e2e.py`:
+The tests use fixtures defined in `tests/e2e/conftest.py`:
 
-- **Repository**: `gestrich/claude-step-demo` (hardcoded in `GitHubHelper`)
-- **Workflow**: `claudestep.yml`
-- **Reviewer capacity**: 2 PRs (configured in test project)
-- **PR summary timeout**: 90 seconds (can be adjusted in test)
+- **Repository**: `gestrich/claude-step` (configured in `GitHubHelper`)
+- **Workflow**: `claudestep-test.yml` (recursive workflow)
+- **Reviewer capacity**: 2 PRs (configured in test projects)
+- **Workflow timeout**: 300 seconds (5 minutes)
+- **Test project naming**: `test-project-{uuid}` for isolation
 
 ## CI/CD Integration
 
-These tests can be run in GitHub Actions or other CI systems. The `run_test.sh` script handles all prerequisites automatically, making it suitable for CI environments.
-
-Example GitHub Actions workflow:
+E2E tests can be run in GitHub Actions using the `.github/workflows/e2e-test.yml` workflow:
 
 ```yaml
-name: E2E Tests
-on: [push, pull_request]
+name: E2E Integration Tests
+
+on:
+  workflow_dispatch:  # Manual trigger
+  pull_request:
+    types: [closed]   # Optional: Run after merges
+
 jobs:
-  test:
+  e2e-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install pytest
-        run: pip install pytest
-      - name: Run e2e tests
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pytest pyyaml
+
+      - name: Run E2E tests
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./tests/integration/run_test.sh
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: ./tests/e2e/run_test.sh
 ```
+
+**Note:** E2E tests are typically run manually due to API costs and execution time. They can be triggered via:
+- Manual workflow dispatch from GitHub UI
+- On-demand via `gh workflow run e2e-test.yml`
+- Optionally on PR merges to main
 
 ## Important Notes
 
-1. **Real GitHub Operations**: These tests create real PRs and trigger real workflows in the demo repository
-2. **API Costs**: Each test run uses Claude API credits for both the main workflow and PR summaries
-3. **Cleanup**: Tests clean up after themselves, but check the demo repo if a test fails unexpectedly
-4. **Parallelization**: Don't run multiple e2e tests in parallel - they may conflict when creating test projects
-5. **Test Data**: Test projects are named `test-project-<random-id>` to avoid conflicts
+1. **Real GitHub Operations**: These tests create real PRs and trigger real workflows in the claude-step repository
+2. **API Costs**: Each test run uses Claude API credits for workflow execution and PR summary generation
+3. **Cleanup**: Tests clean up after themselves automatically using pytest fixtures
+4. **Test Isolation**: Each test uses unique project IDs (`test-project-{uuid}`) to prevent conflicts
+5. **Self-Testing**: The action tests itself using the recursive workflow pattern (`uses: ./`)
+6. **Test Artifacts**: All test projects, PRs, and branches are temporary and cleaned up automatically
 
 ## Troubleshooting Failed Tests
 
@@ -281,14 +338,18 @@ If a test fails:
 ## Next Steps
 
 After running the tests successfully:
-- Review the created PRs to see the PR summaries
-- Check workflow logs to understand the complete flow
-- Modify test projects to test different scenarios
+- Review the test output to understand the workflow
+- Check workflow logs via GitHub UI or `gh run view`
+- Review created PRs (before cleanup) to see AI-generated summaries
+- Extend tests to cover additional scenarios
 - Contribute improvements to the test suite
 
 ## References
 
-- Test file: `claude-step-demo/tests/integration/test_workflow_e2e.py`
-- Test runner: `claude-step-demo/tests/integration/run_test.sh`
-- Demo repository: https://github.com/gestrich/claude-step-demo
-- Test documentation: https://github.com/gestrich/claude-step-demo/blob/main/tests/integration/README.md
+- Test files: `tests/e2e/test_workflow_e2e.py`, `tests/e2e/test_statistics_e2e.py`
+- Test runner: `tests/e2e/run_test.sh`
+- Helper modules: `tests/e2e/helpers/github_helper.py`, `tests/e2e/helpers/project_manager.py`
+- Fixtures: `tests/e2e/conftest.py`
+- E2E workflow: `.github/workflows/e2e-test.yml`
+- Recursive workflow: `.github/workflows/claudestep-test.yml`
+- Migration plan: `docs/proposed/e2e-test-migration.md`
