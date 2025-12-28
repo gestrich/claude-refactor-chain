@@ -202,24 +202,17 @@ def find_project_artifacts(
     prs = get_project_prs(project, repo, state=pr_state, label=label)
     print(f"Found {len(prs)} PR(s) for project '{project}' with state '{pr_state}'")
 
-    if pr_state == "all":
-        # For "all" state, get recent workflow runs from default branch
-        # since artifacts are created on the default branch
-        try:
-            api_response = gh_api_call(
-                f"/repos/{repo}/actions/runs?status=completed&per_page={limit}"
-            )
-            runs = api_response.get("workflow_runs", [])
-        except GitHubAPIError as e:
-            print(f"Warning: Failed to get workflow runs: {e}")
-            runs = []
-    else:
-        # For specific PR states, get runs for each PR's branch
+    # Get recent workflow runs from the repo
+    # Workflows run on the base branch, not the PR's head branch,
+    # so we get all recent runs and filter by project artifacts
+    try:
+        api_response = gh_api_call(
+            f"/repos/{repo}/actions/runs?status=completed&per_page={limit}"
+        )
+        runs = api_response.get("workflow_runs", [])
+    except GitHubAPIError as e:
+        print(f"Warning: Failed to get workflow runs: {e}")
         runs = []
-        for pr in prs:
-            branch = pr["headRefName"]
-            branch_runs = _get_workflow_runs_for_branch(repo, branch, limit=10)
-            runs.extend(branch_runs)
 
     print(f"Checking {len(runs)} workflow run(s) for artifacts")
 
