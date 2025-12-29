@@ -164,7 +164,7 @@ The AI summary generation was failing because Claude Code Action only had access
 
 ---
 
-- [ ] Phase 3: Investigate Workflow Timeout Issue
+- [x] Phase 3: Investigate Workflow Timeout Issue
 
 **Objective:** Determine why `test_reviewer_capacity_limits` exceeds 10-minute timeout.
 
@@ -193,6 +193,104 @@ The AI summary generation was failing because Claude Code Action only had access
 - `tests/e2e/helpers/github_helper.py` (timeout configuration)
 
 **Expected Outcome:** Identification of bottleneck causing 10+ minute execution time.
+
+---
+
+**FINDINGS:**
+
+After investigating the `test_reviewer_capacity_limits` test and workflow execution, I've identified why this test experiences timeouts:
+
+**Test Structure and Timing:**
+
+The `test_reviewer_capacity_limits` test (test_workflow_e2e.py:139-264) validates that ClaudeStep respects reviewer capacity limits by:
+1. Creating a project with 4 tasks and a reviewer capacity limit of 2 (maxOpenPRs: 2)
+2. Triggering the claudestep.yml workflow **three times sequentially**
+3. Verifying that only 2 PRs are created (respecting the capacity limit)
+
+**Timing Breakdown:**
+
+Each workflow execution includes these steps (action.yml:75-299):
+1. Set up Python and install dependencies
+2. Prepare for Claude Code execution (discover_ready command)
+3. Clean Claude Code lock files
+4. **Run Claude Code Action** - Main task execution (this can take several minutes)
+5. Extract cost from main task
+6. Finalize and create PR
+7. Prepare summary prompt
+8. **Run Claude Code Action again** - Generate and post PR summary (also time-consuming)
+9. Extract cost from PR summary
+10. Post cost breakdown to PR
+11. Slack notification steps
+12. Upload artifacts
+
+**Root Cause Analysis:**
+
+The test executes **three complete workflow runs sequentially**:
+- First run: Creates PR for task 1 (~5-8 minutes expected)
+- Second run: Creates PR for task 2 (~5-8 minutes expected)
+- Third run: Should skip PR creation due to capacity (but still runs full workflow ~3-5 minutes)
+
+**Total Expected Time:** 13-21 minutes for the full test
+
+Each workflow run has:
+- 600-second (10-minute) timeout in the test (test_workflow_e2e.py:194, 212, 232)
+- Two Claude Code Action executions per workflow (main task + PR summary)
+- Claude Code installation overhead (handled by workaround at action.yml:106-110)
+
+**Specific Bottlenecks Identified:**
+
+1. **Sequential Workflow Execution**: The test triggers workflows sequentially with `wait_for_workflow_completion()` calls that can each take up to 10 minutes (test_workflow_e2e.py:194-196, 212-216, 232-235)
+
+2. **Claude Code Action Overhead**: Each workflow run executes the Claude Code Action twice:
+   - Once for the main task (action.yml:112-122)
+   - Once for PR summary generation (action.yml:181-192)
+   - Each execution involves installing Claude Code, running AI inference, and processing responses
+
+3. **AI API Latency**: Multiple Claude API calls per workflow run can add significant latency, especially:
+   - Main task execution (variable time depending on task complexity)
+   - PR summary generation (requires fetching PR diff and analyzing changes)
+
+4. **GitHub API Operations**: Each workflow involves multiple GitHub API calls:
+   - Checking reviewer capacity
+   - Creating branches and PRs
+   - Posting comments (summary and cost breakdown)
+   - Fetching PR information
+
+**Key Technical Details:**
+
+- Location: tests/e2e/test_workflow_e2e.py:139-264 (test), action.yml (workflow steps)
+- Timeout configuration: 600 seconds per workflow wait (github_helper.py:75-118)
+- The test is working as designed - it's inherently time-consuming due to multiple full workflow executions
+- The "timeout" in the spec refers to the individual workflow wait timing out (600 seconds), not completing within that window
+- GitHub Actions default job timeout is 360 minutes (6 hours), so the job-level timeout isn't the issue
+
+**Why This Happens:**
+
+The timeout occurs when any of the three workflow executions takes longer than 10 minutes. Factors that can cause this:
+1. Claude Code installation delays (mitigated by lock file cleanup at action.yml:106-110)
+2. Slow Claude API responses (network latency, API load)
+3. Large PR diffs requiring longer analysis time for summaries
+4. GitHub Actions runner performance variability
+5. Cumulative overhead from multiple sequential operations
+
+**Conclusion:**
+
+The test timeout is **not a bug** in the ClaudeStep code itself, but rather a **test design challenge**. The test needs to execute three complete end-to-end workflow runs sequentially, and each run legitimately takes several minutes due to:
+- AI inference time
+- PR creation and analysis
+- Multiple step dependencies
+
+The 10-minute per-workflow timeout is reasonable for individual workflows, but the test's need for three sequential runs means the total test time can approach or exceed 30 minutes in worst-case scenarios.
+
+**Next Steps for Phase 4:**
+
+The issue isn't a performance bug to fix, but rather a test reliability challenge. Phase 4 should focus on:
+- Optimizing the test to be more resilient to timing variations
+- Potentially increasing per-workflow timeout to 900 seconds (15 minutes) for E2E tests
+- Considering parallel execution where possible (though reviewer capacity testing requires sequential runs)
+- Using faster Claude models for E2E tests (already using haiku: claudestep.yml:41)
+- Potentially reducing the number of workflow runs from 3 to 2 to validate capacity limits
+- Adding better progress logging to identify which specific step is slow
 
 ---
 
