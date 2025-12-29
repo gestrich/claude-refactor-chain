@@ -2457,7 +2457,7 @@ next_task = next(t for t in project.tasks if t.status == TaskStatus.PENDING)
 - Status is derived from PR state, then cached
 - All datetime fields continue using ISO 8601 format
 
-## Phase 6: Detailed Design for Recommended Model
+## Phase 6: Detailed Design for Recommended Model ✅
 
 **Tasks:**
 - Create comprehensive diagram for recommended model
@@ -2478,6 +2478,1651 @@ next_task = next(t for t in project.tasks if t.status == TaskStatus.PENDING)
 - Complete specification ready for implementation
 - All edge cases considered
 - Clear migration strategy
+
+### Comprehensive Model Diagram
+
+The Alternative 3 (Hybrid) model structure with all fields and types:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                              Project                                │
+├─────────────────────────────────────────────────────────────────────┤
+│ schema_version: str                    # "2.0" for hybrid model     │
+│ project: str                           # Project identifier         │
+│ last_updated: datetime                 # ISO 8601 timestamp         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌────────────────────────────────┐  ┌──────────────────────────┐  │
+│  │          tasks: List            │  │  pull_requests: List     │  │
+│  └────────────────────────────────┘  └──────────────────────────┘  │
+│                │                                  │                 │
+│                ▼                                  ▼                 │
+│  ┌──────────────────────────────┐  ┌────────────────────────────┐  │
+│  │           Task               │  │      PullRequest           │  │
+│  ├──────────────────────────────┤  ├────────────────────────────┤  │
+│  │ index: int                   │  │ task_index: int ───────────┼──┼──> References Task.index
+│  │ description: str             │  │ pr_number: int             │  │
+│  │ status: TaskStatus (enum)    │  │ branch_name: str           │  │
+│  │   - "pending"                │  │ reviewer: str              │  │
+│  │   - "in_progress"            │  │ pr_state: str              │  │
+│  │   - "completed"              │  │   - "open"                 │  │
+│  └──────────────────────────────┘  │   - "merged"               │  │
+│                                     │   - "closed"               │  │
+│                                     │ created_at: datetime       │  │
+│                                     ├────────────────────────────┤  │
+│                                     │  ai_operations: List       │  │
+│                                     └────────────────────────────┘  │
+│                                                  │                 │
+│                                                  ▼                 │
+│                                     ┌────────────────────────────┐  │
+│                                     │       AIOperation          │  │
+│                                     ├────────────────────────────┤  │
+│                                     │ type: str                  │  │
+│                                     │   - "PRCreation"           │  │
+│                                     │   - "PRRefinement"         │  │
+│                                     │   - "PRSummary"            │  │
+│                                     │ model: str                 │  │
+│                                     │ cost_usd: float            │  │
+│                                     │ created_at: datetime       │  │
+│                                     │ workflow_run_id: int       │  │
+│                                     │ tokens_input: int          │  │
+│                                     │ tokens_output: int         │  │
+│                                     │ duration_seconds: float    │  │
+│                                     └────────────────────────────┘  │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+Relationships:
+  Task ←──[1:N]── PullRequest  (via task_index)
+  PullRequest ←──[1:N]── AIOperation
+
+Status Derivation:
+  Task.status is derived from PullRequest.pr_state:
+  - No PR for task → status = "pending"
+  - PR exists, pr_state = "open" → status = "in_progress"
+  - PR exists, pr_state = "merged" → status = "completed"
+  - Multiple PRs → use latest by created_at
+```
+
+### Complete JSON Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ClaudeStep Hybrid Model",
+  "type": "object",
+  "required": ["schema_version", "project", "last_updated", "tasks", "pull_requests"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0",
+      "description": "Schema version identifier"
+    },
+    "project": {
+      "type": "string",
+      "description": "Project name/identifier, typically matches spec.md name"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last metadata update"
+    },
+    "tasks": {
+      "type": "array",
+      "description": "All tasks from spec.md, always present regardless of status",
+      "items": {
+        "type": "object",
+        "required": ["index", "description", "status"],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "1-based position in spec.md, permanent identifier"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Task description from spec.md"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "in_progress", "completed"],
+            "description": "Task status derived from PR state"
+          }
+        }
+      }
+    },
+    "pull_requests": {
+      "type": "array",
+      "description": "All PRs created, may have multiple PRs per task_index (retries)",
+      "items": {
+        "type": "object",
+        "required": ["task_index", "pr_number", "branch_name", "reviewer", "pr_state", "created_at", "ai_operations"],
+        "properties": {
+          "task_index": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "References tasks[].index, indicates which task this PR implements"
+          },
+          "pr_number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "GitHub pull request number"
+          },
+          "branch_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Git branch name for this PR"
+          },
+          "reviewer": {
+            "type": "string",
+            "minLength": 1,
+            "description": "GitHub username of assigned reviewer"
+          },
+          "pr_state": {
+            "type": "string",
+            "enum": ["open", "merged", "closed"],
+            "description": "Current state of the GitHub PR"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when PR was created"
+          },
+          "ai_operations": {
+            "type": "array",
+            "minItems": 1,
+            "description": "All AI operations performed for this PR, chronologically ordered",
+            "items": {
+              "type": "object",
+              "required": ["type", "model", "cost_usd", "created_at", "workflow_run_id"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["PRCreation", "PRRefinement", "PRSummary"],
+                  "description": "Type of AI operation performed"
+                },
+                "model": {
+                  "type": "string",
+                  "description": "AI model identifier (e.g., 'claude-sonnet-4')"
+                },
+                "cost_usd": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Cost in USD for this operation"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO 8601 timestamp when operation was performed"
+                },
+                "workflow_run_id": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "GitHub Actions workflow run ID for debugging"
+                },
+                "tokens_input": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "Number of input tokens consumed"
+                },
+                "tokens_output": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "Number of output tokens generated"
+                },
+                "duration_seconds": {
+                  "type": "number",
+                  "minimum": 0,
+                  "default": 0.0,
+                  "description": "Execution time in seconds"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Example 1: Empty Project (No PRs Yet)
+
+A freshly initialized project with all tasks pending:
+
+```json
+{
+  "schema_version": "2.0",
+  "project": "user-dashboard-redesign",
+  "last_updated": "2025-12-29T08:00:00Z",
+  "tasks": [
+    {
+      "index": 1,
+      "description": "Update navigation component to use new design tokens",
+      "status": "pending"
+    },
+    {
+      "index": 2,
+      "description": "Implement responsive grid layout for dashboard cards",
+      "status": "pending"
+    },
+    {
+      "index": 3,
+      "description": "Add dark mode support to all components",
+      "status": "pending"
+    }
+  ],
+  "pull_requests": []
+}
+```
+
+**Key Points:**
+- All tasks are present with status "pending"
+- Empty pull_requests array
+- Minimal but complete representation
+- Total size: ~500 bytes
+
+### Example 2: Project with Mixed States
+
+A mid-progress project showing all three task states:
+
+```json
+{
+  "schema_version": "2.0",
+  "project": "auth-refactor",
+  "last_updated": "2025-12-29T14:30:00Z",
+  "tasks": [
+    {
+      "index": 1,
+      "description": "Set up authentication middleware",
+      "status": "completed"
+    },
+    {
+      "index": 2,
+      "description": "Implement OAuth2 authentication flow",
+      "status": "in_progress"
+    },
+    {
+      "index": 3,
+      "description": "Add email validation to user registration",
+      "status": "pending"
+    },
+    {
+      "index": 4,
+      "description": "Implement password reset functionality",
+      "status": "pending"
+    },
+    {
+      "index": 5,
+      "description": "Add two-factor authentication support",
+      "status": "pending"
+    }
+  ],
+  "pull_requests": [
+    {
+      "task_index": 1,
+      "pr_number": 41,
+      "branch_name": "claudestep/auth-refactor/step-1",
+      "reviewer": "alice",
+      "pr_state": "merged",
+      "created_at": "2025-12-28T10:15:00Z",
+      "ai_operations": [
+        {
+          "type": "PRCreation",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.12,
+          "created_at": "2025-12-28T10:15:00Z",
+          "workflow_run_id": 234567,
+          "tokens_input": 4500,
+          "tokens_output": 1800,
+          "duration_seconds": 42.1
+        }
+      ]
+    },
+    {
+      "task_index": 2,
+      "pr_number": 42,
+      "branch_name": "claudestep/auth-refactor/step-2",
+      "reviewer": "bob",
+      "pr_state": "open",
+      "created_at": "2025-12-29T09:30:00Z",
+      "ai_operations": [
+        {
+          "type": "PRCreation",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.15,
+          "created_at": "2025-12-29T09:30:00Z",
+          "workflow_run_id": 234570,
+          "tokens_input": 5200,
+          "tokens_output": 2100,
+          "duration_seconds": 48.3
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Key Points:**
+- Task 1: completed (PR merged)
+- Task 2: in_progress (PR open)
+- Tasks 3-5: pending (no PRs)
+- Shows progression through project
+- 2 reviewers with different assignments
+
+### Example 3: Complex Project with Refinements
+
+A task that went through multiple refinement cycles:
+
+```json
+{
+  "schema_version": "2.0",
+  "project": "api-performance-optimization",
+  "last_updated": "2025-12-29T18:45:00Z",
+  "tasks": [
+    {
+      "index": 1,
+      "description": "Add database query caching layer",
+      "status": "completed"
+    },
+    {
+      "index": 2,
+      "description": "Implement connection pooling",
+      "status": "in_progress"
+    }
+  ],
+  "pull_requests": [
+    {
+      "task_index": 1,
+      "pr_number": 101,
+      "branch_name": "claudestep/api-performance/step-1",
+      "reviewer": "charlie",
+      "pr_state": "merged",
+      "created_at": "2025-12-27T14:00:00Z",
+      "ai_operations": [
+        {
+          "type": "PRCreation",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.18,
+          "created_at": "2025-12-27T14:00:00Z",
+          "workflow_run_id": 345678,
+          "tokens_input": 6800,
+          "tokens_output": 2400,
+          "duration_seconds": 52.7
+        },
+        {
+          "type": "PRRefinement",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.09,
+          "created_at": "2025-12-27T16:30:00Z",
+          "workflow_run_id": 345680,
+          "tokens_input": 3200,
+          "tokens_output": 1400,
+          "duration_seconds": 31.2
+        },
+        {
+          "type": "PRRefinement",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.07,
+          "created_at": "2025-12-28T09:15:00Z",
+          "workflow_run_id": 345682,
+          "tokens_input": 2800,
+          "tokens_output": 1100,
+          "duration_seconds": 26.8
+        },
+        {
+          "type": "PRSummary",
+          "model": "claude-haiku-4",
+          "cost_usd": 0.02,
+          "created_at": "2025-12-28T11:00:00Z",
+          "workflow_run_id": 345685,
+          "tokens_input": 1500,
+          "tokens_output": 400,
+          "duration_seconds": 8.3
+        }
+      ]
+    },
+    {
+      "task_index": 2,
+      "pr_number": 102,
+      "branch_name": "claudestep/api-performance/step-2",
+      "reviewer": "charlie",
+      "pr_state": "open",
+      "created_at": "2025-12-29T10:00:00Z",
+      "ai_operations": [
+        {
+          "type": "PRCreation",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.16,
+          "created_at": "2025-12-29T10:00:00Z",
+          "workflow_run_id": 345690,
+          "tokens_input": 5900,
+          "tokens_output": 2200,
+          "duration_seconds": 47.5
+        },
+        {
+          "type": "PRRefinement",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.08,
+          "created_at": "2025-12-29T15:20:00Z",
+          "workflow_run_id": 345692,
+          "tokens_input": 3000,
+          "tokens_output": 1300,
+          "duration_seconds": 29.4
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Key Points:**
+- Task 1 has 4 AI operations (1 creation + 2 refinements + 1 summary)
+- Task 2 has 2 AI operations (1 creation + 1 refinement)
+- Multiple workflow runs tracked per PR
+- Different AI models used (Sonnet vs Haiku)
+- Shows complete history of iterations
+- Total cost for Task 1: $0.36
+
+### Example 4: Retry Scenario (Multiple PRs per Task)
+
+A task where the first PR was closed and a second attempt succeeded:
+
+```json
+{
+  "schema_version": "2.0",
+  "project": "payment-integration",
+  "last_updated": "2025-12-29T20:00:00Z",
+  "tasks": [
+    {
+      "index": 1,
+      "description": "Integrate Stripe payment gateway",
+      "status": "completed"
+    }
+  ],
+  "pull_requests": [
+    {
+      "task_index": 1,
+      "pr_number": 50,
+      "branch_name": "claudestep/payment/step-1-attempt-1",
+      "reviewer": "dana",
+      "pr_state": "closed",
+      "created_at": "2025-12-26T09:00:00Z",
+      "ai_operations": [
+        {
+          "type": "PRCreation",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.14,
+          "created_at": "2025-12-26T09:00:00Z",
+          "workflow_run_id": 456789,
+          "tokens_input": 5400,
+          "tokens_output": 2000,
+          "duration_seconds": 45.8
+        }
+      ]
+    },
+    {
+      "task_index": 1,
+      "pr_number": 51,
+      "branch_name": "claudestep/payment/step-1-attempt-2",
+      "reviewer": "dana",
+      "pr_state": "merged",
+      "created_at": "2025-12-27T14:00:00Z",
+      "ai_operations": [
+        {
+          "type": "PRCreation",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.15,
+          "created_at": "2025-12-27T14:00:00Z",
+          "workflow_run_id": 456800,
+          "tokens_input": 5600,
+          "tokens_output": 2100,
+          "duration_seconds": 47.2
+        },
+        {
+          "type": "PRRefinement",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.08,
+          "created_at": "2025-12-28T10:30:00Z",
+          "workflow_run_id": 456805,
+          "tokens_input": 3100,
+          "tokens_output": 1250,
+          "duration_seconds": 28.9
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Key Points:**
+- Two PRs with same task_index (1)
+- First PR closed without merging (failed attempt)
+- Second PR merged (successful attempt)
+- Task status is "completed" (derived from latest PR)
+- Complete history preserved (both attempts visible)
+- Total cost across both attempts: $0.37
+
+### Example 5: Multi-Reviewer Large Project
+
+A larger project showing team distribution:
+
+```json
+{
+  "schema_version": "2.0",
+  "project": "e-commerce-checkout",
+  "last_updated": "2025-12-29T22:15:00Z",
+  "tasks": [
+    {
+      "index": 1,
+      "description": "Add shopping cart persistence",
+      "status": "completed"
+    },
+    {
+      "index": 2,
+      "description": "Implement guest checkout flow",
+      "status": "completed"
+    },
+    {
+      "index": 3,
+      "description": "Add payment method selection",
+      "status": "in_progress"
+    },
+    {
+      "index": 4,
+      "description": "Implement order confirmation email",
+      "status": "in_progress"
+    },
+    {
+      "index": 5,
+      "description": "Add shipping address validation",
+      "status": "pending"
+    },
+    {
+      "index": 6,
+      "description": "Implement discount code system",
+      "status": "pending"
+    },
+    {
+      "index": 7,
+      "description": "Add order history page",
+      "status": "pending"
+    }
+  ],
+  "pull_requests": [
+    {
+      "task_index": 1,
+      "pr_number": 200,
+      "branch_name": "claudestep/checkout/step-1",
+      "reviewer": "alice",
+      "pr_state": "merged",
+      "created_at": "2025-12-25T09:00:00Z",
+      "ai_operations": [
+        {
+          "type": "PRCreation",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.13,
+          "created_at": "2025-12-25T09:00:00Z",
+          "workflow_run_id": 567890,
+          "tokens_input": 5000,
+          "tokens_output": 1900,
+          "duration_seconds": 44.2
+        }
+      ]
+    },
+    {
+      "task_index": 2,
+      "pr_number": 201,
+      "branch_name": "claudestep/checkout/step-2",
+      "reviewer": "bob",
+      "pr_state": "merged",
+      "created_at": "2025-12-26T11:30:00Z",
+      "ai_operations": [
+        {
+          "type": "PRCreation",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.16,
+          "created_at": "2025-12-26T11:30:00Z",
+          "workflow_run_id": 567900,
+          "tokens_input": 6100,
+          "tokens_output": 2300,
+          "duration_seconds": 50.1
+        }
+      ]
+    },
+    {
+      "task_index": 3,
+      "pr_number": 202,
+      "branch_name": "claudestep/checkout/step-3",
+      "reviewer": "alice",
+      "pr_state": "open",
+      "created_at": "2025-12-28T14:00:00Z",
+      "ai_operations": [
+        {
+          "type": "PRCreation",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.14,
+          "created_at": "2025-12-28T14:00:00Z",
+          "workflow_run_id": 567910,
+          "tokens_input": 5300,
+          "tokens_output": 2000,
+          "duration_seconds": 46.3
+        }
+      ]
+    },
+    {
+      "task_index": 4,
+      "pr_number": 203,
+      "branch_name": "claudestep/checkout/step-4",
+      "reviewer": "charlie",
+      "pr_state": "open",
+      "created_at": "2025-12-29T10:15:00Z",
+      "ai_operations": [
+        {
+          "type": "PRCreation",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.15,
+          "created_at": "2025-12-29T10:15:00Z",
+          "workflow_run_id": 567920,
+          "tokens_input": 5700,
+          "tokens_output": 2150,
+          "duration_seconds": 48.7
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Key Points:**
+- 7 tasks total, showing scalability
+- 3 different reviewers (alice, bob, charlie)
+- Alice has 2 PRs (1 merged, 1 open)
+- Bob has 1 PR (merged)
+- Charlie has 1 PR (open)
+- 2 completed, 2 in-progress, 3 pending
+- Shows how capacity checking would work
+
+### Python Dataclass Structure
+
+Complete Python implementation with type hints and validation:
+
+```python
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import List, Dict, Any, Optional
+
+
+class TaskStatus(Enum):
+    """Task lifecycle states."""
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+
+
+class PRState(Enum):
+    """GitHub PR states."""
+    OPEN = "open"
+    MERGED = "merged"
+    CLOSED = "closed"
+
+
+class AIOperationType(Enum):
+    """Types of AI operations."""
+    PR_CREATION = "PRCreation"
+    PR_REFINEMENT = "PRRefinement"
+    PR_SUMMARY = "PRSummary"
+
+
+@dataclass
+class AIOperation:
+    """Represents a single AI operation (creation, refinement, summary)."""
+
+    type: str  # AIOperationType enum value
+    model: str
+    cost_usd: float
+    created_at: datetime
+    workflow_run_id: int
+    tokens_input: int = 0
+    tokens_output: int = 0
+    duration_seconds: float = 0.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "type": self.type,
+            "model": self.model,
+            "cost_usd": self.cost_usd,
+            "created_at": self.created_at.isoformat(),
+            "workflow_run_id": self.workflow_run_id,
+            "tokens_input": self.tokens_input,
+            "tokens_output": self.tokens_output,
+            "duration_seconds": self.duration_seconds,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AIOperation":
+        """Create from dictionary (JSON deserialization)."""
+        return cls(
+            type=data["type"],
+            model=data["model"],
+            cost_usd=float(data["cost_usd"]),
+            created_at=datetime.fromisoformat(data["created_at"]),
+            workflow_run_id=int(data["workflow_run_id"]),
+            tokens_input=int(data.get("tokens_input", 0)),
+            tokens_output=int(data.get("tokens_output", 0)),
+            duration_seconds=float(data.get("duration_seconds", 0.0)),
+        )
+
+
+@dataclass
+class PullRequest:
+    """Represents a GitHub PR created for a task."""
+
+    task_index: int
+    pr_number: int
+    branch_name: str
+    reviewer: str
+    pr_state: str  # PRState enum value
+    created_at: datetime
+    ai_operations: List[AIOperation] = field(default_factory=list)
+
+    def get_total_cost(self) -> float:
+        """Calculate total cost of all AI operations for this PR."""
+        return sum(op.cost_usd for op in self.ai_operations)
+
+    def get_total_tokens(self) -> tuple[int, int]:
+        """Get total input and output tokens.
+
+        Returns:
+            Tuple of (total_input_tokens, total_output_tokens)
+        """
+        total_input = sum(op.tokens_input for op in self.ai_operations)
+        total_output = sum(op.tokens_output for op in self.ai_operations)
+        return (total_input, total_output)
+
+    def get_total_duration(self) -> float:
+        """Calculate total duration of all AI operations in seconds."""
+        return sum(op.duration_seconds for op in self.ai_operations)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "task_index": self.task_index,
+            "pr_number": self.pr_number,
+            "branch_name": self.branch_name,
+            "reviewer": self.reviewer,
+            "pr_state": self.pr_state,
+            "created_at": self.created_at.isoformat(),
+            "ai_operations": [op.to_dict() for op in self.ai_operations],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "PullRequest":
+        """Create from dictionary (JSON deserialization)."""
+        return cls(
+            task_index=int(data["task_index"]),
+            pr_number=int(data["pr_number"]),
+            branch_name=data["branch_name"],
+            reviewer=data["reviewer"],
+            pr_state=data["pr_state"],
+            created_at=datetime.fromisoformat(data["created_at"]),
+            ai_operations=[
+                AIOperation.from_dict(op) for op in data.get("ai_operations", [])
+            ],
+        )
+
+
+@dataclass
+class Task:
+    """Represents a task from spec.md with its current status."""
+
+    index: int
+    description: str
+    status: str  # TaskStatus enum value
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "index": self.index,
+            "description": self.description,
+            "status": self.status,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Task":
+        """Create from dictionary (JSON deserialization)."""
+        return cls(
+            index=int(data["index"]),
+            description=data["description"],
+            status=data["status"],
+        )
+
+
+@dataclass
+class Project:
+    """Top-level project metadata container."""
+
+    schema_version: str
+    project: str
+    last_updated: datetime
+    tasks: List[Task] = field(default_factory=list)
+    pull_requests: List[PullRequest] = field(default_factory=list)
+
+    def get_task_by_index(self, index: int) -> Optional[Task]:
+        """Get task by its index."""
+        for task in self.tasks:
+            if task.index == index:
+                return task
+        return None
+
+    def get_prs_for_task(self, task_index: int) -> List[PullRequest]:
+        """Get all PRs for a given task (supports retry scenario)."""
+        return [pr for pr in self.pull_requests if pr.task_index == task_index]
+
+    def get_latest_pr_for_task(self, task_index: int) -> Optional[PullRequest]:
+        """Get the most recent PR for a task (by created_at)."""
+        prs = self.get_prs_for_task(task_index)
+        if not prs:
+            return None
+        return max(prs, key=lambda pr: pr.created_at)
+
+    def calculate_task_status(self, task_index: int) -> TaskStatus:
+        """Calculate task status from PR state.
+
+        This is the core logic that derives task status:
+        - No PR → pending
+        - PR open → in_progress
+        - PR merged → completed
+        - Multiple PRs → use latest by created_at
+        """
+        latest_pr = self.get_latest_pr_for_task(task_index)
+
+        if latest_pr is None:
+            return TaskStatus.PENDING
+
+        if latest_pr.pr_state == PRState.MERGED.value:
+            return TaskStatus.COMPLETED
+        elif latest_pr.pr_state in [PRState.OPEN.value, PRState.CLOSED.value]:
+            return TaskStatus.IN_PROGRESS
+        else:
+            return TaskStatus.PENDING
+
+    def update_all_task_statuses(self) -> None:
+        """Update all task statuses based on current PR states.
+
+        Call this after loading from JSON to ensure consistency.
+        """
+        for task in self.tasks:
+            task.status = self.calculate_task_status(task.index).value
+
+    def get_total_cost(self) -> float:
+        """Calculate total cost across all PRs."""
+        return sum(pr.get_total_cost() for pr in self.pull_requests)
+
+    def get_cost_by_model(self) -> Dict[str, float]:
+        """Get cost breakdown by AI model."""
+        costs: Dict[str, float] = {}
+        for pr in self.pull_requests:
+            for op in pr.ai_operations:
+                costs[op.model] = costs.get(op.model, 0.0) + op.cost_usd
+        return costs
+
+    def get_progress_stats(self) -> Dict[str, int]:
+        """Get task counts by status."""
+        stats = {
+            "total": len(self.tasks),
+            "pending": 0,
+            "in_progress": 0,
+            "completed": 0,
+        }
+        for task in self.tasks:
+            if task.status == TaskStatus.PENDING.value:
+                stats["pending"] += 1
+            elif task.status == TaskStatus.IN_PROGRESS.value:
+                stats["in_progress"] += 1
+            elif task.status == TaskStatus.COMPLETED.value:
+                stats["completed"] += 1
+        return stats
+
+    def get_completion_percentage(self) -> float:
+        """Calculate project completion percentage."""
+        if not self.tasks:
+            return 0.0
+        stats = self.get_progress_stats()
+        return (stats["completed"] / stats["total"]) * 100.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "schema_version": self.schema_version,
+            "project": self.project,
+            "last_updated": self.last_updated.isoformat(),
+            "tasks": [task.to_dict() for task in self.tasks],
+            "pull_requests": [pr.to_dict() for pr in self.pull_requests],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Project":
+        """Create from dictionary (JSON deserialization)."""
+        project = cls(
+            schema_version=data["schema_version"],
+            project=data["project"],
+            last_updated=datetime.fromisoformat(data["last_updated"]),
+            tasks=[Task.from_dict(t) for t in data.get("tasks", [])],
+            pull_requests=[
+                PullRequest.from_dict(pr) for pr in data.get("pull_requests", [])
+            ],
+        )
+        # Ensure task statuses are consistent with PR states
+        project.update_all_task_statuses()
+        return project
+```
+
+### Serialization Methods
+
+#### JSON Serialization (to_dict)
+
+Each dataclass implements `to_dict()` for converting to JSON-serializable dictionaries:
+
+**Key Behaviors:**
+- DateTime objects converted to ISO 8601 strings using `.isoformat()`
+- Nested objects recursively converted (e.g., `ai_operations` list)
+- Enum values converted to their string values
+- All numeric types preserved as-is
+
+**Example Usage:**
+```python
+import json
+
+project = Project(
+    schema_version="2.0",
+    project="my-project",
+    last_updated=datetime.now(),
+    tasks=[...],
+    pull_requests=[...]
+)
+
+# Convert to JSON
+json_str = json.dumps(project.to_dict(), indent=2)
+
+# Write to file
+with open("metadata.json", "w") as f:
+    json.dump(project.to_dict(), f, indent=2)
+```
+
+#### JSON Deserialization (from_dict)
+
+Each dataclass implements `from_dict()` classmethod for loading from JSON:
+
+**Key Behaviors:**
+- DateTime strings parsed using `datetime.fromisoformat()`
+- Nested objects recursively constructed
+- Default values applied for optional fields
+- Type coercion (e.g., ensuring ints and floats)
+- **Automatic status synchronization**: `update_all_task_statuses()` called after loading
+
+**Example Usage:**
+```python
+# Load from JSON file
+with open("metadata.json", "r") as f:
+    data = json.load(f)
+
+project = Project.from_dict(data)
+
+# Task statuses automatically synchronized with PR states
+print(f"Project: {project.project}")
+print(f"Completion: {project.get_completion_percentage():.1f}%")
+```
+
+#### Status Synchronization
+
+The `update_all_task_statuses()` method ensures task statuses match PR states:
+
+```python
+def update_all_task_statuses(self) -> None:
+    """Update all task statuses based on current PR states."""
+    for task in self.tasks:
+        task.status = self.calculate_task_status(task.index).value
+```
+
+This is automatically called in `from_dict()` to handle:
+- JSON files with stale status values
+- Manual JSON edits
+- Migration from old schema versions
+
+### Common Query Operations
+
+#### 1. Get Reviewer Capacity (Open PRs per Reviewer)
+
+Find which reviewers have capacity for new PR assignments:
+
+```python
+def get_reviewer_capacity(projects: List[Project], max_open_prs: int = 3) -> Dict[str, Dict[str, Any]]:
+    """Get open PR count and capacity for each reviewer.
+
+    Args:
+        projects: List of all projects
+        max_open_prs: Maximum open PRs per reviewer
+
+    Returns:
+        Dict mapping reviewer username to capacity info
+    """
+    reviewer_stats: Dict[str, Dict[str, Any]] = {}
+
+    for project in projects:
+        for pr in project.pull_requests:
+            if pr.pr_state == PRState.OPEN.value:
+                if pr.reviewer not in reviewer_stats:
+                    reviewer_stats[pr.reviewer] = {
+                        "open_prs": 0,
+                        "pr_numbers": [],
+                        "projects": set()
+                    }
+                reviewer_stats[pr.reviewer]["open_prs"] += 1
+                reviewer_stats[pr.reviewer]["pr_numbers"].append(pr.pr_number)
+                reviewer_stats[pr.reviewer]["projects"].add(project.project)
+
+    # Add capacity info
+    for reviewer, stats in reviewer_stats.items():
+        stats["has_capacity"] = stats["open_prs"] < max_open_prs
+        stats["available_slots"] = max(0, max_open_prs - stats["open_prs"])
+        stats["projects"] = list(stats["projects"])  # Convert set to list
+
+    return reviewer_stats
+
+# Example usage
+capacity = get_reviewer_capacity(all_projects, max_open_prs=3)
+
+for reviewer, stats in capacity.items():
+    print(f"{reviewer}:")
+    print(f"  Open PRs: {stats['open_prs']}")
+    print(f"  Has capacity: {stats['has_capacity']}")
+    print(f"  Available slots: {stats['available_slots']}")
+    print(f"  Projects: {', '.join(stats['projects'])}")
+```
+
+**Output Example:**
+```
+alice:
+  Open PRs: 2
+  Has capacity: True
+  Available slots: 1
+  Projects: auth-refactor, checkout
+bob:
+  Open PRs: 3
+  Has capacity: False
+  Available slots: 0
+  Projects: auth-refactor, api-performance
+charlie:
+  Open PRs: 1
+  Has capacity: True
+  Available slots: 2
+  Projects: checkout
+```
+
+#### 2. Calculate Project Completion Percentage
+
+Get completion status for a single project or across all projects:
+
+```python
+def get_project_completion(project: Project) -> Dict[str, Any]:
+    """Get detailed completion stats for a project."""
+    stats = project.get_progress_stats()
+
+    return {
+        "project": project.project,
+        "total_tasks": stats["total"],
+        "completed": stats["completed"],
+        "in_progress": stats["in_progress"],
+        "pending": stats["pending"],
+        "completion_percentage": project.get_completion_percentage(),
+        "is_complete": stats["completed"] == stats["total"],
+        "has_work_in_progress": stats["in_progress"] > 0,
+    }
+
+# Example usage
+completion = get_project_completion(project)
+print(f"Project: {completion['project']}")
+print(f"Progress: {completion['completed']}/{completion['total_tasks']} tasks")
+print(f"Completion: {completion['completion_percentage']:.1f}%")
+print(f"In Progress: {completion['in_progress']}")
+print(f"Pending: {completion['pending']}")
+```
+
+**Output Example:**
+```
+Project: auth-refactor
+Progress: 2/5 tasks
+Completion: 40.0%
+In Progress: 1
+Pending: 2
+```
+
+**Aggregate Across All Projects:**
+```python
+def get_aggregate_completion(projects: List[Project]) -> Dict[str, Any]:
+    """Get completion stats across all projects."""
+    total_tasks = sum(len(p.tasks) for p in projects)
+    all_stats = [p.get_progress_stats() for p in projects]
+
+    total_completed = sum(s["completed"] for s in all_stats)
+    total_in_progress = sum(s["in_progress"] for s in all_stats)
+    total_pending = sum(s["pending"] for s in all_stats)
+
+    return {
+        "total_projects": len(projects),
+        "total_tasks": total_tasks,
+        "completed": total_completed,
+        "in_progress": total_in_progress,
+        "pending": total_pending,
+        "overall_completion_percentage": (
+            (total_completed / total_tasks * 100) if total_tasks > 0 else 0.0
+        ),
+    }
+
+# Example usage
+aggregate = get_aggregate_completion(all_projects)
+print(f"Overall Progress: {aggregate['completed']}/{aggregate['total_tasks']} tasks")
+print(f"Completion: {aggregate['overall_completion_percentage']:.1f}%")
+```
+
+#### 3. Sum Costs Across Project
+
+Calculate costs with various breakdowns:
+
+```python
+def get_cost_analysis(project: Project) -> Dict[str, Any]:
+    """Get comprehensive cost analysis for a project."""
+
+    # Cost by model
+    cost_by_model = project.get_cost_by_model()
+
+    # Cost by operation type
+    cost_by_type: Dict[str, float] = {}
+    for pr in project.pull_requests:
+        for op in pr.ai_operations:
+            cost_by_type[op.type] = cost_by_type.get(op.type, 0.0) + op.cost_usd
+
+    # Cost by reviewer (total cost of PRs assigned to them)
+    cost_by_reviewer: Dict[str, float] = {}
+    for pr in project.pull_requests:
+        cost = pr.get_total_cost()
+        cost_by_reviewer[pr.reviewer] = cost_by_reviewer.get(pr.reviewer, 0.0) + cost
+
+    # Token usage
+    total_input_tokens = 0
+    total_output_tokens = 0
+    for pr in project.pull_requests:
+        input_tok, output_tok = pr.get_total_tokens()
+        total_input_tokens += input_tok
+        total_output_tokens += output_tok
+
+    return {
+        "project": project.project,
+        "total_cost": project.get_total_cost(),
+        "cost_by_model": cost_by_model,
+        "cost_by_operation_type": cost_by_type,
+        "cost_by_reviewer": cost_by_reviewer,
+        "total_input_tokens": total_input_tokens,
+        "total_output_tokens": total_output_tokens,
+        "total_tokens": total_input_tokens + total_output_tokens,
+        "average_cost_per_task": (
+            project.get_total_cost() / len(project.tasks) if project.tasks else 0.0
+        ),
+    }
+
+# Example usage
+costs = get_cost_analysis(project)
+print(f"Total Cost: ${costs['total_cost']:.2f}")
+print(f"Average per Task: ${costs['average_cost_per_task']:.2f}")
+print("\nCost by Model:")
+for model, cost in costs['cost_by_model'].items():
+    print(f"  {model}: ${cost:.2f}")
+print("\nCost by Operation Type:")
+for op_type, cost in costs['cost_by_operation_type'].items():
+    print(f"  {op_type}: ${cost:.2f}")
+```
+
+**Output Example:**
+```
+Total Cost: $0.72
+Average per Task: $0.36
+
+Cost by Model:
+  claude-sonnet-4: $0.68
+  claude-haiku-4: $0.04
+
+Cost by Operation Type:
+  PRCreation: $0.45
+  PRRefinement: $0.24
+  PRSummary: $0.03
+```
+
+#### 4. List Pending Tasks
+
+Find the next task(s) to work on:
+
+```python
+def get_pending_tasks(project: Project, limit: Optional[int] = None) -> List[Task]:
+    """Get all pending tasks, optionally limited to first N."""
+    pending = [
+        task for task in project.tasks
+        if task.status == TaskStatus.PENDING.value
+    ]
+
+    if limit is not None:
+        return pending[:limit]
+    return pending
+
+def get_next_task(project: Project) -> Optional[Task]:
+    """Get the next task to work on (first pending task)."""
+    pending = get_pending_tasks(project, limit=1)
+    return pending[0] if pending else None
+
+# Example usage
+next_task = get_next_task(project)
+if next_task:
+    print(f"Next task: #{next_task.index} - {next_task.description}")
+else:
+    print("No pending tasks - project complete!")
+
+all_pending = get_pending_tasks(project)
+print(f"\nRemaining tasks: {len(all_pending)}")
+for task in all_pending:
+    print(f"  #{task.index}: {task.description}")
+```
+
+**Output Example:**
+```
+Next task: #3 - Add email validation to user registration
+
+Remaining tasks: 3
+  #3: Add email validation to user registration
+  #4: Implement password reset functionality
+  #5: Add two-factor authentication support
+```
+
+#### 5. Team Leaderboard
+
+Aggregate PR statistics across all projects by team member:
+
+```python
+def get_team_leaderboard(projects: List[Project]) -> List[Dict[str, Any]]:
+    """Generate team leaderboard with PR and cost statistics.
+
+    Returns list sorted by merged PRs (descending).
+    """
+    reviewer_stats: Dict[str, Dict[str, Any]] = {}
+
+    for project in projects:
+        for pr in project.pull_requests:
+            if pr.reviewer not in reviewer_stats:
+                reviewer_stats[pr.reviewer] = {
+                    "reviewer": pr.reviewer,
+                    "total_prs": 0,
+                    "merged_prs": 0,
+                    "open_prs": 0,
+                    "closed_prs": 0,
+                    "total_cost": 0.0,
+                    "total_operations": 0,
+                    "projects": set(),
+                }
+
+            stats = reviewer_stats[pr.reviewer]
+            stats["total_prs"] += 1
+            stats["total_cost"] += pr.get_total_cost()
+            stats["total_operations"] += len(pr.ai_operations)
+            stats["projects"].add(project.project)
+
+            if pr.pr_state == PRState.MERGED.value:
+                stats["merged_prs"] += 1
+            elif pr.pr_state == PRState.OPEN.value:
+                stats["open_prs"] += 1
+            elif pr.pr_state == PRState.CLOSED.value:
+                stats["closed_prs"] += 1
+
+    # Convert to list and sort by merged PRs
+    leaderboard = []
+    for stats in reviewer_stats.values():
+        stats["projects"] = list(stats["projects"])
+        stats["project_count"] = len(stats["projects"])
+        leaderboard.append(stats)
+
+    leaderboard.sort(key=lambda x: x["merged_prs"], reverse=True)
+    return leaderboard
+
+# Example usage
+leaderboard = get_team_leaderboard(all_projects)
+
+print("Team Leaderboard")
+print("-" * 80)
+print(f"{'Reviewer':<15} {'Merged':<10} {'Open':<10} {'Total':<10} {'Cost':<12} {'Projects'}")
+print("-" * 80)
+
+for stats in leaderboard:
+    print(
+        f"{stats['reviewer']:<15} "
+        f"{stats['merged_prs']:<10} "
+        f"{stats['open_prs']:<10} "
+        f"{stats['total_prs']:<10} "
+        f"${stats['total_cost']:<11.2f} "
+        f"{', '.join(stats['projects'])}"
+    )
+```
+
+**Output Example:**
+```
+Team Leaderboard
+--------------------------------------------------------------------------------
+Reviewer        Merged     Open       Total      Cost         Projects
+--------------------------------------------------------------------------------
+alice           4          2          6          $1.23        auth-refactor, checkout, dashboard
+bob             3          1          4          $0.89        auth-refactor, api-performance
+charlie         2          1          3          $0.67        checkout, payments
+dana            1          0          1          $0.29        payments
+```
+
+### Edge Cases and Validation
+
+#### 1. Orphaned PRs (PR references non-existent task)
+
+**Detection:**
+```python
+def validate_pr_references(project: Project) -> List[str]:
+    """Validate that all PRs reference valid tasks.
+
+    Returns list of error messages.
+    """
+    errors = []
+    task_indices = {task.index for task in project.tasks}
+
+    for pr in project.pull_requests:
+        if pr.task_index not in task_indices:
+            errors.append(
+                f"PR #{pr.pr_number} references non-existent task index {pr.task_index}"
+            )
+
+    return errors
+```
+
+#### 2. Duplicate Task Indices
+
+**Detection:**
+```python
+def validate_unique_task_indices(project: Project) -> List[str]:
+    """Validate that task indices are unique.
+
+    Returns list of error messages.
+    """
+    errors = []
+    seen_indices = set()
+
+    for task in project.tasks:
+        if task.index in seen_indices:
+            errors.append(f"Duplicate task index: {task.index}")
+        seen_indices.add(task.index)
+
+    return errors
+```
+
+#### 3. Status Inconsistency (Status doesn't match PR state)
+
+**Detection and Auto-Fix:**
+```python
+def validate_and_fix_task_statuses(project: Project) -> List[str]:
+    """Validate task statuses match PR states, fix if needed.
+
+    Returns list of warning messages about fixed statuses.
+    """
+    warnings = []
+
+    for task in project.tasks:
+        expected_status = project.calculate_task_status(task.index)
+        if task.status != expected_status.value:
+            warnings.append(
+                f"Task {task.index} status mismatch: "
+                f"was '{task.status}', should be '{expected_status.value}' - FIXED"
+            )
+            task.status = expected_status.value
+
+    return warnings
+```
+
+#### 4. Empty AI Operations (PR with no operations)
+
+**Detection:**
+```python
+def validate_pr_has_operations(project: Project) -> List[str]:
+    """Validate that all PRs have at least one AI operation.
+
+    Returns list of error messages.
+    """
+    errors = []
+
+    for pr in project.pull_requests:
+        if not pr.ai_operations:
+            errors.append(
+                f"PR #{pr.pr_number} has no AI operations (task {pr.task_index})"
+            )
+
+    return errors
+```
+
+#### 5. Future Timestamp (created_at in the future)
+
+**Detection:**
+```python
+from datetime import datetime, timezone
+
+def validate_timestamps(project: Project) -> List[str]:
+    """Validate that timestamps are not in the future.
+
+    Returns list of warning messages.
+    """
+    warnings = []
+    now = datetime.now(timezone.utc)
+
+    for pr in project.pull_requests:
+        if pr.created_at > now:
+            warnings.append(
+                f"PR #{pr.pr_number} has future timestamp: {pr.created_at.isoformat()}"
+            )
+
+        for op in pr.ai_operations:
+            if op.created_at > now:
+                warnings.append(
+                    f"PR #{pr.pr_number} operation '{op.type}' has future timestamp: "
+                    f"{op.created_at.isoformat()}"
+                )
+
+    return warnings
+```
+
+#### Complete Validation Suite
+
+```python
+def validate_project(project: Project, auto_fix: bool = True) -> Dict[str, List[str]]:
+    """Run all validations on a project.
+
+    Args:
+        project: Project to validate
+        auto_fix: If True, automatically fix issues where possible
+
+    Returns:
+        Dict with 'errors' and 'warnings' lists
+    """
+    result = {
+        "errors": [],
+        "warnings": [],
+    }
+
+    # Critical errors (data inconsistency)
+    result["errors"].extend(validate_pr_references(project))
+    result["errors"].extend(validate_unique_task_indices(project))
+    result["errors"].extend(validate_pr_has_operations(project))
+
+    # Warnings (fixable issues)
+    result["warnings"].extend(validate_timestamps(project))
+
+    if auto_fix:
+        result["warnings"].extend(validate_and_fix_task_statuses(project))
+    else:
+        # Just detect, don't fix
+        for task in project.tasks:
+            expected = project.calculate_task_status(task.index)
+            if task.status != expected.value:
+                result["warnings"].append(
+                    f"Task {task.index} status mismatch: "
+                    f"is '{task.status}', should be '{expected.value}'"
+                )
+
+    return result
+
+# Example usage
+validation = validate_project(project, auto_fix=True)
+
+if validation["errors"]:
+    print("ERRORS:")
+    for error in validation["errors"]:
+        print(f"  ❌ {error}")
+
+if validation["warnings"]:
+    print("WARNINGS:")
+    for warning in validation["warnings"]:
+        print(f"  ⚠️  {warning}")
+
+if not validation["errors"] and not validation["warnings"]:
+    print("✅ Project validation passed")
+```
+
+### Migration Strategy Details
+
+#### Step 1: Schema Version Detection
+
+```python
+def detect_schema_version(data: Dict[str, Any]) -> str:
+    """Detect schema version from JSON data."""
+    return data.get("schema_version", "1.0")
+
+def load_project_with_migration(json_path: str) -> Project:
+    """Load project from JSON, auto-migrating if needed."""
+    with open(json_path, "r") as f:
+        data = json.load(f)
+
+    version = detect_schema_version(data)
+
+    if version == "1.0":
+        # Migrate from old format
+        data = migrate_v1_to_v2(data)
+    elif version == "2.0":
+        # Already new format
+        pass
+    else:
+        raise ValueError(f"Unknown schema version: {version}")
+
+    return Project.from_dict(data)
+```
+
+#### Step 2: V1 → V2 Migration Function
+
+```python
+def migrate_v1_to_v2(v1_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Migrate schema version 1.0 to 2.0.
+
+    V1 Structure:
+        Project → steps → [Step with optional PR fields] → ai_tasks
+
+    V2 Structure:
+        Project → tasks → [Task with status]
+        Project → pull_requests → [PullRequest] → ai_operations
+    """
+    tasks = []
+    pull_requests = []
+
+    for step in v1_data.get("steps", []):
+        # Extract task info
+        task_index = step.get("step_index") or step.get("task_index")  # Handle old field name
+        task_description = step.get("step_description") or step.get("task_description")
+
+        # Determine status from PR fields
+        if step.get("pr_state") == "merged":
+            status = "completed"
+        elif step.get("pr_number") is not None:
+            status = "in_progress"
+        else:
+            status = "pending"
+
+        tasks.append({
+            "index": task_index,
+            "description": task_description,
+            "status": status,
+        })
+
+        # Extract PR info if present
+        if step.get("pr_number") is not None:
+            pull_requests.append({
+                "task_index": task_index,
+                "pr_number": step["pr_number"],
+                "branch_name": step["branch_name"],
+                "reviewer": step["reviewer"],
+                "pr_state": step["pr_state"],
+                "created_at": step["created_at"],
+                "ai_operations": step.get("ai_tasks", []),  # Rename ai_tasks → ai_operations
+            })
+
+    return {
+        "schema_version": "2.0",
+        "project": v1_data["project"],
+        "last_updated": v1_data["last_updated"],
+        "tasks": tasks,
+        "pull_requests": pull_requests,
+    }
+```
+
+#### Step 3: Backward Compatibility Wrapper
+
+```python
+class MetadataStorage:
+    """Handle reading/writing project metadata with auto-migration."""
+
+    @staticmethod
+    def load(json_path: str) -> Project:
+        """Load project, auto-migrating old versions."""
+        return load_project_with_migration(json_path)
+
+    @staticmethod
+    def save(project: Project, json_path: str) -> None:
+        """Save project in latest format (v2.0)."""
+        with open(json_path, "w") as f:
+            json.dump(project.to_dict(), f, indent=2)
+
+    @staticmethod
+    def save_with_backup(project: Project, json_path: str) -> None:
+        """Save with backup of old version."""
+        import shutil
+        from pathlib import Path
+
+        # Create backup if file exists
+        if Path(json_path).exists():
+            backup_path = f"{json_path}.backup"
+            shutil.copy2(json_path, backup_path)
+
+        # Save new version
+        MetadataStorage.save(project, json_path)
+```
+
+**Technical Notes:**
+- Phase 6 specification complete and ready for implementation
+- All examples tested for JSON validity
+- Dataclass structure includes full type hints for static analysis
+- Query operations optimized for common use cases
+- Validation suite covers all known edge cases
+- Migration path handles backward compatibility with v1.0 schema
 
 ## Phase 8: User Review and Decision
 
