@@ -28,11 +28,11 @@ def generate_task_id(task: str, max_length: int = 30) -> str:
     return sanitized
 
 
-def find_next_available_task(plan_file: str, skip_indices: Optional[set] = None) -> Optional[tuple]:
+def find_next_available_task(spec_input: str, skip_indices: Optional[set] = None) -> Optional[tuple]:
     """Find first unchecked task not in skip_indices
 
     Args:
-        plan_file: Path to spec.md file
+        spec_input: Either spec.md content as string OR path to spec.md file
         skip_indices: Set of task indices to skip (in-progress tasks)
 
     Returns:
@@ -40,28 +40,37 @@ def find_next_available_task(plan_file: str, skip_indices: Optional[set] = None)
         task_index is 1-based position in spec.md
 
     Raises:
-        FileNotFoundError: If spec file doesn't exist
+        FileNotFoundError: If spec_input is a file path that doesn't exist
     """
     if skip_indices is None:
         skip_indices = set()
 
-    if not os.path.exists(plan_file):
-        raise FileNotFoundError(f"Spec file not found: {plan_file}")
+    # Determine if input is a file path or content string
+    # If it looks like a file path (contains / or \) and exists, read it
+    if ('/' in spec_input or '\\' in spec_input) and os.path.exists(spec_input):
+        # It's a file path
+        with open(spec_input, "r") as f:
+            spec_content = f.read()
+    elif ('/' in spec_input or '\\' in spec_input):
+        # Looks like a file path but doesn't exist
+        raise FileNotFoundError(f"Spec file not found: {spec_input}")
+    else:
+        # It's content string
+        spec_content = spec_input
 
-    with open(plan_file, "r") as f:
-        task_index = 1
-        for line in f:
-            # Check for unchecked task
-            match = re.match(r'^\s*- \[ \] (.+)$', line)
-            if match:
-                if task_index not in skip_indices:
-                    return (task_index, match.group(1).strip())
-                else:
-                    print(f"Skipping task {task_index} (already in progress)")
-                task_index += 1
-            # Also count completed tasks to maintain correct indices
-            elif re.match(r'^\s*- \[[xX]\] ', line):
-                task_index += 1
+    task_index = 1
+    for line in spec_content.split('\n'):
+        # Check for unchecked task
+        match = re.match(r'^\s*- \[ \] (.+)$', line)
+        if match:
+            if task_index not in skip_indices:
+                return (task_index, match.group(1).strip())
+            else:
+                print(f"Skipping task {task_index} (already in progress)")
+            task_index += 1
+        # Also count completed tasks to maintain correct indices
+        elif re.match(r'^\s*- \[[xX]\] ', line):
+            task_index += 1
 
     return None
 

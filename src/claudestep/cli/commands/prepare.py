@@ -4,11 +4,11 @@ import argparse
 import json
 import os
 
-from claudestep.domain.config import load_config, validate_spec_format
+from claudestep.domain.config import load_config, load_config_from_string, validate_spec_format, validate_spec_format_from_string
 from claudestep.domain.exceptions import ConfigurationError, FileNotFoundError, GitError, GitHubAPIError
 from claudestep.infrastructure.git.operations import run_git_command
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
-from claudestep.infrastructure.github.operations import ensure_label_exists, file_exists_in_branch
+from claudestep.infrastructure.github.operations import ensure_label_exists, file_exists_in_branch, get_file_from_branch
 from claudestep.application.services.pr_operations import format_branch_name
 from claudestep.application.services.project_detection import detect_project_from_pr, detect_project_paths
 from claudestep.application.services.reviewer_management import find_available_reviewer
@@ -82,7 +82,14 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
 
         # === STEP 2: Load and Validate Configuration ===
         print("\n=== Step 2/6: Loading configuration ===")
-        config = load_config(config_path)
+
+        # Fetch configuration from GitHub API
+        config_content = get_file_from_branch(repo, base_branch, config_file_path)
+        if not config_content:
+            gh.set_error(f"Failed to fetch configuration file from branch '{base_branch}'")
+            return 1
+
+        config = load_config_from_string(config_content, config_file_path)
         reviewers = config.get("reviewers")
         slack_webhook_url = os.environ.get("SLACK_WEBHOOK_URL", "")  # From action input
         label = os.environ.get("PR_LABEL", "claudestep")  # From action input, defaults to "claudestep"
@@ -93,8 +100,13 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
         # Ensure label exists
         ensure_label_exists(label, gh)
 
-        # Validate spec format
-        validate_spec_format(spec_path)
+        # Fetch and validate spec format from GitHub API
+        spec_content = get_file_from_branch(repo, base_branch, spec_file_path)
+        if not spec_content:
+            gh.set_error(f"Failed to fetch spec file from branch '{base_branch}'")
+            return 1
+
+        validate_spec_format_from_string(spec_content, spec_file_path)
 
         print(f"✅ Configuration loaded: label={label}, reviewers={len(reviewers)}")
 
@@ -123,7 +135,7 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
         if in_progress_indices:
             print(f"Found in-progress tasks: {sorted(in_progress_indices)}")
 
-        result = find_next_available_task(spec_path, in_progress_indices)
+        result = find_next_available_task(spec_content, in_progress_indices)
 
         if not result:
             gh.write_output("has_task", "false")
@@ -149,11 +161,7 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
         # === STEP 6: Prepare Claude Prompt ===
         print("\n=== Step 6/6: Preparing Claude prompt ===")
 
-        # Read spec content
-        with open(spec_path, "r") as f:
-            spec_content = f.read()
-
-        # Create the prompt
+        # Create the prompt (spec_content already fetched in Step 2)
         claude_prompt = f"""Complete the following task from spec.md:
 
 Task: {task}

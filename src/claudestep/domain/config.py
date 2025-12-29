@@ -32,19 +32,39 @@ def load_config(file_path: str) -> Dict[str, Any]:
 
     try:
         with open(file_path, "r") as f:
-            config = yaml.safe_load(f)
+            content = f.read()
+        return load_config_from_string(content, file_path)
+    except yaml.YAMLError as e:
+        raise ConfigurationError(f"Invalid YAML in {file_path}: {str(e)}")
+
+
+def load_config_from_string(content: str, source_name: str = "config") -> Dict[str, Any]:
+    """Load YAML configuration from string content
+
+    Args:
+        content: YAML content as string
+        source_name: Name of the source (for error messages)
+
+    Returns:
+        Parsed configuration as dictionary
+
+    Raises:
+        ConfigurationError: If content is invalid YAML or contains deprecated fields
+    """
+    try:
+        config = yaml.safe_load(content)
 
         # Validate configuration - reject deprecated fields
         if "branchPrefix" in config:
             raise ConfigurationError(
                 f"The 'branchPrefix' field is no longer supported. "
                 f"ClaudeStep now uses a standard branch format: claude-step-{{project}}-{{index}}. "
-                f"Please remove 'branchPrefix' from {file_path}"
+                f"Please remove 'branchPrefix' from {source_name}"
             )
 
         return config
     except yaml.YAMLError as e:
-        raise ConfigurationError(f"Invalid YAML in {file_path}: {str(e)}")
+        raise ConfigurationError(f"Invalid YAML in {source_name}: {str(e)}")
 
 
 def substitute_template(template: str, **kwargs) -> str:
@@ -79,14 +99,32 @@ def validate_spec_format(spec_file: str) -> bool:
     if not os.path.exists(spec_file):
         raise FileNotFoundError(f"Spec file not found: {spec_file}")
 
+    with open(spec_file, "r") as f:
+        content = f.read()
+
+    return validate_spec_format_from_string(content, spec_file)
+
+
+def validate_spec_format_from_string(content: str, source_name: str = "spec.md") -> bool:
+    """Validate that spec content contains checklist items in the correct format
+
+    Args:
+        content: Spec content as string
+        source_name: Name of the source (for error messages)
+
+    Returns:
+        True if valid format (contains at least one checklist item)
+
+    Raises:
+        ConfigurationError: If spec has invalid format
+    """
     has_checklist_item = False
 
-    with open(spec_file, "r") as f:
-        for line in f:
-            # Check for unchecked or checked task items
-            if re.match(r'^\s*- \[[xX ]\]', line):
-                has_checklist_item = True
-                break
+    for line in content.split('\n'):
+        # Check for unchecked or checked task items
+        if re.match(r'^\s*- \[[xX ]\]', line):
+            has_checklist_item = True
+            break
 
     if not has_checklist_item:
         raise ConfigurationError(

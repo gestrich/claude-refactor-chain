@@ -6,9 +6,10 @@ import re
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
-from claudestep.domain.config import load_config
+from claudestep.domain.config import load_config_from_string
 from claudestep.domain.exceptions import FileNotFoundError as ClaudeStepFileNotFoundError
 from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
+from claudestep.infrastructure.github.operations import get_file_from_branch
 from claudestep.application.services.metadata_service import MetadataService
 from claudestep.domain.models import ProjectStats, StatisticsReport, TeamMemberStats
 
@@ -72,23 +73,30 @@ def collect_project_costs(
         return 0.0
 
 
-def count_tasks(spec_path: str) -> Tuple[int, int]:
+def count_tasks(spec_input: str) -> Tuple[int, int]:
     """Returns (total, completed) task counts from spec.md
 
     Args:
-        spec_path: Path to spec.md file
+        spec_input: Either spec.md content as string OR path to spec.md file
 
     Returns:
         Tuple of (total_tasks, completed_tasks)
 
     Raises:
-        ClaudeStepFileNotFoundError: If spec file doesn't exist
+        ClaudeStepFileNotFoundError: If spec_input is a file path that doesn't exist
     """
-    if not os.path.exists(spec_path):
-        raise ClaudeStepFileNotFoundError(f"Spec file not found: {spec_path}")
-
-    with open(spec_path, "r") as f:
-        content = f.read()
+    # Determine if input is a file path or content string
+    # If it looks like a file path (contains / or \) and exists, read it
+    if ('/' in spec_input or '\\' in spec_input) and os.path.exists(spec_input):
+        # It's a file path
+        with open(spec_input, "r") as f:
+            content = f.read()
+    elif ('/' in spec_input or '\\' in spec_input):
+        # Looks like a file path but doesn't exist
+        raise ClaudeStepFileNotFoundError(f"Spec file not found: {spec_input}")
+    else:
+        # It's content string
+        content = spec_input
 
     # Count total tasks (both checked and unchecked)
     # Pattern matches: - [ ], - [x], - [X]
@@ -229,32 +237,38 @@ def collect_team_member_stats(
 
 
 def collect_project_stats(
-    project_name: str, spec_path: str, repo: str, label: str = "claudestep"
+    project_name: str, repo: str, base_branch: str = "main", label: str = "claudestep"
 ) -> ProjectStats:
     """Collect statistics for a single project
 
     Args:
         project_name: Name of the project
-        spec_path: Path to spec.md file
         repo: GitHub repository
+        base_branch: Base branch to fetch spec from
         label: GitHub label for filtering
 
     Returns:
-        ProjectStats object
+        ProjectStats object, or None if spec files don't exist in base branch
     """
     print(f"Collecting statistics for project: {project_name}")
 
-    stats = ProjectStats(project_name, spec_path)
+    spec_file_path = f"claude-step/{project_name}/spec.md"
+    stats = ProjectStats(project_name, spec_file_path)
 
-    # Count total and completed tasks from spec.md
+    # Fetch spec.md from GitHub API
     try:
-        total, completed = count_tasks(spec_path)
+        spec_content = get_file_from_branch(repo, base_branch, spec_file_path)
+        if not spec_content:
+            print(f"  Warning: Spec file not found in branch '{base_branch}', skipping project")
+            return None
+
+        total, completed = count_tasks(spec_content)
         stats.total_tasks = total
         stats.completed_tasks = completed
         print(f"  Tasks: {completed}/{total} completed")
-    except ClaudeStepFileNotFoundError as e:
-        print(f"  Warning: {e}")
-        return stats
+    except Exception as e:
+        print(f"  Warning: Failed to fetch spec file: {e}")
+        return None
 
     # Get in-progress tasks from metadata storage
     try:
@@ -304,27 +318,33 @@ def collect_all_statistics(
         print("Warning: GITHUB_REPOSITORY not set")
         return report
 
+    # Get base branch from environment
+    base_branch = os.environ.get("BASE_BRANCH", "main")
     label = "claudestep"
     all_reviewers = set()
-    projects_data = []  # List of (project_name, spec_path, reviewers)
+    projects_data = []  # List of (project_name, reviewers)
 
     if config_path:
-        # Single project mode
+        # Single project mode - fetch config from GitHub API
         print(f"Single project mode: {config_path}")
 
         try:
-            config = load_config(config_path)
-            reviewers_config = config.get("reviewers", [])
-            reviewers = [r.get("username") for r in reviewers_config if "username" in r]
-
             # Extract project name from path
             # Path format: claude-step/{project}/configuration.yml
             project_name = os.path.basename(os.path.dirname(config_path))
+            config_file_path = f"claude-step/{project_name}/configuration.yml"
 
-            # Determine spec path
-            spec_path = os.path.join(os.path.dirname(config_path), "spec.md")
+            # Fetch configuration from GitHub API
+            config_content = get_file_from_branch(repo, base_branch, config_file_path)
+            if not config_content:
+                print(f"Error: Configuration file not found in branch '{base_branch}'")
+                return report
 
-            projects_data.append((project_name, spec_path, reviewers))
+            config = load_config_from_string(config_content, config_file_path)
+            reviewers_config = config.get("reviewers", [])
+            reviewers = [r.get("username") for r in reviewers_config if "username" in r]
+
+            projects_data.append((project_name, reviewers))
             all_reviewers.update(reviewers)
 
         except Exception as e:
@@ -341,32 +361,29 @@ def collect_all_statistics(
             project_names = metadata_service.list_project_names()
         except Exception as e:
             print(f"Error accessing metadata storage: {e}")
-            print("Falling back to filesystem discovery...")
-            from claudestep.cli.commands.discover import find_all_projects
-            base_dir = os.environ.get("CLAUDESTEP_PROJECT_DIR", "claude-step")
-            project_names = find_all_projects(base_dir)
+            return report
 
         if not project_names:
             print("No projects found")
             return report
 
-        # Get base directory for finding spec files
-        base_dir = os.environ.get("CLAUDESTEP_PROJECT_DIR", "claude-step")
-
         for project_name in project_names:
             try:
-                project_path = os.path.join(base_dir, project_name)
-                config_file = os.path.join(project_path, "configuration.yml")
-                spec_file = os.path.join(project_path, "spec.md")
+                config_file_path = f"claude-step/{project_name}/configuration.yml"
 
-                # Load config to get reviewers
-                config = load_config(config_file)
+                # Fetch configuration from GitHub API
+                config_content = get_file_from_branch(repo, base_branch, config_file_path)
+                if not config_content:
+                    print(f"Warning: Configuration file not found for project {project_name} in branch '{base_branch}', skipping")
+                    continue
+
+                config = load_config_from_string(config_content, config_file_path)
                 reviewers_config = config.get("reviewers", [])
                 reviewers = [
                     r.get("username") for r in reviewers_config if "username" in r
                 ]
 
-                projects_data.append((project_name, spec_file, reviewers))
+                projects_data.append((project_name, reviewers))
                 all_reviewers.update(reviewers)
 
             except Exception as e:
@@ -377,10 +394,11 @@ def collect_all_statistics(
     print(f"Tracking {len(all_reviewers)} unique reviewer(s)")
 
     # Collect project statistics
-    for project_name, spec_path, _ in projects_data:
+    for project_name, _ in projects_data:
         try:
-            project_stats = collect_project_stats(project_name, spec_path, repo, label)
-            report.add_project(project_stats)
+            project_stats = collect_project_stats(project_name, repo, base_branch, label)
+            if project_stats:  # Only add if not None (spec exists in base branch)
+                report.add_project(project_stats)
         except Exception as e:
             print(f"Error collecting stats for {project_name}: {e}")
 

@@ -13,7 +13,6 @@ from claudestep.infrastructure.github.actions import GitHubActionsHelper
 from claudestep.infrastructure.github.operations import run_gh_command
 from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
 from claudestep.application.services.metadata_service import MetadataService
-from claudestep.application.services.task_management import mark_task_complete
 
 
 def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
@@ -123,34 +122,12 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         remote_url = f"https://x-access-token:{gh_token}@github.com/{github_repository}.git"
         run_git_command(["remote", "set-url", "origin", remote_url])
 
-        # Mark task as complete in spec.md
-        try:
-            mark_task_complete(spec_path, task)
-            print(f"Marked task complete in {spec_path}")
-
-            # Add the updated spec
-            run_git_command(["add", spec_path])
-
-            # Check if there are changes to commit
-            status_output = run_git_command(["status", "--porcelain"])
-            if status_output.strip():
-                if commits_count > 0:
-                    # Amend the last commit to include the spec update
-                    try:
-                        run_git_command(["commit", "--amend", "--no-edit"])
-                        print("Added spec.md update to existing commit")
-                    except GitError:
-                        run_git_command(["commit", "-m", f"Mark task complete: {task}"])
-                        print("Created separate commit for spec.md update")
-                else:
-                    run_git_command(["commit", "-m", f"Mark task complete: {task}"])
-                    print("Created commit for spec.md update")
-                    commits_count = 1
-        except (GitError, FileNotFoundError) as e:
-            gh.set_warning(f"Failed to mark task complete in spec: {str(e)}")
+        # NOTE: We no longer mark tasks complete in spec.md during workflow
+        # Spec files are stored in the main branch and should be updated manually
+        # or through a separate process after PR merge
 
         if commits_count == 0:
-            gh.set_warning("No changes made (including spec update), skipping PR creation")
+            gh.set_warning("No changes made, skipping PR creation")
             gh.write_output("pr_number", "")
             gh.write_output("pr_url", "")
             gh.write_output("artifact_path", "")
