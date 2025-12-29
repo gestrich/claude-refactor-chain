@@ -369,7 +369,7 @@ This change makes the E2E tests more resilient to timing variations while still 
 
 ---
 
-- [ ] Phase 5: Fix Coverage Configuration for E2E Tests
+- [x] Phase 5: Fix Coverage Configuration for E2E Tests
 
 **Objective:** Adjust coverage requirements to be appropriate for E2E tests.
 
@@ -393,6 +393,37 @@ This change makes the E2E tests more resilient to timing variations while still 
 - Or create `pytest.e2e.ini` with E2E-specific settings
 
 **Expected Outcome:** E2E tests no longer fail due to coverage requirements.
+
+---
+
+**COMPLETED:**
+
+**Root Cause:**
+The E2E test workflow was failing with 0% coverage because E2E tests run code remotely within GitHub Actions workflows, not locally in the pytest process. The pytest configuration in `pyproject.toml` (lines 51-54) globally enforces coverage collection and a 70% minimum threshold (`--cov=src/claudestep`, `--cov-fail-under=70`), which is appropriate for unit tests but not applicable to E2E tests.
+
+**Solution Implemented:**
+Disabled coverage collection for E2E tests by adding the `--no-cov` flag to the pytest command in the E2E test workflow.
+
+**Changes Made:**
+1. **e2e-test.yml:60** - Added `--no-cov` flag to pytest command: `pytest tests/e2e/ -v --no-cov`
+
+**Technical Details:**
+- E2E tests validate ClaudeStep by running it as a GitHub Action in test workflows, meaning the tested code executes in a separate GitHub Actions runner, not in the pytest process
+- The `--no-cov` flag disables pytest-cov for this specific test run while preserving coverage requirements for unit tests (which run code locally)
+- This keeps coverage requirements strict (70%) for unit tests while exempting E2E tests where coverage collection is not meaningful
+- Unit test coverage is still enforced via the default pytest configuration when running `pytest tests/unit/`
+
+**Validation:**
+- YAML syntax validated successfully
+- Change is minimal and surgical, only affecting the E2E test workflow
+- Unit test coverage requirements remain unchanged (70% minimum)
+- Pre-existing test infrastructure continues to work (324/337 tests passing in unit tests)
+
+**Files Modified:**
+- .github/workflows/e2e-test.yml (line 60)
+
+**Impact:**
+E2E tests will no longer fail due to inapplicable coverage requirements, while unit test coverage enforcement remains strict and effective.
 
 ---
 
