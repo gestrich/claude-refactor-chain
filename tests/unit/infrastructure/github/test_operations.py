@@ -13,6 +13,8 @@ from claudestep.domain.exceptions import GitHubAPIError
 from claudestep.infrastructure.github.operations import (
     download_artifact_json,
     ensure_label_exists,
+    file_exists_in_branch,
+    get_file_from_branch,
     gh_api_call,
     run_gh_command,
 )
@@ -397,3 +399,191 @@ class TestEnsureLabelExists:
         assert "--color" in args
         color_idx = args.index("--color")
         assert "0E8A16" == args[color_idx + 1]
+
+
+class TestGetFileFromBranch:
+    """Test suite for get_file_from_branch function"""
+
+    @patch('claudestep.infrastructure.github.operations.gh_api_call')
+    def test_get_file_from_branch_success(self, mock_gh_api):
+        """Should fetch and decode file content from branch"""
+        # Arrange
+        import base64
+        file_content = "# Sample Spec File\n\nTask 1: Do something"
+        encoded = base64.b64encode(file_content.encode()).decode()
+        mock_gh_api.return_value = {"content": encoded, "encoding": "base64"}
+
+        repo = "owner/repo"
+        branch = "main"
+        file_path = "claude-step/project/spec.md"
+
+        # Act
+        result = get_file_from_branch(repo, branch, file_path)
+
+        # Assert
+        assert result == file_content
+        mock_gh_api.assert_called_once_with(
+            f"/repos/{repo}/contents/{file_path}?ref={branch}",
+            method="GET"
+        )
+
+    @patch('claudestep.infrastructure.github.operations.gh_api_call')
+    def test_get_file_from_branch_handles_newlines_in_base64(self, mock_gh_api):
+        """Should handle base64 content with newlines (GitHub adds them)"""
+        # Arrange
+        import base64
+        file_content = "Line 1\nLine 2\nLine 3"
+        encoded = base64.b64encode(file_content.encode()).decode()
+        # Simulate GitHub adding newlines every 60 chars
+        encoded_with_newlines = encoded[:20] + "\n" + encoded[20:40] + "\n" + encoded[40:]
+        mock_gh_api.return_value = {"content": encoded_with_newlines, "encoding": "base64"}
+
+        repo = "owner/repo"
+        branch = "main"
+        file_path = "test.txt"
+
+        # Act
+        result = get_file_from_branch(repo, branch, file_path)
+
+        # Assert
+        assert result == file_content
+
+    @patch('claudestep.infrastructure.github.operations.gh_api_call')
+    def test_get_file_from_branch_returns_none_on_404(self, mock_gh_api):
+        """Should return None when file not found (404 error)"""
+        # Arrange
+        mock_gh_api.side_effect = GitHubAPIError("404 Not Found")
+        repo = "owner/repo"
+        branch = "main"
+        file_path = "missing/file.md"
+
+        # Act
+        result = get_file_from_branch(repo, branch, file_path)
+
+        # Assert
+        assert result is None
+
+    @patch('claudestep.infrastructure.github.operations.gh_api_call')
+    def test_get_file_from_branch_returns_none_when_not_found_in_message(self, mock_gh_api):
+        """Should return None when 'Not Found' in error message"""
+        # Arrange
+        mock_gh_api.side_effect = GitHubAPIError("HTTP 404: Not Found (cached)")
+        repo = "owner/repo"
+        branch = "develop"
+        file_path = "nonexistent.yml"
+
+        # Act
+        result = get_file_from_branch(repo, branch, file_path)
+
+        # Assert
+        assert result is None
+
+    @patch('claudestep.infrastructure.github.operations.gh_api_call')
+    def test_get_file_from_branch_reraises_other_errors(self, mock_gh_api):
+        """Should re-raise GitHubAPIError for non-404 errors"""
+        # Arrange
+        mock_gh_api.side_effect = GitHubAPIError("API rate limit exceeded")
+        repo = "owner/repo"
+        branch = "main"
+        file_path = "some/file.md"
+
+        # Act & Assert
+        with pytest.raises(GitHubAPIError, match="API rate limit exceeded"):
+            get_file_from_branch(repo, branch, file_path)
+
+    @patch('claudestep.infrastructure.github.operations.gh_api_call')
+    def test_get_file_from_branch_returns_none_when_no_content_field(self, mock_gh_api):
+        """Should return None when API response lacks content field"""
+        # Arrange
+        mock_gh_api.return_value = {"type": "dir", "name": "folder"}
+        repo = "owner/repo"
+        branch = "main"
+        file_path = "directory"
+
+        # Act
+        result = get_file_from_branch(repo, branch, file_path)
+
+        # Assert
+        assert result is None
+
+    @patch('claudestep.infrastructure.github.operations.gh_api_call')
+    def test_get_file_from_branch_handles_unicode_content(self, mock_gh_api):
+        """Should correctly decode unicode characters"""
+        # Arrange
+        import base64
+        file_content = "Unicode test: 你好世界 🎉 café"
+        encoded = base64.b64encode(file_content.encode('utf-8')).decode()
+        mock_gh_api.return_value = {"content": encoded}
+
+        repo = "owner/repo"
+        branch = "main"
+        file_path = "unicode.txt"
+
+        # Act
+        result = get_file_from_branch(repo, branch, file_path)
+
+        # Assert
+        assert result == file_content
+
+
+class TestFileExistsInBranch:
+    """Test suite for file_exists_in_branch function"""
+
+    @patch('claudestep.infrastructure.github.operations.get_file_from_branch')
+    def test_file_exists_returns_true_when_file_found(self, mock_get_file):
+        """Should return True when file content is returned"""
+        # Arrange
+        mock_get_file.return_value = "file content here"
+        repo = "owner/repo"
+        branch = "main"
+        file_path = "existing/file.md"
+
+        # Act
+        result = file_exists_in_branch(repo, branch, file_path)
+
+        # Assert
+        assert result is True
+        mock_get_file.assert_called_once_with(repo, branch, file_path)
+
+    @patch('claudestep.infrastructure.github.operations.get_file_from_branch')
+    def test_file_exists_returns_false_when_file_not_found(self, mock_get_file):
+        """Should return False when get_file_from_branch returns None"""
+        # Arrange
+        mock_get_file.return_value = None
+        repo = "owner/repo"
+        branch = "main"
+        file_path = "missing/file.md"
+
+        # Act
+        result = file_exists_in_branch(repo, branch, file_path)
+
+        # Assert
+        assert result is False
+
+    @patch('claudestep.infrastructure.github.operations.get_file_from_branch')
+    def test_file_exists_returns_true_for_empty_file(self, mock_get_file):
+        """Should return True even for empty file content"""
+        # Arrange
+        mock_get_file.return_value = ""
+        repo = "owner/repo"
+        branch = "develop"
+        file_path = "empty.txt"
+
+        # Act
+        result = file_exists_in_branch(repo, branch, file_path)
+
+        # Assert
+        assert result is True
+
+    @patch('claudestep.infrastructure.github.operations.get_file_from_branch')
+    def test_file_exists_propagates_errors(self, mock_get_file):
+        """Should propagate GitHubAPIError from get_file_from_branch"""
+        # Arrange
+        mock_get_file.side_effect = GitHubAPIError("API error")
+        repo = "owner/repo"
+        branch = "main"
+        file_path = "file.md"
+
+        # Act & Assert
+        with pytest.raises(GitHubAPIError, match="API error"):
+            file_exists_in_branch(repo, branch, file_path)

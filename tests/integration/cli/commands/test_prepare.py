@@ -60,16 +60,17 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True) as mock_exists:
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format") as mock_validate:
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists") as mock_label:
-                                with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                    with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
-                                        with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
-                                            with patch("claudestep.cli.commands.prepare.run_git_command") as mock_git:
-                                                with patch("builtins.open", mock_open(read_data=sample_spec_content)):
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string") as mock_validate:
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists") as mock_label:
+                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                        with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
+                                            with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
+                                                with patch("claudestep.cli.commands.prepare.run_git_command") as mock_git:
                                                     # Setup mocks
+                                                    mock_get_file.return_value = sample_spec_content  # Returns content for both config and spec
                                                     mock_paths.return_value = (
                                                         "claude-step/my-project/config.yml",
                                                         "claude-step/my-project/spec.md",
@@ -109,17 +110,18 @@ class TestCmdPrepare:
 
         with patch.dict("os.environ", env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_from_pr") as mock_detect:
-                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                        with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                            with patch("claudestep.cli.commands.prepare.validate_spec_format"):
-                                with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
-                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                        with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
-                                            with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
-                                                with patch("claudestep.cli.commands.prepare.run_git_command"):
-                                                    with patch("builtins.open", mock_open(read_data=sample_spec_content)):
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_from_pr") as mock_detect:
+                        with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                            with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                                with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"):
+                                    with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
+                                        with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                            with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
+                                                with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
+                                                    with patch("claudestep.cli.commands.prepare.run_git_command"):
                                                         # Setup mocks
+                                                        mock_get_file.return_value = sample_spec_content
                                                         mock_detect.return_value = "detected-project"
                                                         mock_paths.return_value = (
                                                             "config.yml", "spec.md", "template.md", "path"
@@ -182,19 +184,21 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        # Setup mocks
-                        mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
-                        mock_load.return_value = {}  # No reviewers
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            # Setup mocks
+                            mock_get_file.return_value = "config content"
+                            mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
+                            mock_load.return_value = {}  # No reviewers
 
-                        # Act
-                        result = cmd_prepare(args, mock_gh)
+                            # Act
+                            result = cmd_prepare(args, mock_gh)
 
-                        # Assert
-                        assert result == 1
-                        mock_gh.set_error.assert_called_once()
-                        assert "Missing required field: reviewers" in mock_gh.set_error.call_args[0][0]
+                            # Assert
+                            assert result == 1
+                            mock_gh.set_error.assert_called_once()
+                            assert "Missing required field: reviewers" in mock_gh.set_error.call_args[0][0]
 
     def test_preparation_when_no_reviewer_capacity(
         self, args, mock_gh, mock_env, sample_config
@@ -203,28 +207,30 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format"):
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
-                                with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                    # Setup mocks
-                                    mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
-                                    mock_load.return_value = sample_config
-                                    mock_reviewer.return_value = (
-                                        None,
-                                        Mock(format_summary=Mock(return_value="All at capacity"))
-                                    )
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"):
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
+                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                        # Setup mocks
+                                        mock_get_file.return_value = "config content"
+                                        mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
+                                        mock_load.return_value = sample_config
+                                        mock_reviewer.return_value = (
+                                            None,
+                                            Mock(format_summary=Mock(return_value="All at capacity"))
+                                        )
 
-                                    # Act
-                                    result = cmd_prepare(args, mock_gh)
+                                        # Act
+                                        result = cmd_prepare(args, mock_gh)
 
-                                    # Assert
-                                    assert result == 0  # Not an error
-                                    mock_gh.write_output.assert_any_call("has_capacity", "false")
-                                    mock_gh.write_output.assert_any_call("reviewer", "")
-                                    mock_gh.set_notice.assert_called_once()
-                                    assert "All reviewers at capacity" in mock_gh.set_notice.call_args[0][0]
+                                        # Assert
+                                        assert result == 0  # Not an error
+                                        mock_gh.write_output.assert_any_call("has_capacity", "false")
+                                        mock_gh.write_output.assert_any_call("reviewer", "")
+                                        mock_gh.set_notice.assert_called_once()
+                                        assert "All reviewers at capacity" in mock_gh.set_notice.call_args[0][0]
 
     def test_preparation_when_no_tasks_available(
         self, args, mock_gh, mock_env, sample_config
@@ -233,32 +239,34 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format"):
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
-                                with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                    with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
-                                        with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
-                                            # Setup mocks
-                                            mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
-                                            mock_load.return_value = sample_config
-                                            mock_reviewer.return_value = (
-                                                "alice",
-                                                Mock(format_summary=Mock(return_value="Summary"))
-                                            )
-                                            mock_indices.return_value = set()
-                                            mock_task.return_value = None  # No tasks
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"):
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
+                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                        with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
+                                            with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
+                                                # Setup mocks
+                                                mock_get_file.return_value = "config content"
+                                                mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
+                                                mock_load.return_value = sample_config
+                                                mock_reviewer.return_value = (
+                                                    "alice",
+                                                    Mock(format_summary=Mock(return_value="Summary"))
+                                                )
+                                                mock_indices.return_value = set()
+                                                mock_task.return_value = None  # No tasks
 
-                                            # Act
-                                            result = cmd_prepare(args, mock_gh)
+                                                # Act
+                                                result = cmd_prepare(args, mock_gh)
 
-                                            # Assert
-                                            assert result == 0  # Not an error
-                                            mock_gh.write_output.assert_any_call("has_task", "false")
-                                            mock_gh.write_output.assert_any_call("all_tasks_done", "true")
-                                            mock_gh.set_notice.assert_called_once()
-                                            assert "No available tasks" in mock_gh.set_notice.call_args[0][0]
+                                                # Assert
+                                                assert result == 0  # Not an error
+                                                mock_gh.write_output.assert_any_call("has_task", "false")
+                                                mock_gh.write_output.assert_any_call("all_tasks_done", "true")
+                                                mock_gh.set_notice.assert_called_once()
+                                                assert "No available tasks" in mock_gh.set_notice.call_args[0][0]
 
     def test_preparation_skips_in_progress_tasks(
         self, args, mock_gh, mock_env, sample_config, sample_spec_content
@@ -267,16 +275,17 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format"):
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
-                                with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                    with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
-                                        with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
-                                            with patch("claudestep.cli.commands.prepare.run_git_command"):
-                                                with patch("builtins.open", mock_open(read_data=sample_spec_content)):
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"):
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
+                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                        with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
+                                            with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
+                                                with patch("claudestep.cli.commands.prepare.run_git_command"):
                                                     # Setup mocks
+                                                    mock_get_file.return_value = sample_spec_content
                                                     mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
                                                     mock_load.return_value = sample_config
                                                     mock_reviewer.return_value = (
@@ -303,16 +312,17 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format"):
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
-                                with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                    with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
-                                        with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
-                                            with patch("claudestep.cli.commands.prepare.run_git_command") as mock_git:
-                                                with patch("builtins.open", mock_open(read_data=sample_spec_content)):
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"):
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
+                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                        with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
+                                            with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
+                                                with patch("claudestep.cli.commands.prepare.run_git_command") as mock_git:
                                                     # Setup mocks
+                                                    mock_get_file.return_value = sample_spec_content
                                                     mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
                                                     mock_load.return_value = sample_config
                                                     mock_reviewer.return_value = (
@@ -336,32 +346,34 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format"):
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
-                                with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                    with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
-                                        with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
-                                            with patch("claudestep.cli.commands.prepare.run_git_command") as mock_git:
-                                                # Setup mocks
-                                                mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
-                                                mock_load.return_value = sample_config
-                                                mock_reviewer.return_value = (
-                                                    "alice",
-                                                    Mock(format_summary=Mock(return_value="Summary"))
-                                                )
-                                                mock_indices.return_value = set()
-                                                mock_task.return_value = (2, "Task 2")
-                                                mock_git.side_effect = GitError("Branch already exists")
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"):
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
+                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                        with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
+                                            with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
+                                                with patch("claudestep.cli.commands.prepare.run_git_command") as mock_git:
+                                                    # Setup mocks
+                                                    mock_get_file.return_value = sample_spec_content
+                                                    mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
+                                                    mock_load.return_value = sample_config
+                                                    mock_reviewer.return_value = (
+                                                        "alice",
+                                                        Mock(format_summary=Mock(return_value="Summary"))
+                                                    )
+                                                    mock_indices.return_value = set()
+                                                    mock_task.return_value = (2, "Task 2")
+                                                    mock_git.side_effect = GitError("Branch already exists")
 
-                                                # Act
-                                                result = cmd_prepare(args, mock_gh)
+                                                    # Act
+                                                    result = cmd_prepare(args, mock_gh)
 
-                                                # Assert
-                                                assert result == 1
-                                                mock_gh.set_error.assert_called_once()
-                                                assert "Failed to create branch" in mock_gh.set_error.call_args[0][0]
+                                                    # Assert
+                                                    assert result == 1
+                                                    mock_gh.set_error.assert_called_once()
+                                                    assert "Failed to create branch" in mock_gh.set_error.call_args[0][0]
 
     def test_preparation_generates_claude_prompt(
         self, args, mock_gh, mock_env, sample_config, sample_spec_content
@@ -370,16 +382,17 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format"):
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
-                                with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                    with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
-                                        with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
-                                            with patch("claudestep.cli.commands.prepare.run_git_command"):
-                                                with patch("builtins.open", mock_open(read_data=sample_spec_content)):
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"):
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
+                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                        with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
+                                            with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
+                                                with patch("claudestep.cli.commands.prepare.run_git_command"):
                                                     # Setup mocks
+                                                    mock_get_file.return_value = sample_spec_content
                                                     mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
                                                     mock_load.return_value = sample_config
                                                     mock_reviewer.return_value = (
@@ -414,16 +427,17 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format"):
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
-                                with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                    with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
-                                        with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
-                                            with patch("claudestep.cli.commands.prepare.run_git_command"):
-                                                with patch("builtins.open", mock_open(read_data=sample_spec_content)):
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"):
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
+                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                        with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
+                                            with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
+                                                with patch("claudestep.cli.commands.prepare.run_git_command"):
                                                     # Setup mocks
+                                                    mock_get_file.return_value = sample_spec_content
                                                     mock_paths.return_value = (
                                                         "claude-step/my-project/config.yml",
                                                         "claude-step/my-project/spec.md",
@@ -470,19 +484,21 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        # Setup mocks
-                        mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
-                        mock_load.side_effect = FileNotFoundError("Config file not found")
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            # Setup mocks
+                            mock_get_file.return_value = "config content"
+                            mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
+                            mock_load.side_effect = FileNotFoundError("Config file not found")
 
-                        # Act
-                        result = cmd_prepare(args, mock_gh)
+                            # Act
+                            result = cmd_prepare(args, mock_gh)
 
-                        # Assert
-                        assert result == 1
-                        mock_gh.set_error.assert_called_once()
-                        assert "Preparation failed" in mock_gh.set_error.call_args[0][0]
+                            # Assert
+                            assert result == 1
+                            mock_gh.set_error.assert_called_once()
+                            assert "Preparation failed" in mock_gh.set_error.call_args[0][0]
 
     def test_preparation_handles_configuration_error(
         self, args, mock_gh, mock_env
@@ -491,19 +507,21 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        # Setup mocks
-                        mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
-                        mock_load.side_effect = ConfigurationError("Invalid configuration")
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            # Setup mocks
+                            mock_get_file.return_value = "config content"
+                            mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
+                            mock_load.side_effect = ConfigurationError("Invalid configuration")
 
-                        # Act
-                        result = cmd_prepare(args, mock_gh)
+                            # Act
+                            result = cmd_prepare(args, mock_gh)
 
-                        # Assert
-                        assert result == 1
-                        mock_gh.set_error.assert_called_once()
-                        assert "Preparation failed" in mock_gh.set_error.call_args[0][0]
+                            # Assert
+                            assert result == 1
+                            mock_gh.set_error.assert_called_once()
+                            assert "Preparation failed" in mock_gh.set_error.call_args[0][0]
 
     def test_preparation_handles_github_api_error(
         self, args, mock_gh, mock_env, sample_config
@@ -512,22 +530,24 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format"):
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists") as mock_label:
-                                # Setup mocks
-                                mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
-                                mock_load.return_value = sample_config
-                                mock_label.side_effect = GitHubAPIError("API rate limit exceeded")
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"):
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists") as mock_label:
+                                    # Setup mocks
+                                    mock_get_file.return_value = "config content"
+                                    mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
+                                    mock_load.return_value = sample_config
+                                    mock_label.side_effect = GitHubAPIError("API rate limit exceeded")
 
-                                # Act
-                                result = cmd_prepare(args, mock_gh)
+                                    # Act
+                                    result = cmd_prepare(args, mock_gh)
 
-                                # Assert
-                                assert result == 1
-                                mock_gh.set_error.assert_called_once()
-                                assert "Preparation failed" in mock_gh.set_error.call_args[0][0]
+                                    # Assert
+                                    assert result == 1
+                                    mock_gh.set_error.assert_called_once()
+                                    assert "Preparation failed" in mock_gh.set_error.call_args[0][0]
 
     def test_preparation_handles_unexpected_error(
         self, args, mock_gh, mock_env
@@ -555,16 +575,17 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format"):
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists") as mock_label:
-                                with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                    with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
-                                        with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
-                                            with patch("claudestep.cli.commands.prepare.run_git_command"):
-                                                with patch("builtins.open", mock_open(read_data=sample_spec_content)):
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"):
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists") as mock_label:
+                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                        with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
+                                            with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
+                                                with patch("claudestep.cli.commands.prepare.run_git_command"):
                                                     # Setup mocks
+                                                    mock_get_file.return_value = sample_spec_content
                                                     mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
                                                     mock_load.return_value = sample_config
                                                     mock_reviewer.return_value = (
@@ -588,17 +609,23 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format") as mock_validate:
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
-                                with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                    with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
-                                        with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
-                                            with patch("claudestep.cli.commands.prepare.run_git_command"):
-                                                with patch("builtins.open", mock_open(read_data=sample_spec_content)):
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string") as mock_validate:
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
+                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                        with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
+                                            with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
+                                                with patch("claudestep.cli.commands.prepare.run_git_command"):
                                                     # Setup mocks
-                                                    mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
+                                                    mock_get_file.return_value = sample_spec_content
+                                                    mock_paths.return_value = (
+                                                        "claude-step/my-project/config.yml",
+                                                        "claude-step/my-project/spec.md",
+                                                        "claude-step/my-project/pr_template.md",
+                                                        "claude-step/my-project"
+                                                    )
                                                     mock_load.return_value = sample_config
                                                     mock_reviewer.return_value = (
                                                         "alice",
@@ -612,7 +639,7 @@ class TestCmdPrepare:
 
                                                     # Assert
                                                     assert result == 0
-                                                    mock_validate.assert_called_once_with("spec.md")
+                                                    mock_validate.assert_called_once_with(sample_spec_content, "claude-step/my-project/spec.md")
 
     def test_preparation_writes_step_summary(
         self, args, mock_gh, mock_env, sample_config, sample_spec_content
@@ -621,16 +648,17 @@ class TestCmdPrepare:
         # Arrange
         with patch.dict("os.environ", mock_env):
             with patch("claudestep.cli.commands.prepare.file_exists_in_branch", return_value=True):
-                with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
-                    with patch("claudestep.cli.commands.prepare.load_config") as mock_load:
-                        with patch("claudestep.cli.commands.prepare.validate_spec_format"):
-                            with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
-                                with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
-                                    with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
-                                        with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
-                                            with patch("claudestep.cli.commands.prepare.run_git_command"):
-                                                with patch("builtins.open", mock_open(read_data=sample_spec_content)):
+                with patch("claudestep.cli.commands.prepare.get_file_from_branch") as mock_get_file:
+                    with patch("claudestep.cli.commands.prepare.detect_project_paths") as mock_paths:
+                        with patch("claudestep.cli.commands.prepare.load_config_from_string") as mock_load:
+                            with patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"):
+                                with patch("claudestep.cli.commands.prepare.ensure_label_exists"):
+                                    with patch("claudestep.cli.commands.prepare.find_available_reviewer") as mock_reviewer:
+                                        with patch("claudestep.cli.commands.prepare.get_in_progress_task_indices") as mock_indices:
+                                            with patch("claudestep.cli.commands.prepare.find_next_available_task") as mock_task:
+                                                with patch("claudestep.cli.commands.prepare.run_git_command"):
                                                     # Setup mocks
+                                                    mock_get_file.return_value = sample_spec_content
                                                     mock_paths.return_value = ("config.yml", "spec.md", "template.md", "path")
                                                     mock_load.return_value = sample_config
                                                     capacity_result = Mock()
