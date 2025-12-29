@@ -11,6 +11,10 @@ inputs:
     description: 'GitHub token for API access'
     required: true
     default: ${{ github.token }}
+  base_branch:
+    description: 'Base branch where spec files are located'
+    required: false
+    default: 'main'
   working_directory:
     description: 'Working directory for the action'
     required: false
@@ -39,6 +43,7 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github_token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
+        BASE_BRANCH: ${{ inputs.base_branch }}
         ACTION_PATH: ${{ github.action_path }}/../
       run: |
         export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"

@@ -90,6 +90,7 @@ runs:
         PROJECT_NAME: ${{ inputs.project_name }}
         MERGED_PR_NUMBER: ${{ inputs.merged_pr_number }}
         GITHUB_REPOSITORY: ${{ github.repository }}
+        BASE_BRANCH: ${{ inputs.base_branch }}
         ACTION_PATH: ${{ github.action_path }}
         SLACK_WEBHOOK_URL: ${{ inputs.slack_webhook_url }}
         PR_LABEL: ${{ inputs.pr_label }}

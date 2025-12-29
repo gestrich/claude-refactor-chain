@@ -26,25 +26,32 @@ The spec files must always exist in the **main branch** (or whatever the project
 
 ## Phases
 
-- [ ] Phase 1: Add Base Branch Configuration Support
+- [x] Phase 1: Add Base Branch Configuration Support ✅
 
 Add support for configurable base branch across all actions and workflows.
 
 **Tasks:**
-- Update `action.yml` to add `base_branch` input (default: "main")
-- Update `discovery/action.yml` to add `base_branch` input (default: "main")
-- Update `.github/workflows/claudestep.yml` to accept and pass `base_branch` input
-- Update `.github/workflows/claudestep-statistics.yml` to accept and pass `base_branch` input
-- Store base branch in environment variable for Python code to access
+- ✅ Update `action.yml` to add `base_branch` input (default: "main")
+- ✅ Update `discovery/action.yml` to add `base_branch` input (default: "main")
+- ✅ Update `.github/workflows/claudestep.yml` to accept and pass `base_branch` input
+- ✅ Update `.github/workflows/claudestep-statistics.yml` to accept and pass `base_branch` input
+- ✅ Store base branch in environment variable for Python code to access
 
-**Files to Modify:**
-- `action.yml` - Add base_branch input
-- `discovery/action.yml` - Add base_branch input
-- `.github/workflows/claudestep.yml` - Add base_branch input/output
-- `.github/workflows/claudestep-statistics.yml` - Add base_branch input
+**Files Modified:**
+- `action.yml` - Added `BASE_BRANCH` environment variable to prepare step (line 93)
+- `discovery/action.yml` - Added `base_branch` input (lines 14-17) and `BASE_BRANCH` env var (line 46)
+- `.github/workflows/claudestep.yml` - Already had base_branch input configured
+- `.github/workflows/claudestep-statistics.yml` - Added base_branch input to workflow_dispatch (lines 14-17) and passed to statistics action (line 36)
+- `statistics/action.yml` - Added `base_branch` input (lines 14-17) and `BASE_BRANCH` env var (line 67)
+
+**Technical Notes:**
+- The `base_branch` input was already present in `action.yml` (lines 31-34), but was not being passed to the Python environment
+- Added `BASE_BRANCH` environment variable to all relevant steps so Python code can access it via `os.getenv("BASE_BRANCH", "main")`
+- The `.github/workflows/claudestep.yml` already had base_branch support configured for E2E testing
+- All changes maintain backward compatibility with default value of "main"
 
 **Expected Outcome:**
-All workflows can accept a configurable base branch name (defaults to "main")
+✅ All workflows can accept a configurable base branch name (defaults to "main")
 
 - [ ] Phase 2: Create GitHub API Helper for Spec File Retrieval
 
