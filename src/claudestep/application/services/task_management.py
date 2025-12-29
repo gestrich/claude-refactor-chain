@@ -4,7 +4,8 @@ import os
 import re
 from typing import Optional
 
-from claudestep.application.services.artifact_operations import find_in_progress_tasks
+from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
+from claudestep.application.services.metadata_service import MetadataService
 from claudestep.domain.exceptions import FileNotFoundError
 
 
@@ -96,10 +97,16 @@ def get_in_progress_task_indices(repo: str, label: str, project: str) -> set:
 
     Args:
         repo: GitHub repository (owner/name)
-        label: GitHub label to filter PRs
-        project: Project name to match artifacts
+        label: GitHub label to filter PRs (unused, kept for compatibility)
+        project: Project name to match
 
     Returns:
         Set of task indices that are in progress
     """
-    return find_in_progress_tasks(repo, project, label)
+    try:
+        metadata_store = GitHubMetadataStore(repo)
+        metadata_service = MetadataService(metadata_store)
+        return metadata_service.find_in_progress_tasks(project)
+    except Exception as e:
+        print(f"Error: Failed to read from metadata storage: {e}")
+        return set()
