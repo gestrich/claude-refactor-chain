@@ -50,6 +50,25 @@ Migrate to a branch-based storage system that:
 
 **Note:** Since ClaudeStep has not been released yet, no migration from artifacts is needed. The artifact upload/download code can remain in the codebase (unused) for potential future use, but all new implementations will use branch-based storage exclusively.
 
+## Data Model: Hybrid Approach
+
+**The implementation uses the Hybrid Model** specified in `docs/proposed/github-model-alternatives.md`.
+
+**Quick Summary:**
+- **Structure**: `Project` → `Task` (always present) + `PullRequest` (when started) → `AIOperation`
+- **Key Principle**: Clear separation between task definitions (what needs to be done) and PR execution (what was done)
+- **Task**: Lightweight reference (index, description, status: pending/in_progress/completed)
+- **PullRequest**: Full execution details (pr_number, branch_name, reviewer, pr_state, created_at, ai_operations)
+- **AIOperation**: Individual AI work (type, model, cost, tokens, workflow_run_id)
+- **Schema Version**: "2.0" for hybrid model
+
+**Full Specification**: See `docs/proposed/github-model-alternatives.md` for:
+- Complete JSON schema with validation rules
+- Python dataclass implementation with all methods
+- 4 comprehensive examples (empty project, mixed states, refinements, retries)
+- Common query operations (reviewer capacity, completion %, costs)
+- Edge cases and validation suite
+
 ## Key Design Decisions
 
 ### Storage Strategy
@@ -93,11 +112,31 @@ The new storage system will replace artifact usage in:
 
 **Note:** The existing `artifact_operations.py` module will remain in the codebase but be unused. It can serve as reference for the data structure and potentially be used in the future if needed.
 
-## Research & Exploration
+## Implementation Status Overview
 
-### Phase 1: GitHub API Capabilities Research ✅ COMPLETED
+### Completed Phases ✅
+- **Phase 1**: GitHub API Capabilities Research - ✅ COMPLETED (2025-12-29)
+- **Phase 2**: Data Structure & Schema Design - 📋 SPECIFICATION COMPLETED (implementation pending)
 
-**Status:** ✅ Completed on 2025-12-29
+### Skipped Phases ⏭️
+- **Phase 5**: Index Management - ⏭️ SKIPPED (using Git Tree API instead)
+
+### Pending Phases ⏸️
+- **Phase 3**: Core API Layer Design - ⏸️ NOT STARTED
+- **Phase 4**: GitHub Storage Backend Implementation - ⏸️ NOT STARTED
+- **Phase 6**: Integration with Existing ClaudeStep Code - ⏸️ NOT STARTED
+- **Phase 7**: Testing & Validation - ⏸️ NOT STARTED
+
+### Next Steps 🎯
+Start with **Phase 3: Core API Layer Design** - implement domain models (Task, PullRequest, AIOperation, Project)
+
+---
+
+## Research & Exploration (COMPLETED)
+
+### Phase 1: GitHub API Capabilities Research ✅
+
+**Status:** ✅ COMPLETED on 2025-12-29
 
 **Key Findings:**
 
@@ -278,79 +317,121 @@ The new storage system will replace artifact usage in:
 - Rate limits and performance verified as acceptable
 - Ready to proceed to Phase 2: Data Structure & Schema Design
 
-### Phase 2: Data Structure & Schema Design ✅ COMPLETED
+### Phase 2: Data Structure & Schema Design 📋
 
-**Status:** ✅ Completed on 2025-12-29
+**Status:** 📋 SPECIFICATION COMPLETED on 2025-12-29 | ⏸️ IMPLEMENTATION PENDING
 
-**Recent Update (2025-12-29):** Restructured data model with clearer naming and separation of concerns
+**What's Done:**
+- ✅ Hybrid Model approach selected and documented
+- ✅ Complete JSON schema specification created
+- ✅ Full Python implementation design with examples
+- ✅ Query operations and validation suite designed
+
+**What Remains:**
+- ⏸️ Implement Python dataclasses (Task, PullRequest, AIOperation, Project)
+- ⏸️ Implement to_dict()/from_dict() serialization methods
+- ⏸️ Implement helper methods (get_total_cost(), calculate_task_status(), etc.)
+- ⏸️ Add unit tests for domain models
+
+**Decision:** Selected **Hybrid Model** approach with clear separation of task definitions and PR execution
+
+**No Backward Compatibility Required:** Since ClaudeStep has not been released yet, the implementation can move straight to this approach without migration from any previous format.
 
 **Tasks Completed:**
 
-1. **✅ Cleaner Data Model Design**
-   - Structure: `Project` → `Step` → `AITask`
-   - Clear naming: "Step" = spec.md task (with PR info), "AITask" = AI operation
-   - Removed redundant fields: No more `project` field in each step
-   - Removed deprecated fields: Cost/model info exclusively in `ai_tasks`
-   - Clean separation: PR properties vs. AI operation metrics
+1. **✅ Hybrid Data Model Design**
+   - Structure: `Project` → `Task` (always present) + `PullRequest` (when started) → `AIOperation`
+   - Clear separation: `Task` = what needs to be done (from spec.md), `PullRequest` = what was done (execution)
+   - All tasks always present in metadata (no need to re-read spec.md)
+   - Explicit status enum: "pending", "in_progress", "completed"
+   - No optional fields: Task fields all required, PullRequest fields all required
+   - Supports retry scenarios: Multiple PRs can reference same task_index
 
-2. **✅ Typical 2-AITask Pattern**
-   - Most steps have exactly 2 AI tasks:
-     1. `PRCreation`: Claude Code generates the code
-     2. `PRSummary`: AI writes the PR description
-   - Complex steps may have additional tasks (e.g., `PRRefinement`)
-   - Each AITask encapsulates: type, model, cost, tokens, duration
+2. **✅ Key Model Characteristics**
+   - **Task**: Lightweight reference (index, description, status)
+   - **PullRequest**: Full execution details (pr_number, branch_name, reviewer, pr_state, created_at, ai_operations)
+   - **AIOperation**: Individual AI work (type, model, cost, tokens, duration, workflow_run_id)
+   - **Status Derivation**: Task status computed from PR state (no PR = pending, PR open = in_progress, PR merged = completed)
+   - **One-to-Many Relationships**: One Task can have 0+ PRs, One PR can have 1+ AIOperations
 
-3. **✅ JSON Schema Defined**
-   - Designed project JSON structure to store list of Step objects
-   - Each step contains PR info + list of AI tasks
-   - Final schema:
+3. **✅ Complete JSON Schema (v2.0)**
+   - Full JSON Schema specification with validation rules
+   - Designed for GitHub Contents API storage (well under 100 MB limit)
+   - Schema version "2.0" for hybrid model
+   - Example schema structure:
      ```json
      {
-       "schema_version": "1.0",
-       "project": "my-refactor",
-       "last_updated": "2025-01-15T10:30:00Z",
-       "steps": [
+       "schema_version": "2.0",
+       "project": "auth-refactor",
+       "last_updated": "2025-12-29T14:30:00Z",
+       "tasks": [
          {
-           "step_index": 1,
-           "step_description": "Refactor authentication module",
-           "branch_name": "claude-step-my-refactor-1",
+           "index": 1,
+           "description": "Set up authentication middleware",
+           "status": "completed"
+         },
+         {
+           "index": 2,
+           "description": "Implement OAuth2 authentication flow",
+           "status": "in_progress"
+         },
+         {
+           "index": 3,
+           "description": "Add email validation",
+           "status": "pending"
+         }
+       ],
+       "pull_requests": [
+         {
+           "task_index": 1,
+           "pr_number": 41,
+           "branch_name": "claudestep/auth-refactor/step-1",
            "reviewer": "alice",
-           "pr_number": 42,
            "pr_state": "merged",
-           "created_at": "2025-01-10T14:22:00Z",
-           "workflow_run_id": 123456,
-           "ai_tasks": [
+           "created_at": "2025-12-28T10:15:00Z",
+           "ai_operations": [
+             {
+               "type": "PRCreation",
+               "model": "claude-sonnet-4",
+               "cost_usd": 0.12,
+               "created_at": "2025-12-28T10:15:00Z",
+               "workflow_run_id": 234567,
+               "tokens_input": 4500,
+               "tokens_output": 1800,
+               "duration_seconds": 42.1
+             }
+           ]
+         },
+         {
+           "task_index": 2,
+           "pr_number": 42,
+           "branch_name": "claudestep/auth-refactor/step-2",
+           "reviewer": "bob",
+           "pr_state": "open",
+           "created_at": "2025-12-29T09:30:00Z",
+           "ai_operations": [
              {
                "type": "PRCreation",
                "model": "claude-sonnet-4",
                "cost_usd": 0.15,
-               "created_at": "2025-01-10T14:22:00Z",
-               "tokens_input": 8500,
-               "tokens_output": 1200,
-               "duration_seconds": 12.5
-             },
-             {
-               "type": "PRSummary",
-               "model": "claude-sonnet-4",
-               "cost_usd": 0.02,
-               "created_at": "2025-01-10T14:23:00Z",
-               "tokens_input": 1200,
-               "tokens_output": 150,
-               "duration_seconds": 2.1
+               "created_at": "2025-12-29T09:30:00Z",
+               "workflow_run_id": 234570,
+               "tokens_input": 5200,
+               "tokens_output": 2100,
+               "duration_seconds": 48.3
              }
            ]
          }
        ]
      }
      ```
-   - Key changes: `tasks` → `steps`, `task_index` → `step_index`, `task_description` → `step_description`
-   - Removed redundant `project` field from each step
-   - Removed deprecated cost fields (`model`, `main_task_cost_usd`, `pr_summary_cost_usd`, `total_cost_usd`)
-   - Added `schema_version` for future migrations
-   - Added `pr_state` field (open, merged, closed) for filtering
-   - Included `last_updated` timestamp for optimization
-   - `ai_tasks` array tracks individual AI operations (typically 2 per step)
-   - Each AI task encapsulates: type, model, cost, tokens, duration, timestamp
+   - **Key Features**:
+     - `tasks` array: All tasks always present (pending, in_progress, completed)
+     - `pull_requests` array: Only created PRs (references task via task_index)
+     - Task status derived from PR state automatically
+     - No optional fields in Task or PullRequest
+     - Supports multiple PRs per task (retry scenarios)
+     - `ai_operations` array tracks all AI work per PR (creation, refinements, summary)
 
 4. **✅ Index Strategy Decided: No Index**
    - **Decision**: Start without separate `index.json` file
@@ -381,31 +462,29 @@ The new storage system will replace artifact usage in:
 
 **Deliverables Created:**
 
-1. **Schema Documentation** (`docs/metadata-schema.md`):
-   - **Complete redesign** with clearer naming and structure
-   - Data model: `Project` → `Step` → `AITask`
-   - Removed legacy/deprecated fields for clean implementation
-   - Documented typical 2-AITask pattern (PRCreation + PRSummary)
-   - Field definitions for Project, Step, and AITask levels
-   - Comprehensive examples showing simple and complex steps
+1. **Complete Model Specification** (`docs/proposed/github-model-alternatives.md`):
+   - **Hybrid Model** design with full specification
+   - Data model: `Project` → `Task` (always present) + `PullRequest` → `AIOperation`
+   - Complete JSON Schema (draft-07) with all validation rules
+   - 4 comprehensive examples (empty project, mixed states, refinements, retry scenarios)
+   - Full Python dataclass implementation with type hints
+   - Serialization/deserialization methods (to_dict, from_dict)
+   - Status synchronization logic
+   - Common query operations (reviewer capacity, completion %, costs, pending tasks)
+   - Edge cases and validation suite
 
-2. **Domain Models** (`src/claudestep/domain/models.py`) - **TO BE REFACTORED**:
-   - Current: `AITask`, `TaskMetadata`, `ProjectMetadata` (with legacy fields)
-   - Planned refactoring:
-     - `AITask`: Add `workflow_run_id` field (each AI operation runs in a specific workflow)
-     - `TaskMetadata` → `Step`: Rename class, rename fields, remove deprecated fields, make most fields optional
-     - `ProjectMetadata` → `Project`: Rename `tasks` → `steps`
-   - Changes needed in Step:
-     - `task_index` → `step_index`
-     - `task_description` → `step_description`
-     - Remove `project` field (redundant - already at project level)
-     - Remove `workflow_run_id` field (moved to AITask)
-     - Remove deprecated cost fields: `model`, `main_task_cost_usd`, `pr_summary_cost_usd`, `total_cost_usd`
-     - Make most fields optional (except `step_index` and `step_description`) to support not-yet-started steps
-   - Changes needed in AITask:
-     - Add `workflow_run_id: int` field (required)
-   - Changes needed in Project:
-     - `tasks` → `steps`
+2. **Python Dataclasses** - **TO BE IMPLEMENTED**:
+   - `Task`: Lightweight task reference
+     - Fields: `index: int`, `description: str`, `status: str` (enum: pending/in_progress/completed)
+     - All fields required (no optional fields)
+   - `PullRequest`: Full PR execution details
+     - Fields: `task_index: int`, `pr_number: int`, `branch_name: str`, `reviewer: str`, `pr_state: str`, `created_at: datetime`, `ai_operations: List[AIOperation]`
+     - All fields required (no optional fields)
+   - `AIOperation`: Individual AI work
+     - Fields: `type: str`, `model: str`, `cost_usd: float`, `created_at: datetime`, `workflow_run_id: int`, `tokens_input: int`, `tokens_output: int`, `duration_seconds: float`
+   - `Project`: Top-level container
+     - Fields: `schema_version: str`, `project: str`, `last_updated: datetime`, `tasks: List[Task]`, `pull_requests: List[PullRequest]`
+     - Methods: `get_task_by_index()`, `get_prs_for_task()`, `calculate_task_status()`, `update_all_task_statuses()`, `get_total_cost()`, `get_progress_stats()`, etc.
 
 3. **Branch README Template** (`docs/metadata-branch-README.md`):
    - User-facing documentation for the metadata branch
@@ -416,43 +495,57 @@ The new storage system will replace artifact usage in:
 
 **Technical Notes:**
 
-- **Backward Compatibility**: The new `TaskMetadata` model is fully compatible with the existing artifact-based storage format, with the addition of the `pr_state` field (defaults to "open")
-- **Serialization**: Both models use ISO 8601 timestamps with proper timezone handling
-- **Testing**: All existing domain tests pass (80/80 tests)
-- **Build Status**: ✅ All imports work correctly, models serialize/deserialize properly
+- **No Backward Compatibility**: Fresh implementation, no migration needed
+- **Serialization**: ISO 8601 timestamps with timezone handling
+- **Status Derivation**: Task status automatically computed from PR state
+- **Validation**: Auto-fix for stale statuses via `update_all_task_statuses()`
+- **File Size**: Typical project ~2-15 KB (well under 100 MB GitHub API limit)
 
 **Key Decisions:**
 
-1. **No Index File**: Keeping it simple - list files via Git Tree API, filter in-memory
-2. **Flat Directory**: One `projects/` folder with all project JSON files
-3. **Schema Version**: Starting with "1.0", future-proofed for migrations
-4. **PR State Field**: New field added to track "open", "merged", "closed" states
+1. **Hybrid Model**: Separate Task (always present) from PullRequest (when started)
+2. **No Index File**: Simple - list files via Git Tree API, filter in-memory
+3. **Flat Directory**: One `projects/` folder with all project JSON files
+4. **Schema Version**: "2.0" for hybrid model, future-proofed for migrations
+5. **Explicit Status**: Enum field on Task, derived from PR state
+6. **No Optional Fields**: All Task fields required, all PullRequest fields required
 
 **Next Steps:**
 
 Ready to proceed to **Phase 3: Core API Layer Design**:
+- Implement domain models (Task, PullRequest, AIOperation, Project)
 - Define abstract `MetadataStore` interface
 - Create application service layer (`metadata_service.py`)
 - Design API compatible with current `artifact_operations.py` functions
 
-**Files Modified:**
-- `src/claudestep/domain/models.py` - Added TaskMetadata and ProjectMetadata models
+**Files To Be Created:**
+- `src/claudestep/domain/metadata_models.py` - New domain models (Task, PullRequest, AIOperation, Project)
+- Or update `src/claudestep/domain/models.py` - Add new models alongside existing ones
 
-**Files Created:**
-- `docs/metadata-schema.md` - Complete schema documentation
-- `docs/metadata-branch-README.md` - User-facing README for metadata branch
+**Reference Documentation:**
+- `docs/proposed/github-model-alternatives.md` - Complete specification with examples and Python implementation
 
-## Implementation Phases
+---
 
-### Phase 3: Core API Layer Design
+## Pending Implementation Phases
+
+### Phase 3: Core API Layer Design ⏸️
+
+**Status:** ⏸️ NOT STARTED - Ready to begin
+
+**Priority:** 🔴 HIGH - Foundation for all other phases
 
 **Tasks:**
 
-1. **Define Domain Models** (`src/claudestep/domain/models.py` or new file)
-   - Reuse existing `TaskMetadata` from `artifact_operations.py`
-   - Create `ProjectMetadata` model to wrap list of TaskMetadata
-   - Add methods for JSON serialization/deserialization
-   - Include schema version for future migrations
+1. **Implement Domain Models** (`src/claudestep/domain/models.py` or new file)
+   - Implement `Task` dataclass (index, description, status)
+   - Implement `PullRequest` dataclass (task_index, pr_number, branch_name, reviewer, pr_state, created_at, ai_operations)
+   - Implement `AIOperation` dataclass (type, model, cost_usd, created_at, workflow_run_id, tokens_input, tokens_output, duration_seconds)
+   - Implement `Project` dataclass (schema_version, project, last_updated, tasks, pull_requests)
+   - Add `to_dict()` and `from_dict()` methods for JSON serialization
+   - Add helper methods: `get_task_by_index()`, `get_prs_for_task()`, `calculate_task_status()`, `update_all_task_statuses()`, `get_total_cost()`, `get_progress_stats()`, etc.
+   - Add enums: `TaskStatus`, `PRState`, `AIOperationType`
+   - Reference implementation in `docs/proposed/github-model-alternatives.md`
 
 2. **Create Infrastructure Layer** (`src/claudestep/infrastructure/metadata/`)
    - New module: `src/claudestep/infrastructure/metadata/operations.py`
@@ -460,36 +553,56 @@ Ready to proceed to **Phase 3: Core API Layer Design**:
      ```python
      class MetadataStore(ABC):
          @abstractmethod
-         def save_task_metadata(project: str, metadata: TaskMetadata) -> None
+         def save_project(project: Project) -> None
 
          @abstractmethod
-         def get_project_metadata(project: str) -> List[TaskMetadata]
+         def get_project(project_name: str) -> Optional[Project]
 
          @abstractmethod
-         def get_all_projects() -> List[str]
+         def get_all_projects() -> List[Project]
 
          @abstractmethod
-         def get_projects_modified_since(date: datetime) -> List[str]
+         def list_project_names() -> List[str]
+
+         @abstractmethod
+         def get_projects_modified_since(date: datetime) -> List[Project]
      ```
    - Git/GitHub-backed implementation in `github_metadata_store.py`
 
 3. **Create Application Service** (`src/claudestep/application/services/`)
    - New file: `metadata_service.py`
-   - Provides high-level operations that mirror current `artifact_operations.py`:
+   - Provides high-level operations working with the hybrid model:
      ```python
-     def find_project_metadata(repo: str, project: str, pr_state: str) -> List[TaskMetadata]
-     def find_in_progress_tasks(repo: str, project: str) -> set[int]
-     def get_reviewer_assignments(repo: str, project: str) -> dict[int, str]
-     def save_pr_metadata(repo: str, project: str, metadata: TaskMetadata) -> None
+     # Core operations
+     def get_project(project_name: str) -> Optional[Project]
+     def save_project(project: Project) -> None
+     def list_all_projects() -> List[Project]
+
+     # Query operations (for backward compatibility with artifact_operations.py)
+     def find_in_progress_tasks(project_name: str) -> set[int]  # Returns task indices with open PRs
+     def get_reviewer_assignments(project_name: str) -> dict[int, str]  # Maps task_index -> reviewer
+     def get_open_prs_by_reviewer() -> dict[str, List[int]]  # Maps reviewer -> list of PR numbers
+
+     # New PR workflow
+     def add_pr_to_project(project_name: str, task_index: int, pr: PullRequest) -> None
+     def update_task_status(project_name: str, task_index: int) -> None
      ```
    - Uses `MetadataStore` interface internally
 
 **Expected Outcome:**
-- Abstract API interface defined following ClaudeStep's layered architecture
+- Hybrid model domain classes implemented (Task, PullRequest, AIOperation, Project)
+- Abstract MetadataStore interface defined
+- Application service layer provides clean API
 - Clear separation: domain (models) → infrastructure (storage) → application (business logic)
-- API compatible with current `artifact_operations.py` for easy migration
+- Query operations support existing use cases (reviewer capacity, statistics, etc.)
 
-### Phase 4: GitHub Storage Backend Implementation
+### Phase 4: GitHub Storage Backend Implementation ⏸️
+
+**Status:** ⏸️ NOT STARTED
+
+**Priority:** 🔴 HIGH - Depends on Phase 3
+
+**Dependencies:** Requires Phase 3 domain models to be completed
 
 **Tasks:**
 
@@ -509,9 +622,9 @@ Ready to proceed to **Phase 3: Core API Layer Design**:
 
 3. **File Operations**
    - Write project metadata to `projects/{project-name}.json`
-   - Optional: Maintain index file at `index.json` for fast lookups
-   - Use atomic writes to prevent corruption
-   - Handle JSON serialization using TaskMetadata.from_dict() pattern
+   - No index file needed (per Phase 2 decision)
+   - Use atomic writes with SHA-based optimistic locking to prevent corruption
+   - Handle JSON serialization using Project.to_dict()/from_dict() pattern
 
 4. **Error Handling**
    - Leverage existing `GitHubAPIError` from `src/claudestep/domain/exceptions.py`
@@ -530,41 +643,58 @@ Ready to proceed to **Phase 3: Core API Layer Design**:
 - Follows ClaudeStep's infrastructure patterns
 - Comprehensive unit tests (70%+ coverage)
 
-### Phase 5: Index Management (If Needed)
+### Phase 5: Index Management (SKIPPED)
 
-**Tasks:**
+**Status:** ⏭️ Skipped per Phase 2 decision
 
-1. Based on Phase 2 decisions, implement index file management
-2. Automatically update index when projects are modified
-3. Implement index-based query optimizations
-4. Handle index corruption/recovery
+**Rationale:**
+- Phase 2 decided against using an index file
+- Simple approach: List files via Git Tree API, filter in-memory
+- Acceptable performance: <2 seconds for 20 projects
+- May revisit if 100+ projects become common
 
-**Expected Outcome:** Efficient querying for time-based project lists without scanning all files.
+**Alternative Approach:** Use Git Tree API + in-memory filtering for all queries.
 
-### Phase 6: Integration with Existing ClaudeStep Code
+### Phase 6: Integration with Existing ClaudeStep Code ⏸️
+
+**Status:** ⏸️ NOT STARTED
+
+**Priority:** 🟡 MEDIUM - Depends on Phases 3 & 4
+
+**Dependencies:** Requires Phase 3 (domain models) and Phase 4 (storage backend) to be completed
 
 **Tasks:**
 
 1. **Update `finalize` Command** (`src/claudestep/cli/commands/finalize.py`)
    - Replace artifact upload with branch-based metadata write
-   - Call `metadata_service.save_pr_metadata()`
+   - After PR creation, load Project from metadata store (or create if first task)
+   - Add new PullRequest to project.pull_requests list
+   - Call `project.update_all_task_statuses()` to sync task statuses
+   - Save updated Project via `metadata_service.save_project()`
    - Remove or comment out artifact upload code (keep for reference)
    - Update integration tests in `tests/integration/cli/commands/test_finalize.py`
 
 2. **Update `statistics` Command** (`src/claudestep/cli/commands/statistics.py`)
-   - Replace `find_project_artifacts()` calls with `metadata_service.find_project_metadata()`
-   - Verify `StatisticsReport` works with new data source
+   - Replace `find_project_artifacts()` calls with `metadata_service.list_all_projects()`
+   - Work with Project objects (access project.tasks and project.pull_requests)
+   - Use Project helper methods: `get_total_cost()`, `get_progress_stats()`, `get_completion_percentage()`
+   - Verify `StatisticsReport` works with hybrid model
    - Test performance improvement (should be <5 seconds vs. 30+ seconds)
    - Update integration tests in `tests/integration/cli/commands/test_statistics.py`
 
 3. **Update `prepare` Command** (`src/claudestep/cli/commands/prepare.py`)
-   - Update reviewer capacity checking to use new metadata service
-   - Replace `find_in_progress_tasks()` and `get_reviewer_assignments()` calls
+   - Update reviewer capacity checking to use hybrid model
+   - Call `metadata_service.get_open_prs_by_reviewer()` to get reviewer workload
+   - Select next pending task from project.tasks (filter by status == "pending")
+   - Assign reviewer with available capacity
    - Verify capacity limits work correctly
    - Update integration tests in `tests/integration/cli/commands/test_prepare.py`
 
 4. **Update Statistics Collector** (`src/claudestep/application/collectors/statistics_collector.py`)
-   - Modify to work with branch-based metadata
+   - Modify to work with Project objects from branch-based storage
+   - Iterate over project.pull_requests to count by reviewer
+   - Use project.get_total_cost() for cost aggregation
+   - Use project.get_progress_stats() for completion tracking
    - Ensure `ProjectStats` and `TeamMemberStats` build correctly
    - Test cross-project queries (last 30 days, etc.)
 
@@ -579,16 +709,26 @@ Ready to proceed to **Phase 3: Core API Layer Design**:
 - Integration tests pass with new backend
 - Performance improvements measurable in statistics action
 
-### Phase 7: Testing & Validation
+### Phase 7: Testing & Validation ⏸️
 
-Follow ClaudeStep's testing conventions from `docs/architecture/testing-guide.md`.
+**Status:** ⏸️ NOT STARTED
+
+**Priority:** 🔴 HIGH - Critical for release
+
+**Dependencies:** Can start unit tests alongside Phases 3-4, integration tests after Phase 6
+
+**Approach:** Follow ClaudeStep's testing conventions from `docs/architecture/testing-guide.md`.
 
 **Testing Strategy:**
 
 1. **Unit Tests** (90%+ coverage target)
    - **Domain Layer** (`tests/unit/domain/`)
-     - Test `ProjectMetadata` model serialization/deserialization
-     - Test schema versioning
+     - Test `Task`, `PullRequest`, `AIOperation` model serialization/deserialization
+     - Test `Project` model with all helper methods
+     - Test `calculate_task_status()` logic (no PR, open PR, merged PR, multiple PRs)
+     - Test `update_all_task_statuses()` synchronization
+     - Test `get_total_cost()`, `get_progress_stats()`, `get_completion_percentage()`
+     - Test schema versioning (v2.0)
    - **Infrastructure Layer** (`tests/unit/infrastructure/metadata/`)
      - Test `GitHubMetadataStore` with mocked `gh_api_call()`
      - Test branch creation, file operations
@@ -670,7 +810,9 @@ This implementation follows ClaudeStep's established architecture pattern:
                   ↓
 ┌─────────────────────────────────────────┐
 │ Domain Layer (domain/)                  │
-│  - TaskMetadata, ProjectMetadata models │
+│  - Task, PullRequest, AIOperation       │
+│  - Project (with helper methods)        │
+│  - TaskStatus, PRState, AIOperationType │
 │  - GitHubAPIError exception             │
 │  - No external dependencies             │
 └─────────────────────────────────────────┘
@@ -681,14 +823,18 @@ This implementation follows ClaudeStep's established architecture pattern:
 Following ClaudeStep's convention:
 - **Business logic in Python** - All metadata operations in Python modules
 - **Minimal YAML** - GitHub Action files just invoke Python commands
-- **Command dispatcher** - New `migrate-metadata` command added to `__main__.py`
+- **Command dispatcher** - No migration command needed (fresh implementation)
 - **Testable** - Unit tests for all layers, integration tests for commands
 
-### Key Files Modified
+### Key Files To Be Created/Modified
 
-- `src/claudestep/domain/models.py` - Add ProjectMetadata model
-- `src/claudestep/infrastructure/metadata/` - New metadata storage infrastructure
-- `src/claudestep/application/services/metadata_service.py` - New service layer
+**New Files:**
+- `src/claudestep/domain/models.py` - Add Task, PullRequest, AIOperation, Project models (or create new file)
+- `src/claudestep/infrastructure/metadata/operations.py` - MetadataStore abstract interface
+- `src/claudestep/infrastructure/metadata/github_metadata_store.py` - GitHub-backed implementation
+- `src/claudestep/application/services/metadata_service.py` - Application service layer
+
+**Modified Files:**
 - `src/claudestep/cli/commands/finalize.py` - Use new storage
 - `src/claudestep/cli/commands/statistics.py` - Use new storage
 - `src/claudestep/cli/commands/prepare.py` - Use new storage for capacity
@@ -749,6 +895,47 @@ Following ClaudeStep's convention:
   2. Optional: Cache index in memory during GitHub Actions run
   3. Parallel fetching for multiple projects
 - Measure before/after with real repositories
+
+## Implementation Roadmap
+
+### Phase Execution Order
+
+1. **Phase 3: Core API Layer Design** 🔴 START HERE
+   - Implement domain models (Task, PullRequest, AIOperation, Project)
+   - Define MetadataStore interface
+   - Create metadata_service.py
+   - **Estimated Effort:** 2-3 days
+   - **Output:** Working domain models with serialization and unit tests
+
+2. **Phase 4: GitHub Storage Backend** 🔴 NEXT
+   - Implement GitHubMetadataStore
+   - Branch management and file operations
+   - Error handling and retry logic
+   - **Estimated Effort:** 3-4 days
+   - **Output:** Functional storage backend with unit tests
+
+3. **Phase 7 (Partial): Unit Testing** 🔴 CONCURRENT
+   - Write unit tests alongside Phases 3-4
+   - Test domain models, storage operations
+   - **Estimated Effort:** Ongoing throughout Phases 3-4
+
+4. **Phase 6: Integration** 🟡 THEN
+   - Update finalize, statistics, prepare commands
+   - Update statistics collector
+   - **Estimated Effort:** 2-3 days
+   - **Output:** Commands using new metadata storage
+
+5. **Phase 7 (Complete): Full Testing & Validation** 🔴 FINALLY
+   - Integration tests for commands
+   - End-to-end tests
+   - Performance testing
+   - **Estimated Effort:** 2-3 days
+   - **Output:** Fully tested, production-ready implementation
+
+### Total Estimated Timeline
+**9-13 days** for complete implementation and testing
+
+---
 
 ## Summary
 

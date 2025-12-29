@@ -23,6 +23,10 @@ Written guide explaining the approach.
 
 ## V2
 
+- [ ] AI Retry on Failed Builds
+
+If tests fail on CI after AI generated code, the AI could try to fix it up to N times.
+
 - [ ] **Local Build Script**
 
 Fetch open PRs and build locally on a schedule. Ready to run when you sit down to review.
