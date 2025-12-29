@@ -332,19 +332,26 @@ def collect_all_statistics(
             return report
 
     else:
-        # Multi-project mode - discover all projects
-        print("Multi-project mode: discovering projects...")
+        # Multi-project mode - discover all projects from metadata storage
+        print("Multi-project mode: discovering projects from metadata storage...")
 
-        from claudestep.cli.commands.discover import find_all_projects
-
-        # Get base directory from environment or use default
-        base_dir = os.environ.get("CLAUDESTEP_PROJECT_DIR", "claude-step")
-
-        project_names = find_all_projects(base_dir)
+        try:
+            metadata_store = GitHubMetadataStore(repo)
+            metadata_service = MetadataService(metadata_store)
+            project_names = metadata_service.list_project_names()
+        except Exception as e:
+            print(f"Error accessing metadata storage: {e}")
+            print("Falling back to filesystem discovery...")
+            from claudestep.cli.commands.discover import find_all_projects
+            base_dir = os.environ.get("CLAUDESTEP_PROJECT_DIR", "claude-step")
+            project_names = find_all_projects(base_dir)
 
         if not project_names:
             print("No projects found")
             return report
+
+        # Get base directory for finding spec files
+        base_dir = os.environ.get("CLAUDESTEP_PROJECT_DIR", "claude-step")
 
         for project_name in project_names:
             try:
