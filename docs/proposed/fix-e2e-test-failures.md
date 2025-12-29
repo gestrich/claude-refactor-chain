@@ -676,7 +676,7 @@ The tests are now more resilient to timing variations, GitHub API latency, and r
 
 ---
 
-- [ ] Phase 8: Document E2E Test Execution and Debugging
+- [x] Phase 8: Document E2E Test Execution and Debugging
 
 **Objective:** Create documentation to help developers run and debug E2E tests.
 
@@ -706,6 +706,94 @@ The tests are now more resilient to timing variations, GitHub API latency, and r
 - Best practices for E2E test design
 
 **Expected Outcome:** Clear documentation reduces debugging time for E2E failures.
+
+---
+
+**COMPLETED:**
+
+**Objective Achieved:**
+Created comprehensive documentation for E2E test execution and debugging by enhancing the existing `tests/e2e/README.md` with detailed troubleshooting guides, performance benchmarks, and diagnostic information based on all improvements made in Phases 1-7.
+
+**Documentation Enhancements:**
+
+1. **Expected Test Duration Section** (Enhanced):
+   - Added detailed timing expectations for different test types
+   - Documented timeout configuration (900s per-workflow timeout from Phase 4)
+   - Explained poll intervals and smart polling from Phase 7
+   - Added performance notes explaining why tests take certain amounts of time
+   - Documented that each workflow run executes Claude Code Action twice (main task + PR summary)
+
+2. **Debugging E2E Test Failures Section** (New):
+   - **Overview of Diagnostic Features**: Lists all Phase 6 improvements (logging, URLs, artifacts, assertions, smart polling)
+   - **Reading Test Output**: Example of detailed timestamped logs showing workflow execution
+   - **Understanding Test Failures**: Comprehensive troubleshooting for 4 major failure types:
+     1. **Timeout Errors**: Step-by-step diagnostics, common causes, resolution strategies
+     2. **Missing AI Summary**: Diagnostic steps, references Phase 2 fixes (Write tool, continue-on-error)
+     3. **Test Flakiness**: Documents Phase 7 improvements (smart polling, pre-test cleanup, condition-based waiting)
+     4. **Assertion Failures**: Examples of enhanced error messages with full diagnostic context
+   - **Accessing Workflow Artifacts**: How to download and review diagnostic artifacts uploaded on failure (Phase 6)
+   - **Manually Inspecting Test State**: Commands for viewing workflow runs, PRs, branches during/after tests
+   - **Common Debugging Workflow**: 7-step process for debugging failures efficiently
+   - **Performance Analysis**:
+     - How to use logged timing information to identify bottlenecks
+     - Commands to extract performance data from logs
+     - Expected vs concerning performance benchmarks
+     - Poll count analysis for identifying slow operations
+
+**Technical Content Added:**
+
+1. **Timeout Configuration Details**:
+   - Per-workflow timeout: 900 seconds (15 minutes) - increased from 600s in Phase 4
+   - Workflow start detection: 30 seconds with smart polling
+   - Poll intervals: 2s for workflow start, 10s for status checks
+   - Rationale: 50% buffer over typical 5-8 minute execution time
+
+2. **Diagnostic Features Documentation**:
+   - Timestamped logging format with log levels (INFO, DEBUG, WARNING, ERROR)
+   - Workflow URL inclusion in all error messages (Phase 6)
+   - Poll count and elapsed time tracking
+   - Status change detection
+   - Enhanced assertions with PR URLs and diagnostic context
+
+3. **Troubleshooting Guides for Each Failure Type**:
+   - **Timeout**: How to read poll logs, check workflow logs, identify stuck steps
+   - **Missing AI Summary**: References specific Phase 2 fixes (action.yml:191, 193)
+   - **Flakiness**: Documents smart polling, pre-test cleanup, condition-based waiting from Phase 7
+   - **Assertions**: Shows examples of new enhanced error message format
+
+4. **Performance Benchmarks**:
+   - Expected timing: Workflow start 2-10s, completion 300-500s, single workflow test 2-3 minutes
+   - Concerning timing: Start >30s, completion >900s, very high poll counts
+   - Multi-workflow tests: 10-15 minutes for 3 sequential runs (expected and acceptable)
+
+5. **Artifact Access and Analysis**:
+   - How to download e2e-test-diagnostics.zip from failed runs
+   - Contents: full test output log, workflow configuration, test files
+   - How to analyze logs with grep commands for specific patterns
+
+**Integration with Existing Documentation:**
+
+The enhancements build on the already-excellent existing README.md content:
+- Preserved all existing sections (Quick Start, Overview, Prerequisites, Running Tests, etc.)
+- Added new sections that complement existing troubleshooting
+- Cross-referenced Phase improvements (2, 4, 6, 7) where relevant
+- Maintained consistent formatting and structure
+
+**Files Modified:**
+- tests/e2e/README.md (added ~300 lines of debugging documentation)
+
+**Impact:**
+
+Developers debugging E2E test failures now have:
+1. **Clear understanding** of what each timeout and failure means
+2. **Step-by-step diagnostic procedures** for each failure type
+3. **Direct access** to relevant logs and artifacts via documented commands
+4. **Performance benchmarks** to distinguish legitimate slowness from bugs
+5. **Historical context** about fixes made in Phases 2, 4, 6, 7
+6. **Concrete examples** of error messages and expected log output
+7. **Quick reference** for common debugging commands (gh run view, gh pr view, etc.)
+
+This documentation significantly reduces the time needed to debug E2E test failures by providing a comprehensive guide covering all aspects of test execution, failure modes, diagnostics, and performance analysis.
 
 ---
 
