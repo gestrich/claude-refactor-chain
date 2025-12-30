@@ -1,10 +1,9 @@
 """Service Layer class for statistics operations.
 
 Follows Service Layer pattern (Fowler, PoEAA) - encapsulates business logic
-for collecting and aggregating project statistics from GitHub API and spec.md files.
+for collecting and aggregating project statistics from metadata storage and spec.md files.
 """
 
-import json
 import os
 import re
 from datetime import datetime, timedelta, timezone
@@ -16,7 +15,6 @@ from claudestep.domain.exceptions import FileNotFoundError as ClaudeStepFileNotF
 from claudestep.domain.project import Project
 from claudestep.domain.project_configuration import ProjectConfiguration
 from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
-from claudestep.infrastructure.github.operations import get_file_from_branch, run_gh_command
 from claudestep.infrastructure.repositories.project_repository import ProjectRepository
 from claudestep.services.metadata_service import MetadataService
 from claudestep.domain.models import HybridProjectMetadata, ProjectStats, StatisticsReport, TeamMemberStats
@@ -243,12 +241,12 @@ class StatisticsService:
     def collect_team_member_stats(
         self, reviewers: List[str], days_back: int = 30, label: str = DEFAULT_PR_LABEL
     ) -> Dict[str, TeamMemberStats]:
-        """Collect PR statistics for team members
+        """Collect PR statistics for team members from metadata storage
 
         Args:
             reviewers: List of GitHub usernames to track
-            days_back: Number of days to look back for merged PRs
-            label: GitHub label to filter PRs
+            days_back: Number of days to look back
+            label: GitHub label (kept for compatibility, currently unused)
 
         Returns:
             Dict of username -> TeamMemberStats
@@ -261,107 +259,65 @@ class StatisticsService:
 
         print(f"Collecting team member statistics for {len(reviewers)} reviewer(s)...")
 
-        # Calculate cutoff date for merged PRs
+        # Calculate cutoff date
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_back)
         cutoff_iso = cutoff_date.strftime("%Y-%m-%d")
 
-        # Collect merged PRs
+        print(f"Looking for PRs since {cutoff_iso}...")
+
+        merged_count = 0
+        open_count = 0
+
         try:
-            print(f"Querying merged PRs since {cutoff_iso}...")
-            merged_output = run_gh_command(
-                [
-                    "pr",
-                    "list",
-                    "--repo",
-                    self.repo,
-                    "--label",
-                    label,
-                    "--state",
-                    "merged",
-                    "--json",
-                    "number,title,mergedAt,assignees",
-                    "--limit",
-                    "100",
-                ]
-            )
-            merged_prs = json.loads(merged_output) if merged_output else []
-            print(f"Found {len(merged_prs)} merged PR(s)")
+            # Get all projects from metadata
+            project_names = self.metadata_service.list_project_names()
 
-            # Filter by date and group by assignee
-            for pr in merged_prs:
-                merged_at_str = pr.get("mergedAt", "")
-                if not merged_at_str:
-                    continue
-
-                # Parse merged date
+            for project_name in project_names:
                 try:
-                    merged_at = datetime.strptime(
-                        merged_at_str.replace("Z", "+00:00").split("+")[0],
-                        "%Y-%m-%dT%H:%M:%S",
-                    ).replace(tzinfo=timezone.utc)
-                except (ValueError, IndexError):
+                    project_metadata = self.metadata_service.get_project(project_name)
+                    if not project_metadata:
+                        continue
+
+                    # Process PRs from metadata
+                    for pr in project_metadata.pull_requests:
+                        # Check date range
+                        if pr.created_at < cutoff_date:
+                            continue
+
+                        # Get task description for better title
+                        task_description = None
+                        matching_tasks = [t for t in project_metadata.tasks if t.index == pr.task_index]
+                        if matching_tasks:
+                            task_description = matching_tasks[0].description
+
+                        # Create PR info dictionary
+                        pr_info = {
+                            "pr_number": pr.pr_number,
+                            "title": task_description or f"Task {pr.task_index}",
+                            "project": project_name,
+                        }
+
+                        # Add to reviewer's stats
+                        reviewer = pr.reviewer
+                        if reviewer in stats_dict:
+                            if pr.pr_state == "merged":
+                                pr_info["merged_at"] = pr.created_at.isoformat()
+                                stats_dict[reviewer].merged_prs.append(pr_info)
+                                merged_count += 1
+                            elif pr.pr_state == "open":
+                                pr_info["created_at"] = pr.created_at.isoformat()
+                                stats_dict[reviewer].open_prs.append(pr_info)
+                                open_count += 1
+
+                except Exception as e:
+                    print(f"Warning: Failed to collect stats for project {project_name}: {e}")
                     continue
 
-                # Check if within date range
-                if merged_at < cutoff_date:
-                    continue
-
-                # Get assignees
-                assignees = pr.get("assignees", [])
-                for assignee in assignees:
-                    username = assignee.get("login")
-                    if username in stats_dict:
-                        stats_dict[username].merged_prs.append(
-                            {
-                                "pr_number": pr.get("number"),
-                                "title": pr.get("title"),
-                                "merged_at": merged_at_str,
-                                "project": "unknown",  # Could be extracted from labels if needed
-                            }
-                        )
-
         except Exception as e:
-            print(f"Warning: Failed to collect merged PRs: {e}")
+            print(f"Warning: Failed to access metadata: {e}")
 
-        # Collect open PRs
-        try:
-            print("Querying open PRs...")
-            open_output = run_gh_command(
-                [
-                    "pr",
-                    "list",
-                    "--repo",
-                    self.repo,
-                    "--label",
-                    label,
-                    "--state",
-                    "open",
-                    "--json",
-                    "number,title,createdAt,assignees",
-                    "--limit",
-                    "100",
-                ]
-            )
-            open_prs = json.loads(open_output) if open_output else []
-            print(f"Found {len(open_prs)} open PR(s)")
-
-            # Group by assignee
-            for pr in open_prs:
-                assignees = pr.get("assignees", [])
-                for assignee in assignees:
-                    username = assignee.get("login")
-                    if username in stats_dict:
-                        stats_dict[username].open_prs.append(
-                            {
-                                "pr_number": pr.get("number"),
-                                "title": pr.get("title"),
-                                "created_at": pr.get("createdAt"),
-                                "project": "unknown",
-                            }
-                        )
-
-        except Exception as e:
-            print(f"Warning: Failed to collect open PRs: {e}")
+        print(f"Found {merged_count} merged PR(s)")
+        print(f"Found {open_count} open PR(s)")
 
         return stats_dict
 

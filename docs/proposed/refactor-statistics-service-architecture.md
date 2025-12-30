@@ -184,90 +184,55 @@ def list_open_pull_requests(
 - ✅ Service layer receives typed domain objects
 - ✅ Keep functions generic for future reuse (synchronize command)
 
-- [ ] Phase 3: Refactor collect_team_member_stats to Use Metadata
+- [x] Phase 3: Refactor collect_team_member_stats to Use Metadata ✅
 
-**Current behavior (lines 243-366):**
-- Queries GitHub API directly for merged and open PRs
-- Parses JSON and groups by assignee
-- No connection to project metadata
+**Implementation completed:**
 
-**New behavior:**
-- Get all projects from metadata service
-- For each project, get pull requests from `HybridProjectMetadata`
-- Filter PRs by date range using `created_at` or merged timestamp
-- Group PRs by reviewer (from PR metadata, not GitHub API)
-- Aggregate statistics per reviewer across all projects
+Refactored `collect_team_member_stats()` method in `StatisticsService` to use metadata storage instead of GitHub API:
 
-**Changes to `collect_team_member_stats()`:**
-```python
-def collect_team_member_stats(
-    self, reviewers: List[str], days_back: int = 30, label: str = DEFAULT_PR_LABEL
-) -> Dict[str, TeamMemberStats]:
-    """Collect PR statistics for team members from metadata storage
+**Key changes:**
+- Removed all `run_gh_command()` calls for fetching merged and open PRs
+- Removed `json.loads()` and JSON dictionary navigation
+- Now queries `metadata_service.list_project_names()` to get all projects
+- Iterates through each project's `HybridProjectMetadata` to extract PR information
+- Filters PRs by date range using `pr.created_at` field
+- Groups PRs by `pr.reviewer` instead of GitHub assignees
+- Includes project name in PR info for better context
+- Uses task descriptions from metadata for PR titles
 
-    Args:
-        reviewers: List of GitHub usernames to track
-        days_back: Number of days to look back
-        label: GitHub label (kept for compatibility, currently unused)
+**Benefits achieved:**
+- ✅ Single source of truth (metadata configuration)
+- ✅ No GitHub API calls
+- ✅ Type-safe (using HybridProjectMetadata models)
+- ✅ Project information included in stats
+- ✅ Consistent with merge trigger workflow
+- ✅ Cross-project aggregation automatically supported
 
-    Returns:
-        Dict of username -> TeamMemberStats
-    """
-    stats_dict = {username: TeamMemberStats(username) for username in reviewers}
+**Error handling:**
+- Added try-except blocks at two levels:
+  - Outer try-catch for `list_project_names()` failures
+  - Inner try-catch for individual project processing
+- Graceful degradation: continues processing other projects if one fails
 
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_back)
+**Files modified:**
+- `src/claudestep/services/statistics_service.py`:
+  - Refactored `collect_team_member_stats()` method (lines 243-322)
+  - Removed imports: `json`, `run_gh_command`
+  - Updated module docstring to reflect "metadata storage" instead of "GitHub API"
 
-    # Get all projects from metadata
-    project_names = self.metadata_service.list_project_names()
+**Tests updated:**
+- `tests/unit/services/test_statistics_service.py`:
+  - `test_collect_stats_basic`: Now mocks metadata service with `HybridProjectMetadata` objects
+  - `test_collect_stats_empty_prs`: Updated to use metadata service
+  - `test_collect_stats_exception_handling`: Tests metadata service exceptions
+  - All tests now mock `metadata_service` instead of `run_gh_command`
+  - All 57 statistics service tests passing ✅
 
-    for project_name in project_names:
-        project_metadata = self.metadata_service.get_project(project_name)
-        if not project_metadata:
-            continue
-
-        # Process PRs from metadata
-        for pr in project_metadata.pull_requests:
-            # Check date range
-            if pr.created_at < cutoff_date:
-                continue
-
-            # Get task description for better title
-            task_description = None
-            matching_tasks = [t for t in project_metadata.tasks if t.index == pr.task_index]
-            if matching_tasks:
-                task_description = matching_tasks[0].description
-
-            # Create well-formed PRReference domain model
-            pr_ref = PRReference.from_metadata_pr(pr, project_name, task_description)
-
-            # Add to reviewer's stats (type-safe)
-            reviewer = pr.reviewer
-            if reviewer in stats_dict:
-                if pr.pr_state == "merged":
-                    stats_dict[reviewer].add_merged_pr(pr_ref)
-                elif pr.pr_state == "open":
-                    stats_dict[reviewer].add_open_pr(pr_ref)
-
-    return stats_dict
-```
-
-**Note:** This code will be written in Phase 4 after creating PRReference model.
-
-**Benefits:**
-- Single source of truth (metadata configuration)
-- No GitHub API calls
-- Type-safe (using HybridProjectMetadata models)
-- Project information included in stats
-- Consistent with merge trigger workflow
-
-**Files to modify:**
-- `src/claudestep/services/statistics_service.py` (lines 243-366)
-
-**Tests to update:**
-- `tests/unit/services/test_statistics_service.py`
-  - Update `test_collect_team_member_stats_*` tests to mock metadata service instead of GitHub API
-  - Add tests for date filtering from metadata
-  - Add tests for cross-project aggregation
+**Technical notes:**
+- Currently uses task descriptions for PR titles (not PR titles from metadata, which will be added in Phase 5)
+- PR info dictionaries still used (PRReference domain model will be created in Phase 4)
+- Date filtering uses `pr.created_at` for both merged and open PRs (could use `merged_at` when available in future)
+- The `label` parameter is kept for backward compatibility but currently unused
 
 - [ ] Phase 4: Create PRReference Domain Model
 

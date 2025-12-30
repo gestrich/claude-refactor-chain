@@ -715,55 +715,79 @@ class TestCollectProjectCosts:
 class TestCollectTeamMemberStats:
     """Test team member statistics collection"""
 
-    @patch("claudestep.services.statistics_service.run_gh_command")
-    def test_collect_stats_basic(self, mock_run_gh):
-        """Test basic team member stats collection"""
-        merged_prs = [
-            {
-                "number": 1,
-                "title": "Fix bug",
-                "mergedAt": "2025-12-01T10:00:00Z",
-                "assignees": [{"login": "alice"}]
-            },
-            {
-                "number": 2,
-                "title": "Add feature",
-                "mergedAt": "2025-12-15T15:00:00Z",
-                "assignees": [{"login": "bob"}]
-            }
-        ]
+    def test_collect_stats_basic(self):
+        """Test basic team member stats collection from metadata"""
+        from datetime import datetime, timezone, timedelta
 
-        open_prs = [
-            {
-                "number": 3,
-                "title": "WIP",
-                "createdAt": "2025-12-20T10:00:00Z",
-                "assignees": [{"login": "alice"}]
-            }
-        ]
+        # Create mock metadata service
+        mock_metadata_service = Mock()
 
-        # Mock gh commands
-        mock_run_gh.side_effect = [json.dumps(merged_prs), json.dumps(open_prs)]
+        # Mock project metadata with PRs
+        task1 = Mock()
+        task1.index = 1
+        task1.description = "Fix bug"
+
+        task2 = Mock()
+        task2.index = 2
+        task2.description = "Add feature"
+
+        task3 = Mock()
+        task3.index = 3
+        task3.description = "WIP"
+
+        pr1 = Mock()
+        pr1.task_index = 1
+        pr1.pr_number = 1
+        pr1.reviewer = "alice"
+        pr1.pr_state = "merged"
+        pr1.created_at = datetime.now(timezone.utc) - timedelta(days=5)
+
+        pr2 = Mock()
+        pr2.task_index = 2
+        pr2.pr_number = 2
+        pr2.reviewer = "bob"
+        pr2.pr_state = "merged"
+        pr2.created_at = datetime.now(timezone.utc) - timedelta(days=3)
+
+        pr3 = Mock()
+        pr3.task_index = 3
+        pr3.pr_number = 3
+        pr3.reviewer = "alice"
+        pr3.pr_state = "open"
+        pr3.created_at = datetime.now(timezone.utc) - timedelta(days=1)
+
+        project_metadata = Mock()
+        project_metadata.tasks = [task1, task2, task3]
+        project_metadata.pull_requests = [pr1, pr2, pr3]
+
+        mock_metadata_service.list_project_names.return_value = ["test-project"]
+        mock_metadata_service.get_project.return_value = project_metadata
 
         # Create service and test
-        mock_metadata_service = Mock()
         mock_repo = Mock()
         service = StatisticsService("owner/repo", mock_metadata_service, mock_repo, base_branch="main")
         stats = service.collect_team_member_stats(["alice", "bob"], days_back=30)
 
         assert "alice" in stats
         assert "bob" in stats
-        assert stats["alice"].merged_count >= 1
-        assert stats["alice"].open_count >= 1
-        assert stats["bob"].merged_count >= 1
+        assert stats["alice"].merged_count == 1
+        assert stats["alice"].open_count == 1
+        assert stats["bob"].merged_count == 1
+        assert stats["bob"].open_count == 0
 
-    @patch("claudestep.services.statistics_service.run_gh_command")
-    def test_collect_stats_empty_prs(self, mock_run_gh):
-        """Test stats collection with no PRs"""
-        mock_run_gh.return_value = json.dumps([])
+    def test_collect_stats_empty_prs(self):
+        """Test stats collection with no PRs in metadata"""
+        # Create mock metadata service
+        mock_metadata_service = Mock()
+
+        project_metadata = Mock()
+        project_metadata.tasks = []
+        project_metadata.pull_requests = []
+
+        mock_metadata_service.list_project_names.return_value = ["test-project"]
+        mock_metadata_service.get_project.return_value = project_metadata
 
         # Create service and test
-        mock_metadata_service = Mock()
         mock_repo = Mock()
         service = StatisticsService("owner/repo", mock_metadata_service, mock_repo, base_branch="main")
         stats = service.collect_team_member_stats(["alice"])
@@ -772,13 +796,13 @@ class TestCollectTeamMemberStats:
         assert stats["alice"].merged_count == 0
         assert stats["alice"].open_count == 0
 
-    @patch("claudestep.services.statistics_service.run_gh_command")
-    def test_collect_stats_exception_handling(self, mock_run_gh):
+    def test_collect_stats_exception_handling(self):
         """Test that exceptions during collection are handled"""
-        mock_run_gh.side_effect = Exception("API error")
+        # Create mock metadata service that raises exception
+        mock_metadata_service = Mock()
+        mock_metadata_service.list_project_names.side_effect = Exception("Metadata error")
 
         # Create service and test
-        mock_metadata_service = Mock()
         mock_repo = Mock()
         service = StatisticsService("owner/repo", mock_metadata_service, mock_repo, base_branch="main")
         stats = service.collect_team_member_stats(["alice"])
@@ -908,8 +932,7 @@ class TestCollectProjectStats:
 class TestCollectAllStatistics:
     """Test full statistics collection"""
 
-    @patch("claudestep.services.statistics_service.run_gh_command")
-    def test_collect_all_single_project(self, mock_run_gh):
+    def test_collect_all_single_project(self):
         """Test collecting stats for a single project"""
         config_content = """
 reviewers:
@@ -920,13 +943,11 @@ reviewers:
         """
         spec_content = "- [x] Task 1\n- [ ] Task 2"
 
-        # Mock run_gh_command for team member stats
-        mock_run_gh.return_value = json.dumps([])
-
         # Mock metadata service
         mock_metadata_service = Mock()
         mock_metadata_service.find_in_progress_tasks.return_value = []
         mock_metadata_service.get_project.return_value = None
+        mock_metadata_service.list_project_names.return_value = []  # No projects in metadata
 
         # Mock ProjectRepository
         mock_repo = Mock()
@@ -959,15 +980,16 @@ reviewers:
         assert len(report.project_stats) == 0
         assert len(report.team_stats) == 0
 
-    @patch("claudestep.services.statistics_service.get_file_from_branch")
-    def test_collect_all_config_error(self, mock_get_file):
+    def test_collect_all_config_error(self):
         """Test handling of config loading errors"""
-        # Mock get_file_from_branch to return None (config not found)
-        mock_get_file.return_value = None
+        # Mock metadata service
+        mock_metadata_service = Mock()
+
+        # Mock ProjectRepository to return None (config not found)
+        mock_repo = Mock()
+        mock_repo.load_configuration.return_value = None
 
         # Create service and test
-        mock_metadata_service = Mock()
-        mock_repo = Mock()
         service = StatisticsService("owner/repo", mock_metadata_service, mock_repo, base_branch="main")
         report = service.collect_all_statistics("/nonexistent/config.yml")
 
