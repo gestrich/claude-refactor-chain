@@ -11,7 +11,7 @@ from claudestep.infrastructure.github.actions import GitHubActionsHelper
 from claudestep.infrastructure.github.operations import ensure_label_exists, file_exists_in_branch, get_file_from_branch
 from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
 from claudestep.application.services.metadata_service import MetadataService
-from claudestep.application.services.pr_operations import format_branch_name
+from claudestep.application.services.pr_operations import PROperationsService
 from claudestep.application.services.project_detection import detect_project_from_pr, detect_project_paths
 from claudestep.application.services.reviewer_management import ReviewerManagementService
 from claudestep.application.services.task_management import TaskManagementService
@@ -142,8 +142,10 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
             metadata_store = GitHubMetadataStore(repo)
             metadata_service = MetadataService(metadata_store)
 
-        # Initialize reviewer management service
+        # Initialize services
         reviewer_service = ReviewerManagementService(repo, metadata_service)
+        pr_service = PROperationsService(repo)
+
         selected_reviewer, capacity_result = reviewer_service.find_available_reviewer(reviewers, label, detected_project)
 
         summary = capacity_result.format_summary()
@@ -185,7 +187,7 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
         # === STEP 5: Create Branch ===
         print("\n=== Step 5/6: Creating branch ===")
         # Use standard ClaudeStep branch format: claude-step-{project}-{index}
-        branch_name = format_branch_name(detected_project, task_index)
+        branch_name = pr_service.format_branch_name(detected_project, task_index)
 
         try:
             run_git_command(["checkout", "-b", branch_name])

@@ -206,13 +206,14 @@ class TestFindProjectArtifacts:
     """Test suite for find_project_artifacts function"""
 
     @patch("claudestep.application.services.artifact_operations.gh_api_call")
-    @patch("claudestep.application.services.pr_operations.get_project_prs")
+    @patch("claudestep.application.services.pr_operations.PROperationsService")
     def test_find_project_artifacts_with_open_prs(
-        self, mock_get_prs, mock_gh_api_call
+        self, mock_pr_service_class, mock_gh_api_call
     ):
         """Should find artifacts for open PRs by querying workflow runs"""
         # Arrange
-        mock_get_prs.return_value = [{"headRefName": "claude-step-test-1"}]
+        mock_pr_service = mock_pr_service_class.return_value
+        mock_pr_service.get_project_prs.return_value = [{"headRefName": "claude-step-test-1"}]
 
         # Mock workflow runs response
         mock_gh_api_call.side_effect = [
@@ -248,13 +249,14 @@ class TestFindProjectArtifacts:
         assert result[0].metadata is None
 
     @patch("claudestep.application.services.artifact_operations.gh_api_call")
-    @patch("claudestep.application.services.pr_operations.get_project_prs")
+    @patch("claudestep.application.services.pr_operations.PROperationsService")
     def test_find_project_artifacts_filters_by_project_name(
-        self, mock_get_prs, mock_gh_api_call
+        self, mock_pr_service_class, mock_gh_api_call
     ):
         """Should only return artifacts matching the project name"""
         # Arrange
-        mock_get_prs.return_value = [{"headRefName": "claude-step-test-1"}]
+        mock_pr_service = mock_pr_service_class.return_value
+        mock_pr_service.get_project_prs.return_value = [{"headRefName": "claude-step-test-1"}]
 
         mock_gh_api_call.side_effect = [
             {"workflow_runs": [{"id": 100, "conclusion": "success"}]},
@@ -279,13 +281,14 @@ class TestFindProjectArtifacts:
 
     @patch("claudestep.application.services.artifact_operations.download_artifact_json")
     @patch("claudestep.application.services.artifact_operations.gh_api_call")
-    @patch("claudestep.application.services.pr_operations.get_project_prs")
+    @patch("claudestep.application.services.pr_operations.PROperationsService")
     def test_find_project_artifacts_downloads_metadata_when_requested(
-        self, mock_get_prs, mock_gh_api_call, mock_download
+        self, mock_pr_service_class, mock_gh_api_call, mock_download
     ):
         """Should download and parse metadata when download_metadata=True"""
         # Arrange
-        mock_get_prs.return_value = [{"headRefName": "claude-step-test-1"}]
+        mock_pr_service = mock_pr_service_class.return_value
+        mock_pr_service.get_project_prs.return_value = [{"headRefName": "claude-step-test-1"}]
         mock_gh_api_call.side_effect = [
             {"workflow_runs": [{"id": 100, "conclusion": "success"}]},
             {"artifacts": [{"id": 1, "name": "task-metadata-test-1.json"}]},
@@ -317,13 +320,14 @@ class TestFindProjectArtifacts:
         mock_download.assert_called_once_with("owner/repo", 1)
 
     @patch("claudestep.application.services.artifact_operations.gh_api_call")
-    @patch("claudestep.application.services.pr_operations.get_project_prs")
+    @patch("claudestep.application.services.pr_operations.PROperationsService")
     def test_find_project_artifacts_skips_failed_runs(
-        self, mock_get_prs, mock_gh_api_call
+        self, mock_pr_service_class, mock_gh_api_call
     ):
         """Should only process workflow runs with success conclusion"""
         # Arrange
-        mock_get_prs.return_value = [{"headRefName": "claude-step-test-1"}]
+        mock_pr_service = mock_pr_service_class.return_value
+        mock_pr_service.get_project_prs.return_value = [{"headRefName": "claude-step-test-1"}]
         mock_gh_api_call.return_value = {
             "workflow_runs": [
                 {"id": 100, "conclusion": "failure"},
@@ -348,13 +352,14 @@ class TestFindProjectArtifacts:
     @patch(
         "claudestep.application.services.artifact_operations.gh_api_call"
     )
-    @patch("claudestep.application.services.pr_operations.get_project_prs")
+    @patch("claudestep.application.services.pr_operations.PROperationsService")
     def test_find_project_artifacts_deduplicates_artifacts(
-        self, mock_get_prs, mock_gh_api_call, mock_get_artifacts
+        self, mock_pr_service_class, mock_gh_api_call, mock_get_artifacts
     ):
         """Should not return duplicate artifacts with same ID"""
         # Arrange
-        mock_get_prs.return_value = [
+        mock_pr_service = mock_pr_service_class.return_value
+        mock_pr_service.get_project_prs.return_value = [
             {"headRefName": "claude-step-test-1"},
             {"headRefName": "claude-step-test-2"},
         ]
@@ -382,13 +387,14 @@ class TestFindProjectArtifacts:
 
     @patch("claudestep.application.services.artifact_operations.download_artifact_json")
     @patch("claudestep.application.services.artifact_operations.gh_api_call")
-    @patch("claudestep.application.services.pr_operations.get_project_prs")
+    @patch("claudestep.application.services.pr_operations.PROperationsService")
     def test_find_project_artifacts_handles_metadata_parsing_errors(
-        self, mock_get_prs, mock_gh_api_call, mock_download, capsys
+        self, mock_pr_service_class, mock_gh_api_call, mock_download, capsys
     ):
         """Should continue processing when metadata parsing fails"""
         # Arrange
-        mock_get_prs.return_value = [{"headRefName": "claude-step-test-1"}]
+        mock_pr_service = mock_pr_service_class.return_value
+        mock_pr_service.get_project_prs.return_value = [{"headRefName": "claude-step-test-1"}]
         mock_gh_api_call.side_effect = [
             {"workflow_runs": [{"id": 100, "conclusion": "success"}]},
             {"artifacts": [{"id": 1, "name": "task-metadata-test-1.json"}]},
@@ -410,13 +416,14 @@ class TestFindProjectArtifacts:
         assert "Warning: Failed to parse metadata" in captured.out
 
     @patch("claudestep.application.services.artifact_operations.gh_api_call")
-    @patch("claudestep.application.services.pr_operations.get_project_prs")
+    @patch("claudestep.application.services.pr_operations.PROperationsService")
     def test_find_project_artifacts_handles_api_errors(
-        self, mock_get_prs, mock_gh_api_call, capsys
+        self, mock_pr_service_class, mock_gh_api_call, capsys
     ):
         """Should handle GitHub API errors gracefully"""
         # Arrange
-        mock_get_prs.return_value = [{"headRefName": "claude-step-test-1"}]
+        mock_pr_service = mock_pr_service_class.return_value
+        mock_pr_service.get_project_prs.return_value = [{"headRefName": "claude-step-test-1"}]
         mock_gh_api_call.side_effect = GitHubAPIError("API rate limit exceeded")
 
         # Act

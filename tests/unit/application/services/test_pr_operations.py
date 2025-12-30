@@ -5,43 +5,39 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from claudestep.application.services.pr_operations import (
-    format_branch_name,
-    get_project_prs,
-    parse_branch_name,
-)
+from claudestep.application.services.pr_operations import PROperationsService
 
 
 class TestFormatBranchName:
-    """Tests for format_branch_name function"""
+    """Tests for format_branch_name static method"""
 
     def test_format_basic_branch_name(self):
         """Should format branch name with project and index"""
-        result = format_branch_name("my-refactor", 1)
+        result = PROperationsService.format_branch_name("my-refactor", 1)
         assert result == "claude-step-my-refactor-1"
 
     def test_format_with_multi_word_project(self):
         """Should handle project names with multiple words"""
-        result = format_branch_name("swift-migration", 5)
+        result = PROperationsService.format_branch_name("swift-migration", 5)
         assert result == "claude-step-swift-migration-5"
 
     def test_format_with_large_index(self):
         """Should handle large task indices"""
-        result = format_branch_name("api-refactor", 42)
+        result = PROperationsService.format_branch_name("api-refactor", 42)
         assert result == "claude-step-api-refactor-42"
 
     def test_format_with_complex_project_name(self):
         """Should handle complex project names with hyphens"""
-        result = format_branch_name("my-complex-project-name", 3)
+        result = PROperationsService.format_branch_name("my-complex-project-name", 3)
         assert result == "claude-step-my-complex-project-name-3"
 
 
 class TestParseBranchName:
-    """Tests for parse_branch_name function"""
+    """Tests for parse_branch_name static method"""
 
     def test_parse_basic_branch_name(self):
         """Should parse basic branch name"""
-        result = parse_branch_name("claude-step-my-refactor-1")
+        result = PROperationsService.parse_branch_name("claude-step-my-refactor-1")
         assert result is not None
         project, index = result
         assert project == "my-refactor"
@@ -49,7 +45,7 @@ class TestParseBranchName:
 
     def test_parse_multi_word_project(self):
         """Should parse project names with multiple words"""
-        result = parse_branch_name("claude-step-swift-migration-5")
+        result = PROperationsService.parse_branch_name("claude-step-swift-migration-5")
         assert result is not None
         project, index = result
         assert project == "swift-migration"
@@ -57,7 +53,7 @@ class TestParseBranchName:
 
     def test_parse_large_index(self):
         """Should handle large task indices"""
-        result = parse_branch_name("claude-step-api-refactor-42")
+        result = PROperationsService.parse_branch_name("claude-step-api-refactor-42")
         assert result is not None
         project, index = result
         assert project == "api-refactor"
@@ -65,7 +61,7 @@ class TestParseBranchName:
 
     def test_parse_complex_project_name(self):
         """Should handle complex project names with multiple hyphens"""
-        result = parse_branch_name("claude-step-my-complex-project-name-3")
+        result = PROperationsService.parse_branch_name("claude-step-my-complex-project-name-3")
         assert result is not None
         project, index = result
         assert project == "my-complex-project-name"
@@ -73,22 +69,22 @@ class TestParseBranchName:
 
     def test_parse_invalid_branch_no_prefix(self):
         """Should return None for branch without claude-step prefix"""
-        result = parse_branch_name("my-refactor-1")
+        result = PROperationsService.parse_branch_name("my-refactor-1")
         assert result is None
 
     def test_parse_invalid_branch_wrong_format(self):
         """Should return None for branch with wrong format"""
-        result = parse_branch_name("claude-step-no-index")
+        result = PROperationsService.parse_branch_name("claude-step-no-index")
         assert result is None
 
     def test_parse_invalid_branch_empty(self):
         """Should return None for empty branch name"""
-        result = parse_branch_name("")
+        result = PROperationsService.parse_branch_name("")
         assert result is None
 
     def test_parse_invalid_branch_no_index(self):
         """Should return None for branch without index"""
-        result = parse_branch_name("claude-step-my-refactor-")
+        result = PROperationsService.parse_branch_name("claude-step-my-refactor-")
         assert result is None
 
     def test_parse_roundtrip(self):
@@ -97,8 +93,8 @@ class TestParseBranchName:
         original_index = 7
 
         # Format then parse
-        branch = format_branch_name(original_project, original_index)
-        result = parse_branch_name(branch)
+        branch = PROperationsService.format_branch_name(original_project, original_index)
+        result = PROperationsService.parse_branch_name(branch)
 
         assert result is not None
         project, index = result
@@ -107,7 +103,7 @@ class TestParseBranchName:
 
 
 class TestGetProjectPrs:
-    """Tests for get_project_prs function"""
+    """Tests for get_project_prs instance method"""
 
     @patch("claudestep.application.services.pr_operations.run_gh_command")
     def test_get_open_prs(self, mock_gh_command):
@@ -141,8 +137,9 @@ class TestGetProjectPrs:
         ]
         mock_gh_command.return_value = json.dumps(mock_prs)
 
-        # Call function
-        result = get_project_prs("my-refactor", "owner/repo", state="open")
+        # Call method
+        service = PROperationsService("owner/repo")
+        result = service.get_project_prs("my-refactor", state="open")
 
         # Verify
         assert len(result) == 2
@@ -176,7 +173,8 @@ class TestGetProjectPrs:
         ]
         mock_gh_command.return_value = json.dumps(mock_prs)
 
-        result = get_project_prs("my-refactor", "owner/repo", state="all")
+        service = PROperationsService("owner/repo")
+        result = service.get_project_prs("my-refactor", state="all")
 
         assert len(result) == 2
 
@@ -194,7 +192,8 @@ class TestGetProjectPrs:
         ]
         mock_gh_command.return_value = json.dumps(mock_prs)
 
-        result = get_project_prs("my-refactor", "owner/repo", state="merged")
+        service = PROperationsService("owner/repo")
+        result = service.get_project_prs("my-refactor", state="merged")
 
         assert len(result) == 1
         assert result[0]["state"] == "merged"
@@ -222,7 +221,8 @@ class TestGetProjectPrs:
         ]
         mock_gh_command.return_value = json.dumps(mock_prs)
 
-        result = get_project_prs("my-refactor", "owner/repo")
+        service = PROperationsService("owner/repo")
+        result = service.get_project_prs("my-refactor")
 
         assert len(result) == 2
         assert all("my-refactor" in pr["headRefName"] for pr in result)
@@ -232,7 +232,8 @@ class TestGetProjectPrs:
         """Should use custom label when provided"""
         mock_gh_command.return_value = "[]"
 
-        get_project_prs("my-refactor", "owner/repo", label="custom-label")
+        service = PROperationsService("owner/repo")
+        service.get_project_prs("my-refactor", label="custom-label")
 
         call_args = mock_gh_command.call_args[0][0]
         assert "--label" in call_args
@@ -243,7 +244,8 @@ class TestGetProjectPrs:
         """Should handle empty PR list gracefully"""
         mock_gh_command.return_value = "[]"
 
-        result = get_project_prs("my-refactor", "owner/repo")
+        service = PROperationsService("owner/repo")
+        result = service.get_project_prs("my-refactor")
 
         assert result == []
 
@@ -254,7 +256,8 @@ class TestGetProjectPrs:
 
         mock_gh_command.side_effect = GitHubAPIError("API failed")
 
-        result = get_project_prs("my-refactor", "owner/repo")
+        service = PROperationsService("owner/repo")
+        result = service.get_project_prs("my-refactor")
 
         # Should return empty list on error
         assert result == []
@@ -264,7 +267,8 @@ class TestGetProjectPrs:
         """Should handle invalid JSON response gracefully"""
         mock_gh_command.return_value = "invalid json"
 
-        result = get_project_prs("my-refactor", "owner/repo")
+        service = PROperationsService("owner/repo")
+        result = service.get_project_prs("my-refactor")
 
         # Should return empty list on parse error
         assert result == []

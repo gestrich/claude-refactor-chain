@@ -195,13 +195,14 @@ def find_project_artifacts(
         4. Filter artifacts by project name
         5. Optionally download and parse metadata JSON
     """
-    from claudestep.application.services.pr_operations import get_project_prs
+    from claudestep.application.services.pr_operations import PROperationsService
 
     result_artifacts = []
     seen_artifact_ids = set()
 
     # Get PRs for this project
-    prs = get_project_prs(project, repo, state=pr_state, label=label)
+    pr_service = PROperationsService(repo)
+    prs = pr_service.get_project_prs(project, state=pr_state, label=label)
     print(f"Found {len(prs)} PR(s) for project '{project}' with state '{pr_state}'")
 
     # Get recent workflow runs from the repo

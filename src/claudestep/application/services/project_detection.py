@@ -4,7 +4,7 @@ import json
 from typing import Optional, Tuple
 
 from claudestep.infrastructure.github.operations import run_gh_command
-from claudestep.application.services.pr_operations import parse_branch_name
+from claudestep.application.services.pr_operations import PROperationsService
 
 
 def detect_project_from_pr(pr_number: str, repo: str) -> Optional[str]:
@@ -36,7 +36,7 @@ def detect_project_from_pr(pr_number: str, repo: str) -> Optional[str]:
 
         # Extract project name from branch name using standard format
         # Expected format: claude-step-{project}-{index}
-        result = parse_branch_name(branch_name)
+        result = PROperationsService.parse_branch_name(branch_name)
 
         if result:
             project_name, _ = result

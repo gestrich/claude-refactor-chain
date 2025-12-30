@@ -90,42 +90,35 @@ Successfully converted reviewer management functions to a class-based service wi
 - Instance variables: `self.repo`, `self.metadata_service`
 - Method uses artifact metadata for PR tracking instead of project metadata directly
 
-- [ ] Phase 3: Convert `pr_operations.py` to `PROperationsService`
+- [x] Phase 3: Convert `pr_operations.py` to `PROperationsService` ✅
 
-Convert PR fetching and branch naming utilities to a class-based service.
+**Status: COMPLETED**
 
-**Files to modify:**
-- `src/claudestep/application/services/pr_operations.py`
-- `src/claudestep/cli/commands/prepare.py` (usage)
-- Any other commands using PR operations
-- `tests/unit/application/services/test_pr_operations.py`
+Successfully converted PR operations functions to a class-based service with proper dependency injection.
 
-**New class structure:**
-```python
-class PROperationsService:
-    """Service for PR operations and branch naming utilities"""
+**Changes made:**
+- ✅ Converted `pr_operations.py` to `PROperationsService` class
+- ✅ Updated `prepare.py` to instantiate and use `PROperationsService`
+- ✅ Updated `artifact_operations.py` to use `PROperationsService`
+- ✅ Updated `project_detection.py` to use `PROperationsService`
+- ✅ Updated unit tests (`test_pr_operations.py`) to use the class-based service
+- ✅ Updated unit tests (`test_artifact_operations.py`) to mock the service class
+- ✅ All 21 PR operations unit tests passing
+- ✅ All 48 artifact operations unit tests passing
+- ✅ All 47 project detection unit tests passing
+- ✅ All 24 prepare command integration tests passing
 
-    def __init__(self, repo: str):
-        self.repo = repo
+**Implementation notes:**
+- `format_branch_name()` and `parse_branch_name()` are implemented as `@staticmethod` since they are pure functions
+- `get_project_prs()` is an instance method that uses `self.repo`
+- Service is instantiated once per command execution in CLI commands
+- In `artifact_operations.py`, the service is instantiated within the `find_project_artifacts()` function
+- In `project_detection.py`, static method `parse_branch_name()` is called directly on the class
 
-    @staticmethod
-    def format_branch_name(project_name: str, index: int) -> str:
-        # Pure function, can be static method
-
-    @staticmethod
-    def parse_branch_name(branch: str) -> Optional[Tuple[str, int]]:
-        # Pure function, can be static method
-
-    def get_project_prs(self, project_name: str, state: str = "all", label: str = "claudestep") -> List[dict]:
-        # Use self.repo instead of parameter
-```
-
-**Update CLI commands:**
-- Instantiate `PROperationsService` with repo
-- Update function calls to method calls
-- Static methods can be called on class or instance
-
-**Expected outcome:** PR operations centralized in a service with clear repo dependency.
+**Technical details:**
+- Constructor signature: `__init__(self, repo: str)`
+- Instance variables: `self.repo`
+- Static methods maintain the same signatures for backward compatibility
 
 - [ ] Phase 4: Convert `project_detection.py` to `ProjectDetectionService`
 
