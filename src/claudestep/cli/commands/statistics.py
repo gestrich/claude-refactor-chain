@@ -6,7 +6,9 @@ from datetime import datetime
 
 from claudestep.domain.exceptions import ConfigurationError
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
-from claudestep.application.services.statistics_service import collect_all_statistics
+from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
+from claudestep.application.services.metadata_service import MetadataService
+from claudestep.application.services.statistics_service import StatisticsService
 
 
 def cmd_statistics(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
@@ -21,6 +23,7 @@ def cmd_statistics(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
     """
     try:
         # Get environment variables
+        repo = os.environ.get("GITHUB_REPOSITORY", "")
         config_path = os.environ.get("CONFIG_PATH", "")
         days_back = int(os.environ.get("STATS_DAYS_BACK", "30"))
         format_type = os.environ.get(
@@ -36,8 +39,13 @@ def cmd_statistics(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
             print("Mode: All projects")
         print()
 
+        # Initialize services
+        metadata_store = GitHubMetadataStore(repo)
+        metadata_service = MetadataService(metadata_store)
+        statistics_service = StatisticsService(repo, metadata_service)
+
         # Collect all statistics
-        report = collect_all_statistics(
+        report = statistics_service.collect_all_statistics(
             config_path=config_path if config_path else None, days_back=days_back
         )
 

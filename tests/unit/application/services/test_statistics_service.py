@@ -3,9 +3,10 @@
 import json
 import pytest
 from datetime import datetime
+from unittest.mock import Mock, patch
 
 from claudestep.domain.models import TeamMemberStats, ProjectStats, StatisticsReport
-from claudestep.application.services.statistics_service import count_tasks
+from claudestep.application.services.statistics_service import StatisticsService
 
 from tests.builders import SpecFileBuilder
 
@@ -71,7 +72,7 @@ class TestTaskCounting:
                      .add_tasks("Task 1", "Task 2", "Task 3")
                      .write_to(tmp_path))
 
-        total, completed = count_tasks(str(spec_path))
+        total, completed = StatisticsService.count_tasks(str(spec_path))
         assert total == 3
         assert completed == 0
 
@@ -86,7 +87,7 @@ class TestTaskCounting:
                      .add_task("Task 4 (pending)")
                      .write_to(tmp_path))
 
-        total, completed = count_tasks(str(spec_path))
+        total, completed = StatisticsService.count_tasks(str(spec_path))
         assert total == 4
         assert completed == 2
 
@@ -98,7 +99,7 @@ class TestTaskCounting:
 - [x] Task 2 (lowercase)
 - [ ] Task 3 (pending)
         """)
-        total, completed = count_tasks(str(spec))
+        total, completed = StatisticsService.count_tasks(str(spec))
         assert total == 3
         assert completed == 2
 
@@ -112,7 +113,7 @@ class TestTaskCounting:
 - [x] Non-indented completed
 - [ ] Non-indented pending
         """)
-        total, completed = count_tasks(str(spec))
+        total, completed = StatisticsService.count_tasks(str(spec))
         assert total == 4
         assert completed == 2
 
@@ -123,7 +124,7 @@ class TestTaskCounting:
                      .add_section("No tasks yet!")
                      .write_to(tmp_path))
 
-        total, completed = count_tasks(str(spec_path))
+        total, completed = StatisticsService.count_tasks(str(spec_path))
         assert total == 0
         assert completed == 0
 
@@ -544,8 +545,6 @@ class TestCostExtraction:
 
     def test_extract_cost_from_valid_comment(self):
         """Test extracting cost from a valid cost breakdown comment"""
-        from claudestep.application.services.statistics_service import extract_cost_from_comment
-
         comment = """## 💰 Cost Breakdown
 
 This PR was generated using Claude Code with the following costs:
@@ -559,27 +558,23 @@ This PR was generated using Claude Code with the following costs:
 ---
 *Cost tracking by ClaudeStep • [View workflow run](https://example.com)*
 """
-        cost = extract_cost_from_comment(comment)
+        cost = StatisticsService.extract_cost_from_comment(comment)
         assert cost == 0.125801
 
     def test_extract_cost_no_cost_comment(self):
         """Test extracting cost from comment without cost breakdown"""
-        from claudestep.application.services.statistics_service import extract_cost_from_comment
-
         comment = "This is a regular comment without cost information."
-        cost = extract_cost_from_comment(comment)
+        cost = StatisticsService.extract_cost_from_comment(comment)
         assert cost is None
 
     def test_extract_cost_malformed_comment(self):
         """Test extracting cost from malformed cost comment"""
-        from claudestep.application.services.statistics_service import extract_cost_from_comment
-
         comment = """## 💰 Cost Breakdown
 
 | Component | Cost |
 | Total | $invalid |
 """
-        cost = extract_cost_from_comment(comment)
+        cost = StatisticsService.extract_cost_from_comment(comment)
         assert cost is None
 
     def test_project_stats_has_cost_field(self):
@@ -629,114 +624,74 @@ This PR was generated using Claude Code with the following costs:
 class TestCollectProjectCosts:
     """Test project cost collection"""
 
-    def test_collect_costs_with_metadata(self, mocker):
-        """Test collecting costs from artifact metadata"""
-        from claudestep.application.services.statistics_service import collect_project_costs
-        from claudestep.application.services.artifact_operations import ProjectArtifact, TaskMetadata
-        from datetime import datetime
+    def test_collect_costs_with_metadata(self):
+        """Test collecting costs from metadata storage"""
+        # Mock metadata service
+        mock_metadata_service = Mock()
 
-        # Mock artifact with metadata containing cost
-        metadata = TaskMetadata(
-            task_index=1,
-            task_description="Test task",
-            project="test-project",
-            branch_name="feature/test",
-            reviewer="alice",
-            created_at=datetime(2025, 1, 1),
-            workflow_run_id=123,
-            pr_number=123,
-            total_cost_usd=0.5
-        )
-        artifact = ProjectArtifact(
-            artifact_id=1,
-            artifact_name="test-artifact",
-            workflow_run_id=123,
-            metadata=metadata
-        )
+        # Create mock PullRequests with costs
+        pr1 = Mock()
+        pr1.pr_state = "merged"
+        pr1.get_total_cost.return_value = 0.3
 
-        # Mock find_project_artifacts
-        mock_find = mocker.patch(
-            "claudestep.application.services.statistics_service.find_project_artifacts",
-            return_value=[artifact]
-        )
+        pr2 = Mock()
+        pr2.pr_state = "merged"
+        pr2.get_total_cost.return_value = 0.2
 
-        cost = collect_project_costs("test-project", "owner/repo", "claudestep")
+        # Create mock project metadata
+        project_metadata = Mock()
+        project_metadata.pull_requests = [pr1, pr2]
+
+        mock_metadata_service.get_project.return_value = project_metadata
+
+        # Create service and test
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        cost = service.collect_project_costs("test-project", "claudestep")
 
         assert cost == 0.5
-        mock_find.assert_called_once_with(
-            repo="owner/repo",
-            project="test-project",
-            label="claudestep",
-            pr_state="merged",
-            download_metadata=True
-        )
+        mock_metadata_service.get_project.assert_called_once_with("test-project")
 
-    def test_collect_costs_from_comments(self, mocker):
-        """Test collecting costs from PR comments when metadata unavailable"""
-        from claudestep.application.services.statistics_service import collect_project_costs
-        from claudestep.application.services.artifact_operations import ProjectArtifact, TaskMetadata
-        from datetime import datetime
+    def test_collect_costs_no_merged_prs(self):
+        """Test collecting costs when no merged PRs found"""
+        # Mock metadata service
+        mock_metadata_service = Mock()
 
-        # Mock artifact without cost in metadata
-        metadata = TaskMetadata(
-            task_index=1,
-            task_description="Test task",
-            project="test-project",
-            branch_name="feature/test",
-            reviewer="alice",
-            created_at=datetime(2025, 1, 1),
-            workflow_run_id=456,
-            pr_number=456,
-            total_cost_usd=0.0  # No cost in metadata
-        )
-        artifact = ProjectArtifact(
-            artifact_id=2,
-            artifact_name="test-artifact",
-            workflow_run_id=456,
-            metadata=metadata
-        )
+        # Create mock project with only open PRs
+        pr1 = Mock()
+        pr1.pr_state = "open"
 
-        mocker.patch(
-            "claudestep.application.services.statistics_service.find_project_artifacts",
-            return_value=[artifact]
-        )
+        project_metadata = Mock()
+        project_metadata.pull_requests = [pr1]
 
-        # Mock gh command to return PR comment with cost
-        comment = """## 💰 Cost Breakdown
-| **Total** | **$0.123456** |
-"""
-        mocker.patch(
-            "claudestep.application.services.statistics_service.run_gh_command",
-            return_value=comment
-        )
+        mock_metadata_service.get_project.return_value = project_metadata
 
-        cost = collect_project_costs("test-project", "owner/repo", "claudestep")
-
-        assert cost == 0.123456
-
-    def test_collect_costs_no_artifacts(self, mocker):
-        """Test collecting costs when no artifacts found"""
-        from claudestep.application.services.statistics_service import collect_project_costs
-
-        mocker.patch(
-            "claudestep.application.services.statistics_service.find_project_artifacts",
-            return_value=[]
-        )
-
-        cost = collect_project_costs("test-project", "owner/repo", "claudestep")
+        # Create service and test
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        cost = service.collect_project_costs("test-project", "claudestep")
 
         assert cost == 0.0
 
-    def test_collect_costs_exception_handling(self, mocker):
+    def test_collect_costs_no_project(self):
+        """Test collecting costs when project not found"""
+        # Mock metadata service
+        mock_metadata_service = Mock()
+        mock_metadata_service.get_project.return_value = None
+
+        # Create service and test
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        cost = service.collect_project_costs("test-project", "claudestep")
+
+        assert cost == 0.0
+
+    def test_collect_costs_exception_handling(self):
         """Test that exceptions are handled gracefully"""
-        from claudestep.application.services.statistics_service import collect_project_costs
+        # Mock metadata service
+        mock_metadata_service = Mock()
+        mock_metadata_service.get_project.side_effect = Exception("API error")
 
-        mocker.patch(
-            "claudestep.application.services.statistics_service.find_project_artifacts",
-            side_effect=Exception("API error")
-        )
-
-        cost = collect_project_costs("test-project", "owner/repo", "claudestep")
+        # Create service and test
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        cost = service.collect_project_costs("test-project", "claudestep")
 
         assert cost == 0.0
 
@@ -744,10 +699,9 @@ class TestCollectProjectCosts:
 class TestCollectTeamMemberStats:
     """Test team member statistics collection"""
 
-    def test_collect_stats_basic(self, mocker):
+    @patch("claudestep.application.services.statistics_service.run_gh_command")
+    def test_collect_stats_basic(self, mock_run_gh):
         """Test basic team member stats collection"""
-        from claudestep.application.services.statistics_service import collect_team_member_stats
-
         merged_prs = [
             {
                 "number": 1,
@@ -773,12 +727,12 @@ class TestCollectTeamMemberStats:
         ]
 
         # Mock gh commands
-        mocker.patch(
-            "claudestep.application.services.statistics_service.run_gh_command",
-            side_effect=[json.dumps(merged_prs), json.dumps(open_prs)]
-        )
+        mock_run_gh.side_effect = [json.dumps(merged_prs), json.dumps(open_prs)]
 
-        stats = collect_team_member_stats(["alice", "bob"], "owner/repo", days_back=30)
+        # Create service and test
+        mock_metadata_service = Mock()
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        stats = service.collect_team_member_stats(["alice", "bob"], days_back=30)
 
         assert "alice" in stats
         assert "bob" in stats
@@ -786,31 +740,29 @@ class TestCollectTeamMemberStats:
         assert stats["alice"].open_count >= 1
         assert stats["bob"].merged_count >= 1
 
-    def test_collect_stats_empty_prs(self, mocker):
+    @patch("claudestep.application.services.statistics_service.run_gh_command")
+    def test_collect_stats_empty_prs(self, mock_run_gh):
         """Test stats collection with no PRs"""
-        from claudestep.application.services.statistics_service import collect_team_member_stats
+        mock_run_gh.return_value = json.dumps([])
 
-        mocker.patch(
-            "claudestep.application.services.statistics_service.run_gh_command",
-            return_value=json.dumps([])
-        )
-
-        stats = collect_team_member_stats(["alice"], "owner/repo")
+        # Create service and test
+        mock_metadata_service = Mock()
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        stats = service.collect_team_member_stats(["alice"])
 
         assert "alice" in stats
         assert stats["alice"].merged_count == 0
         assert stats["alice"].open_count == 0
 
-    def test_collect_stats_exception_handling(self, mocker):
+    @patch("claudestep.application.services.statistics_service.run_gh_command")
+    def test_collect_stats_exception_handling(self, mock_run_gh):
         """Test that exceptions during collection are handled"""
-        from claudestep.application.services.statistics_service import collect_team_member_stats
+        mock_run_gh.side_effect = Exception("API error")
 
-        mocker.patch(
-            "claudestep.application.services.statistics_service.run_gh_command",
-            side_effect=Exception("API error")
-        )
-
-        stats = collect_team_member_stats(["alice"], "owner/repo")
+        # Create service and test
+        mock_metadata_service = Mock()
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        stats = service.collect_team_member_stats(["alice"])
 
         # Should return empty stats but not crash
         assert "alice" in stats
@@ -820,32 +772,35 @@ class TestCollectTeamMemberStats:
 class TestCollectProjectStats:
     """Test project statistics collection"""
 
-    def test_collect_stats_success(self, tmp_path, mocker):
+    @patch("claudestep.application.services.statistics_service.get_file_from_branch")
+    def test_collect_stats_success(self, mock_get_file):
         """Test successful project stats collection"""
-        from claudestep.application.services.statistics_service import collect_project_stats
-
-        # Create spec file
-        spec = tmp_path / "spec.md"
-        spec.write_text("""
+        spec_content = """
 - [x] Task 1
 - [x] Task 2
 - [ ] Task 3
 - [ ] Task 4
-        """)
+        """
 
-        # Mock in-progress tasks
-        mocker.patch(
-            "claudestep.application.services.statistics_service.get_in_progress_task_indices",
-            return_value=[2]
-        )
+        # Mock get_file_from_branch
+        mock_get_file.return_value = spec_content
 
-        # Mock cost collection
-        mocker.patch(
-            "claudestep.application.services.statistics_service.collect_project_costs",
-            return_value=1.5
-        )
+        # Mock metadata service
+        mock_metadata_service = Mock()
+        mock_metadata_service.find_in_progress_tasks.return_value = [2]
 
-        stats = collect_project_stats("test-project", str(spec), "owner/repo")
+        # Mock get_project for cost collection
+        pr1 = Mock()
+        pr1.pr_state = "merged"
+        pr1.get_total_cost.return_value = 1.5
+
+        project_metadata = Mock()
+        project_metadata.pull_requests = [pr1]
+        mock_metadata_service.get_project.return_value = project_metadata
+
+        # Create service and test
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        stats = service.collect_project_stats("test-project", "main", "claudestep")
 
         assert stats.project_name == "test-project"
         assert stats.total_tasks == 4
@@ -854,34 +809,35 @@ class TestCollectProjectStats:
         assert stats.pending_tasks == 1
         assert stats.total_cost_usd == 1.5
 
-    def test_collect_stats_missing_spec(self, mocker):
+    @patch("claudestep.application.services.statistics_service.get_file_from_branch")
+    def test_collect_stats_missing_spec(self, mock_get_file):
         """Test stats collection with missing spec file"""
-        from claudestep.application.services.statistics_service import collect_project_stats
+        # Mock get_file_from_branch to return None
+        mock_get_file.return_value = None
 
-        stats = collect_project_stats("test-project", "/nonexistent/spec.md", "owner/repo")
+        # Create service and test
+        mock_metadata_service = Mock()
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        stats = service.collect_project_stats("test-project", "main", "claudestep")
 
-        assert stats.project_name == "test-project"
-        assert stats.total_tasks == 0
-        assert stats.completed_tasks == 0
+        assert stats is None
 
-    def test_collect_stats_in_progress_error(self, tmp_path, mocker):
+    @patch("claudestep.application.services.statistics_service.get_file_from_branch")
+    def test_collect_stats_in_progress_error(self, mock_get_file):
         """Test stats collection when in-progress task detection fails"""
-        from claudestep.application.services.statistics_service import collect_project_stats
+        spec_content = "- [ ] Task 1\n- [x] Task 2"
 
-        spec = tmp_path / "spec.md"
-        spec.write_text("- [ ] Task 1\n- [x] Task 2")
+        # Mock get_file_from_branch
+        mock_get_file.return_value = spec_content
 
-        mocker.patch(
-            "claudestep.application.services.statistics_service.get_in_progress_task_indices",
-            side_effect=Exception("API error")
-        )
+        # Mock metadata service
+        mock_metadata_service = Mock()
+        mock_metadata_service.find_in_progress_tasks.side_effect = Exception("API error")
+        mock_metadata_service.get_project.return_value = None
 
-        mocker.patch(
-            "claudestep.application.services.statistics_service.collect_project_costs",
-            return_value=0.0
-        )
-
-        stats = collect_project_stats("test-project", str(spec), "owner/repo")
+        # Create service and test
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        stats = service.collect_project_stats("test-project", "main", "claudestep")
 
         assert stats.in_progress_tasks == 0
         assert stats.pending_tasks == 1
@@ -890,43 +846,40 @@ class TestCollectProjectStats:
 class TestCollectAllStatistics:
     """Test full statistics collection"""
 
-    def test_collect_all_single_project(self, tmp_path, mocker):
+    @patch("claudestep.application.services.statistics_service.run_gh_command")
+    @patch("claudestep.application.services.statistics_service.get_file_from_branch")
+    def test_collect_all_single_project(self, mock_get_file, mock_run_gh):
         """Test collecting stats for a single project"""
-        from claudestep.application.services.statistics_service import collect_all_statistics
-
-        # Set up environment
-        mocker.patch.dict("os.environ", {"GITHUB_REPOSITORY": "owner/repo"})
-
-        # Create config file
-        config_path = tmp_path / "project1" / "configuration.yml"
-        config_path.parent.mkdir()
-        config_path.write_text("""
+        config_content = """
 reviewers:
   - username: alice
     max_prs: 2
   - username: bob
     max_prs: 1
-        """)
+        """
+        spec_content = "- [x] Task 1\n- [ ] Task 2"
 
-        # Create spec file
-        spec_path = tmp_path / "project1" / "spec.md"
-        spec_path.write_text("- [x] Task 1\n- [ ] Task 2")
+        # Mock get_file_from_branch for config and spec
+        def get_file_side_effect(repo, branch, path):
+            if "configuration.yml" in path:
+                return config_content
+            elif "spec.md" in path:
+                return spec_content
+            return None
 
-        # Mock dependencies
-        mocker.patch(
-            "claudestep.application.services.statistics_service.get_in_progress_task_indices",
-            return_value=[]
-        )
-        mocker.patch(
-            "claudestep.application.services.statistics_service.collect_project_costs",
-            return_value=0.5
-        )
-        mocker.patch(
-            "claudestep.application.services.statistics_service.run_gh_command",
-            return_value=json.dumps([])
-        )
+        mock_get_file.side_effect = get_file_side_effect
 
-        report = collect_all_statistics(str(config_path))
+        # Mock run_gh_command for team member stats
+        mock_run_gh.return_value = json.dumps([])
+
+        # Mock metadata service
+        mock_metadata_service = Mock()
+        mock_metadata_service.find_in_progress_tasks.return_value = []
+        mock_metadata_service.get_project.return_value = None
+
+        # Create service and test
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        report = service.collect_all_statistics("claude-step/project1/configuration.yml")
 
         assert len(report.project_stats) == 1
         assert "project1" in report.project_stats
@@ -934,23 +887,25 @@ reviewers:
         assert "alice" in report.team_stats
         assert "bob" in report.team_stats
 
-    def test_collect_all_no_repository(self, mocker):
+    def test_collect_all_no_repository(self):
         """Test that missing GITHUB_REPOSITORY returns empty report"""
-        from claudestep.application.services.statistics_service import collect_all_statistics
-
-        mocker.patch.dict("os.environ", {}, clear=True)
-
-        report = collect_all_statistics()
+        # Create service with empty repo
+        mock_metadata_service = Mock()
+        service = StatisticsService("", mock_metadata_service)
+        report = service.collect_all_statistics()
 
         assert len(report.project_stats) == 0
         assert len(report.team_stats) == 0
 
-    def test_collect_all_config_error(self, mocker):
+    @patch("claudestep.application.services.statistics_service.get_file_from_branch")
+    def test_collect_all_config_error(self, mock_get_file):
         """Test handling of config loading errors"""
-        from claudestep.application.services.statistics_service import collect_all_statistics
+        # Mock get_file_from_branch to return None (config not found)
+        mock_get_file.return_value = None
 
-        mocker.patch.dict("os.environ", {"GITHUB_REPOSITORY": "owner/repo"})
-
-        report = collect_all_statistics("/nonexistent/config.yml")
+        # Create service and test
+        mock_metadata_service = Mock()
+        service = StatisticsService("owner/repo", mock_metadata_service)
+        report = service.collect_all_statistics("/nonexistent/config.yml")
 
         assert len(report.project_stats) == 0

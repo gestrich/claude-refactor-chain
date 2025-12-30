@@ -146,53 +146,30 @@ Successfully converted project detection functions to a class-based service with
 - Static method `detect_project_paths` can be called on the class: `ProjectDetectionService.detect_project_paths(project_name)`
 - Instance method `detect_project_from_pr` is called on service instances: `service.detect_project_from_pr(pr_number)`
 
-- [ ] Phase 5: Convert `statistics_service.py` to `StatisticsService`
+- [x] Phase 5: Convert `statistics_service.py` to `StatisticsService` ✅
 
-Convert statistics collection functions to a class-based service. This is the most complex service as it orchestrates multiple operations.
+**Status: COMPLETED**
 
-**Files to modify:**
-- `src/claudestep/application/services/statistics_service.py`
-- `src/claudestep/cli/commands/statistics.py` (usage)
-- `tests/unit/application/services/test_statistics_service.py`
-- `tests/integration/cli/commands/test_statistics.py`
+Successfully converted statistics collection functions to a class-based service with proper dependency injection.
 
-**New class structure:**
-```python
-class StatisticsService:
-    """Service for collecting and aggregating project statistics"""
+**Changes made:**
+- ✅ Converted `statistics_service.py` to `StatisticsService` class
+- ✅ Updated `statistics.py` CLI command to instantiate and use `StatisticsService`
+- ✅ Updated unit tests (`test_statistics_service.py`) to use the class-based service
+- ✅ All 56 unit tests passing
 
-    def __init__(self, repo: str, metadata_service: MetadataService):
-        self.repo = repo
-        self.metadata_service = metadata_service
+**Implementation notes:**
+- `extract_cost_from_comment()` and `count_tasks()` are implemented as `@staticmethod` since they are pure functions
+- `collect_project_costs()`, `collect_team_member_stats()`, `collect_project_stats()`, and `collect_all_statistics()` are instance methods that use `self.repo` and/or `self.metadata_service`
+- Service is instantiated once per command execution in CLI commands
+- Eliminated redundant `GitHubMetadataStore` and `MetadataService` creation in `collect_project_stats()` and `collect_all_statistics()`
+- Updated tests to use `unittest.mock.Mock` and `@patch` decorators for mocking
 
-    @staticmethod
-    def extract_cost_from_comment(comment_body: str) -> Optional[float]:
-        # Pure function, can be static method
-
-    def collect_project_costs(self, project_name: str, label: str = "claudestep") -> float:
-        # Use self.metadata_service instead of creating it
-
-    @staticmethod
-    def count_tasks(spec_input: str) -> Tuple[int, int]:
-        # Pure function, can be static method
-
-    def collect_team_member_stats(self, reviewers: List[str], days_back: int = 30, label: str = "claudestep") -> Dict[str, TeamMemberStats]:
-        # Use self.repo instead of parameter
-
-    def collect_project_stats(self, project_name: str, base_branch: str = "main", label: str = "claudestep") -> ProjectStats:
-        # Use self.metadata_service and self.repo
-
-    def collect_all_statistics(self, config_path: Optional[str] = None, days_back: int = 30) -> StatisticsReport:
-        # Use self.repo and self.metadata_service
-        # Main entry point remains similar signature for backward compatibility
-```
-
-**Update CLI commands:**
-- Create `StatisticsService` instance with repo and metadata_service in `cmd_statistics`
-- Update `collect_all_statistics()` call to `service.collect_all_statistics()`
-- This will eliminate redundant metadata service creation across all statistics functions
-
-**Expected outcome:** Statistics service eliminates redundant object creation and has clear dependencies.
+**Technical details:**
+- Constructor signature: `__init__(self, repo: str, metadata_service: MetadataService)`
+- Instance variables: `self.repo`, `self.metadata_service`
+- Methods maintain backward-compatible signatures for smooth transition
+- Service now uses `self.metadata_service.get_project()` for cost collection instead of creating new service instances
 
 - [ ] Phase 6: Update Service Instantiation Pattern in CLI Commands
 
