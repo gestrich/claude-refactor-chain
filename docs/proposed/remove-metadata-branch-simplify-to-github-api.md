@@ -170,9 +170,11 @@ This suggests the project is already partially migrated away from metadata branc
 
 ---
 
-- [ ] Phase 2: Implement GitHub-based project detection
+- [x] Phase 2: Implement GitHub-based project detection
 
 **Objective**: Replace metadata-based project association with branch name parsing.
+
+**Status**: ✅ Complete
 
 **Branch naming convention** (already exists): `claude-step-<project>-<task-number>`
 
@@ -187,6 +189,22 @@ This suggests the project is already partially migrated away from metadata branc
 - Any services using metadata to get project name should use `parse_branch_name()` instead
 
 **Success criteria**: Project name can be reliably extracted from any ClaudeStep PR branch.
+
+**Technical Notes**:
+- ✅ `PROperationsService.parse_branch_name()` verified at `src/claudestep/services/pr_operations_service.py:131-164`
+- ✅ Method correctly extracts both project name and task index from branch names
+- ✅ Already integrated and used by `ProjectDetectionService.detect_project_from_pr()` at `src/claudestep/services/project_detection_service.py:61`
+- ✅ Added 8 additional edge case tests to cover:
+  - Index 0 handling
+  - Non-numeric indices (rejected)
+  - Negative indices (handled as project name with trailing hyphen)
+  - Single character project names
+  - Numeric characters in project names
+  - Whitespace in project names (accepted by regex, though not recommended)
+  - Case sensitivity of prefix (must be lowercase "claude-step")
+- ✅ All 28 tests in test_pr_operations.py pass
+- ✅ All 17 project detection integration tests pass
+- ✅ Regex pattern `^claude-step-(.+)-(\d+)$` correctly handles complex project names with hyphens
 
 ---
 

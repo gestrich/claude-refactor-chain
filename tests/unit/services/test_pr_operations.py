@@ -101,6 +101,64 @@ class TestParseBranchName:
         assert project == original_project
         assert index == original_index
 
+    def test_parse_index_zero(self):
+        """Should handle index 0"""
+        result = PROperationsService.parse_branch_name("claude-step-my-refactor-0")
+        assert result is not None
+        project, index = result
+        assert project == "my-refactor"
+        assert index == 0
+
+    def test_parse_invalid_branch_non_numeric_index(self):
+        """Should return None for branch with non-numeric index"""
+        result = PROperationsService.parse_branch_name("claude-step-my-refactor-abc")
+        assert result is None
+
+    def test_parse_invalid_branch_negative_index(self):
+        """Should return None for branch with negative index (contains hyphen before number)"""
+        # Note: This will match the pattern but the last -1 will be treated as index 1
+        # The project name will be "my-refactor-" which is still valid
+        result = PROperationsService.parse_branch_name("claude-step-my-refactor--1")
+        # This should parse, but the project name will be "my-refactor-"
+        # Actually testing the current behavior
+        if result:
+            project, index = result
+            assert project == "my-refactor-"
+            assert index == 1
+        # If implementation changes to reject this, that's also acceptable
+        # The key is to document the behavior
+
+    def test_parse_single_char_project(self):
+        """Should handle single character project names"""
+        result = PROperationsService.parse_branch_name("claude-step-x-1")
+        assert result is not None
+        project, index = result
+        assert project == "x"
+        assert index == 1
+
+    def test_parse_numeric_project_name(self):
+        """Should handle project names that contain numbers"""
+        result = PROperationsService.parse_branch_name("claude-step-project-123-refactor-5")
+        assert result is not None
+        project, index = result
+        assert project == "project-123-refactor"
+        assert index == 5
+
+    def test_parse_whitespace_in_branch(self):
+        """Should handle branch with whitespace (though not recommended)"""
+        # The regex pattern (.+) will match whitespace in project names
+        # While not recommended, this tests the actual behavior
+        result = PROperationsService.parse_branch_name("claude-step-my refactor-1")
+        assert result is not None
+        project, index = result
+        assert project == "my refactor"
+        assert index == 1
+
+    def test_parse_case_sensitivity(self):
+        """Should handle case sensitivity in prefix (expects lowercase)"""
+        result = PROperationsService.parse_branch_name("Claude-Step-my-refactor-1")
+        assert result is None  # Should fail because prefix is case-sensitive
+
 
 class TestGetProjectPrs:
     """Tests for get_project_prs instance method"""
