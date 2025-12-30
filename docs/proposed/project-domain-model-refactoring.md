@@ -479,12 +479,21 @@ stats.completed_tasks = spec.completed_tasks
 - Clean, type-safe API calls
 - Easier to test and maintain
 
-- [ ] Phase 6: Update CLI layer to pass repository
+- [x] Phase 6: Update CLI layer to pass repository
 
 Update CLI commands to instantiate and pass ProjectRepository to services.
 
-**Files to modify:**
-- `src/claudestep/cli/commands/statistics.py`
+**Completed**: 2025-12-30
+
+**Technical Notes**:
+- Successfully updated `statistics.py` CLI command to instantiate `ProjectRepository` and pass it to `StatisticsService`
+- The ProjectRepository import and instantiation were already added during Phase 5 implementation at src/claudestep/cli/commands/statistics.py:13,58
+- This phase was completed as part of Phase 5 to ensure proper dependency injection
+- All StatisticsService unit tests passing (56 tests)
+- Build succeeds with proper dependency injection pattern
+
+**Files modified:**
+- `src/claudestep/cli/commands/statistics.py` (completed in Phase 5)
 
 **Changes:**
 ```python
