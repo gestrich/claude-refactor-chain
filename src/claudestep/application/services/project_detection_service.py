@@ -4,7 +4,7 @@ import json
 from typing import Optional, Tuple
 
 from claudestep.infrastructure.github.operations import run_gh_command
-from claudestep.application.services.pr_operations import PROperationsService
+from claudestep.application.services.pr_operations_service import PROperationsService
 
 
 class ProjectDetectionService:

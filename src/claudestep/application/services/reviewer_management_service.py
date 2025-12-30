@@ -3,7 +3,7 @@
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
-from claudestep.application.services.artifact_operations import find_project_artifacts
+from claudestep.application.services.artifact_operations_service import find_project_artifacts
 from claudestep.application.services.metadata_service import MetadataService
 from claudestep.domain.models import ReviewerCapacityResult
 

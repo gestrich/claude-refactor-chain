@@ -13,7 +13,7 @@ from claudestep.infrastructure.github.actions import GitHubActionsHelper
 from claudestep.infrastructure.github.operations import run_gh_command, get_file_from_branch
 from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
 from claudestep.application.services.metadata_service import MetadataService
-from claudestep.application.services.task_management import TaskManagementService
+from claudestep.application.services.task_management_service import TaskManagementService
 
 
 def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
