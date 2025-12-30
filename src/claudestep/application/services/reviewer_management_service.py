@@ -15,6 +15,8 @@ class ReviewerManagementService:
         self.repo = repo
         self.metadata_service = metadata_service
 
+    # Public API methods
+
     def find_available_reviewer(
         self, reviewers: List[Dict[str, Any]], label: str, project: str
     ) -> tuple[Optional[str], ReviewerCapacityResult]:
