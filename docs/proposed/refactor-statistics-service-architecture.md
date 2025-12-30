@@ -106,13 +106,13 @@ class GitHubPullRequest:
         return self.state == "merged" or self.merged_at is not None
 ```
 
-- [ ] Phase 2: Add Pull Request Operations to Infrastructure Layer
+- [x] Phase 2: Add Pull Request Operations to Infrastructure Layer ✅
 
 Add PR querying functions to existing `infrastructure/github/operations.py` that return domain models:
 
 **Location:** `src/claudestep/infrastructure/github/operations.py`
 
-**Functions to add:**
+**Functions implemented:**
 ```python
 def list_pull_requests(
     repo: str,
@@ -156,19 +156,33 @@ def list_open_pull_requests(
     # Calls list_pull_requests with state="open"
 ```
 
-**Design principles:**
-- Follows existing pattern in `operations.py` (functions, not classes)
-- Similar to `get_file_from_branch()` - takes repo as parameter, returns parsed data
-- All GitHub CLI command construction happens here
-- All JSON parsing happens here via domain model factories
-- Service layer receives typed domain objects
-- Keep functions generic for future reuse (synchronize command)
+**Implementation notes:**
+- All three functions fully implemented following existing patterns in operations.py
+- `list_pull_requests()` builds gh pr list command with filters, parses JSON, returns GitHubPullRequest domain models
+- Date filtering implemented post-fetch since gh CLI doesn't support --since flag
+- `list_merged_pull_requests()` filters by merged_at date, excludes PRs without merge timestamp
+- `list_open_pull_requests()` simple wrapper for open state
+- All GitHub CLI command construction and JSON parsing encapsulated in infrastructure layer
+- Service layer will receive type-safe domain objects
+- Functions are generic and reusable for future synchronize command
+- Comprehensive docstrings with examples added
+- 11 unit tests created covering all functionality (success cases, filtering, error handling)
+- All tests passing (100% code coverage for new functions)
+- Tests extend existing `tests/unit/infrastructure/github/test_operations.py`
 
-**Files to modify:**
-- `src/claudestep/infrastructure/github/operations.py`
+**Files modified:**
+- `src/claudestep/infrastructure/github/operations.py` - Added 3 new functions (61 lines)
 
-**Tests to create:**
-- `tests/unit/infrastructure/github/test_pr_operations.py` (or extend existing test file)
+**Tests created:**
+- `tests/unit/infrastructure/github/test_operations.py` - Added 11 new tests across 3 test classes
+
+**Design principles followed:**
+- ✅ Follows existing pattern in `operations.py` (functions, not classes)
+- ✅ Similar to `get_file_from_branch()` - takes repo as parameter, returns parsed data
+- ✅ All GitHub CLI command construction happens here
+- ✅ All JSON parsing happens here via domain model factories
+- ✅ Service layer receives typed domain objects
+- ✅ Keep functions generic for future reuse (synchronize command)
 
 - [ ] Phase 3: Refactor collect_team_member_stats to Use Metadata
 

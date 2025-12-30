@@ -6,9 +6,11 @@ import os
 import subprocess
 import tempfile
 import zipfile
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from claudestep.domain.exceptions import GitHubAPIError
+from claudestep.domain.github_models import GitHubPullRequest
 from claudestep.infrastructure.git.operations import run_command
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 
@@ -176,3 +178,123 @@ def file_exists_in_branch(repo: str, branch: str, file_path: str) -> bool:
     """
     content = get_file_from_branch(repo, branch, file_path)
     return content is not None
+
+
+def list_pull_requests(
+    repo: str,
+    state: str = "all",
+    label: Optional[str] = None,
+    since: Optional[datetime] = None,
+    limit: int = 100
+) -> List[GitHubPullRequest]:
+    """Fetch PRs with filtering, returns domain models
+
+    This function provides GitHub PR querying capabilities for future use cases
+    such as synchronization commands. It encapsulates all GitHub CLI command
+    construction and JSON parsing, returning type-safe domain models.
+
+    Args:
+        repo: GitHub repository (owner/name)
+        state: "open", "closed", "merged", or "all"
+        label: Optional label filter
+        since: Optional date filter (for created_at)
+        limit: Max results (default 100)
+
+    Returns:
+        List of GitHubPullRequest domain models
+
+    Raises:
+        GitHubAPIError: If gh command fails
+
+    Example:
+        >>> prs = list_pull_requests("owner/repo", state="merged", label="claudestep")
+        >>> for pr in prs:
+        ...     print(f"PR #{pr.number}: {pr.title}")
+    """
+    # Build gh pr list command
+    args = [
+        "pr", "list",
+        "--repo", repo,
+        "--state", state,
+        "--limit", str(limit),
+        "--json", "number,title,state,createdAt,mergedAt,assignees,labels"
+    ]
+
+    # Add label filter if specified
+    if label:
+        args.extend(["--label", label])
+
+    # Execute command and parse JSON
+    try:
+        output = run_gh_command(args)
+        pr_data = json.loads(output) if output else []
+    except json.JSONDecodeError as e:
+        raise GitHubAPIError(f"Invalid JSON from gh pr list: {str(e)}")
+
+    # Parse into domain models
+    prs = [GitHubPullRequest.from_dict(pr) for pr in pr_data]
+
+    # Apply date filter if specified (gh pr list doesn't support --since)
+    if since:
+        prs = [pr for pr in prs if pr.created_at >= since]
+
+    return prs
+
+
+def list_merged_pull_requests(
+    repo: str,
+    since: datetime,
+    label: Optional[str] = None,
+    limit: int = 100
+) -> List[GitHubPullRequest]:
+    """Convenience function for fetching merged PRs
+
+    Filters by merged state and date range. Useful for collecting statistics
+    or synchronizing metadata.
+
+    Args:
+        repo: GitHub repository (owner/name)
+        since: Only include PRs merged on or after this date
+        label: Optional label filter
+        limit: Max results (default 100)
+
+    Returns:
+        List of merged GitHubPullRequest domain models
+
+    Example:
+        >>> from datetime import datetime, timedelta, timezone
+        >>> cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        >>> recent_merged = list_merged_pull_requests("owner/repo", since=cutoff)
+    """
+    # Get merged PRs
+    prs = list_pull_requests(repo, state="merged", label=label, limit=limit)
+
+    # Filter by merged_at date (not just created_at)
+    # Since gh pr list doesn't support date filtering, we do it post-fetch
+    filtered = [pr for pr in prs if pr.merged_at and pr.merged_at >= since]
+
+    return filtered
+
+
+def list_open_pull_requests(
+    repo: str,
+    label: Optional[str] = None,
+    limit: int = 100
+) -> List[GitHubPullRequest]:
+    """Convenience function for fetching open PRs
+
+    Useful for checking reviewer workload or finding stale PRs.
+
+    Args:
+        repo: GitHub repository (owner/name)
+        label: Optional label filter
+        limit: Max results (default 100)
+
+    Returns:
+        List of open GitHubPullRequest domain models
+
+    Example:
+        >>> open_prs = list_open_pull_requests("owner/repo", label="claudestep")
+        >>> print(f"Found {len(open_prs)} open ClaudeStep PRs")
+    """
+    return list_pull_requests(repo, state="open", label=label, limit=limit)

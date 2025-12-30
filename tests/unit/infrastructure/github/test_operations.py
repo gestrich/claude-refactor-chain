@@ -4,6 +4,7 @@ import json
 import subprocess
 import tempfile
 import zipfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import Mock, call, mock_open, patch
 
@@ -16,6 +17,9 @@ from claudestep.infrastructure.github.operations import (
     file_exists_in_branch,
     get_file_from_branch,
     gh_api_call,
+    list_merged_pull_requests,
+    list_open_pull_requests,
+    list_pull_requests,
     run_gh_command,
 )
 
@@ -587,3 +591,271 @@ class TestFileExistsInBranch:
         # Act & Assert
         with pytest.raises(GitHubAPIError, match="API error"):
             file_exists_in_branch(repo, branch, file_path)
+
+
+class TestListPullRequests:
+    """Test suite for list_pull_requests function"""
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_pull_requests_success(self, mock_run_gh):
+        """Should fetch PRs and return domain models"""
+        # Arrange
+        pr_data = [
+            {
+                "number": 123,
+                "title": "Add feature",
+                "state": "OPEN",
+                "createdAt": "2024-01-01T12:00:00Z",
+                "mergedAt": None,
+                "assignees": [{"login": "alice", "name": "Alice"}],
+                "labels": [{"name": "claudestep"}]
+            },
+            {
+                "number": 124,
+                "title": "Fix bug",
+                "state": "MERGED",
+                "createdAt": "2024-01-02T12:00:00Z",
+                "mergedAt": "2024-01-03T12:00:00Z",
+                "assignees": [{"login": "bob"}],
+                "labels": [{"name": "claudestep"}, {"name": "bug"}]
+            }
+        ]
+        mock_run_gh.return_value = json.dumps(pr_data)
+        repo = "owner/repo"
+
+        # Act
+        result = list_pull_requests(repo)
+
+        # Assert
+        assert len(result) == 2
+        assert result[0].number == 123
+        assert result[0].title == "Add feature"
+        assert result[0].state == "open"
+        assert result[1].number == 124
+        assert result[1].is_merged()
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_pull_requests_with_filters(self, mock_run_gh):
+        """Should build command with correct filters"""
+        # Arrange
+        mock_run_gh.return_value = "[]"
+        repo = "owner/repo"
+
+        # Act
+        list_pull_requests(repo, state="merged", label="claudestep", limit=50)
+
+        # Assert
+        args = mock_run_gh.call_args[0][0]
+        assert "pr" in args
+        assert "list" in args
+        assert "--repo" in args
+        assert "owner/repo" in args
+        assert "--state" in args
+        assert "merged" in args
+        assert "--label" in args
+        assert "claudestep" in args
+        assert "--limit" in args
+        assert "50" in args
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_pull_requests_filters_by_date(self, mock_run_gh):
+        """Should filter PRs by date when since parameter provided"""
+        # Arrange
+        cutoff = datetime(2024, 1, 2, tzinfo=timezone.utc)
+        pr_data = [
+            {
+                "number": 123,
+                "title": "Old PR",
+                "state": "MERGED",
+                "createdAt": "2024-01-01T12:00:00Z",
+                "mergedAt": None,
+                "assignees": [],
+                "labels": []
+            },
+            {
+                "number": 124,
+                "title": "New PR",
+                "state": "MERGED",
+                "createdAt": "2024-01-03T12:00:00Z",
+                "mergedAt": None,
+                "assignees": [],
+                "labels": []
+            }
+        ]
+        mock_run_gh.return_value = json.dumps(pr_data)
+
+        # Act
+        result = list_pull_requests("owner/repo", since=cutoff)
+
+        # Assert
+        assert len(result) == 1
+        assert result[0].number == 124
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_pull_requests_handles_empty_response(self, mock_run_gh):
+        """Should handle empty PR list"""
+        # Arrange
+        mock_run_gh.return_value = "[]"
+
+        # Act
+        result = list_pull_requests("owner/repo")
+
+        # Assert
+        assert result == []
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_pull_requests_raises_on_invalid_json(self, mock_run_gh):
+        """Should raise GitHubAPIError on invalid JSON"""
+        # Arrange
+        mock_run_gh.return_value = "invalid json {{"
+
+        # Act & Assert
+        with pytest.raises(GitHubAPIError, match="Invalid JSON"):
+            list_pull_requests("owner/repo")
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_pull_requests_handles_empty_output(self, mock_run_gh):
+        """Should handle empty string output"""
+        # Arrange
+        mock_run_gh.return_value = ""
+
+        # Act
+        result = list_pull_requests("owner/repo")
+
+        # Assert
+        assert result == []
+
+
+class TestListMergedPullRequests:
+    """Test suite for list_merged_pull_requests convenience function"""
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_merged_pull_requests_filters_by_merged_at(self, mock_run_gh):
+        """Should filter merged PRs by merged_at date"""
+        # Arrange
+        cutoff = datetime(2024, 1, 2, tzinfo=timezone.utc)
+        pr_data = [
+            {
+                "number": 123,
+                "title": "Old merged PR",
+                "state": "MERGED",
+                "createdAt": "2024-01-01T12:00:00Z",
+                "mergedAt": "2024-01-01T13:00:00Z",
+                "assignees": [],
+                "labels": []
+            },
+            {
+                "number": 124,
+                "title": "New merged PR",
+                "state": "MERGED",
+                "createdAt": "2024-01-01T12:00:00Z",
+                "mergedAt": "2024-01-03T12:00:00Z",
+                "assignees": [],
+                "labels": []
+            }
+        ]
+        mock_run_gh.return_value = json.dumps(pr_data)
+
+        # Act
+        result = list_merged_pull_requests("owner/repo", since=cutoff)
+
+        # Assert
+        assert len(result) == 1
+        assert result[0].number == 124
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_merged_pull_requests_with_label(self, mock_run_gh):
+        """Should pass label filter to list_pull_requests"""
+        # Arrange
+        mock_run_gh.return_value = "[]"
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+
+        # Act
+        list_merged_pull_requests("owner/repo", since=cutoff, label="claudestep")
+
+        # Assert
+        args = mock_run_gh.call_args[0][0]
+        assert "--label" in args
+        assert "claudestep" in args
+        assert "--state" in args
+        assert "merged" in args
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_merged_pull_requests_excludes_prs_without_merged_at(self, mock_run_gh):
+        """Should exclude PRs that don't have merged_at timestamp"""
+        # Arrange
+        cutoff = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        pr_data = [
+            {
+                "number": 123,
+                "title": "Merged PR",
+                "state": "MERGED",
+                "createdAt": "2024-01-02T12:00:00Z",
+                "mergedAt": "2024-01-03T12:00:00Z",
+                "assignees": [],
+                "labels": []
+            },
+            {
+                "number": 124,
+                "title": "No merge timestamp",
+                "state": "MERGED",
+                "createdAt": "2024-01-02T12:00:00Z",
+                "mergedAt": None,
+                "assignees": [],
+                "labels": []
+            }
+        ]
+        mock_run_gh.return_value = json.dumps(pr_data)
+
+        # Act
+        result = list_merged_pull_requests("owner/repo", since=cutoff)
+
+        # Assert
+        assert len(result) == 1
+        assert result[0].number == 123
+
+
+class TestListOpenPullRequests:
+    """Test suite for list_open_pull_requests convenience function"""
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_open_pull_requests_success(self, mock_run_gh):
+        """Should fetch open PRs"""
+        # Arrange
+        pr_data = [
+            {
+                "number": 123,
+                "title": "Open PR",
+                "state": "OPEN",
+                "createdAt": "2024-01-01T12:00:00Z",
+                "mergedAt": None,
+                "assignees": [],
+                "labels": []
+            }
+        ]
+        mock_run_gh.return_value = json.dumps(pr_data)
+
+        # Act
+        result = list_open_pull_requests("owner/repo")
+
+        # Assert
+        assert len(result) == 1
+        assert result[0].is_open()
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_open_pull_requests_with_label(self, mock_run_gh):
+        """Should filter by label"""
+        # Arrange
+        mock_run_gh.return_value = "[]"
+
+        # Act
+        list_open_pull_requests("owner/repo", label="claudestep", limit=25)
+
+        # Assert
+        args = mock_run_gh.call_args[0][0]
+        assert "--state" in args
+        assert "open" in args
+        assert "--label" in args
+        assert "claudestep" in args
+        assert "--limit" in args
+        assert "25" in args
