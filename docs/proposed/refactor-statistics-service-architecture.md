@@ -385,26 +385,45 @@ Added `title` field to `PullRequest` model to store PR titles for display in sta
 - ✅ PRReference uses actual PR titles when available
 - ✅ Graceful fallback to task description when title not available
 
-- [ ] Phase 6: Verify PRReference Uses PR Title from Metadata
+- [x] Phase 6: Verify PRReference Uses PR Title from Metadata ✅
 
-Now that we have PR titles in metadata (Phase 5), verify that `PRReference.from_metadata_pr()` handles them correctly:
+**Implementation completed:**
 
-**Verification:**
-The `PRReference.from_metadata_pr()` factory method (created in Phase 4) already uses:
-```python
-title=pr.title or task_description or f"Task {pr.task_index}"
-```
+Verified and enhanced the `PRReference.from_metadata_pr()` factory method to correctly use PR titles from metadata.
 
-This provides a fallback chain:
-1. Use `pr.title` from metadata (if available after Phase 5)
-2. Fall back to `task_description` from tasks array
-3. Fall back to generic "Task N" format
+**Changes made:**
 
-**No code changes needed** - Phase 4's PRReference already handles this correctly.
+1. **Simplified title fallback logic in `PRReference.from_metadata_pr()`:**
+   - Removed unnecessary `hasattr()` check (title field always exists after Phase 5)
+   - Changed from: `pr.title if hasattr(pr, 'title') and pr.title else task_description or f"Task {pr.task_index}"`
+   - Changed to: `pr.title or task_description or f"Task {pr.task_index}"`
+   - Cleaner fallback chain using Python's `or` operator
 
-**Tests to verify:**
-- `tests/unit/domain/test_models.py` - Test PRReference with and without title in metadata
-- Test fallback behavior: title → task_description → generic format
+2. **Updated existing test to verify PR title usage:**
+   - `test_from_metadata_pr_with_pr_title_attribute()` now correctly verifies that PR title from metadata takes priority
+   - Updated assertion to expect `"Implement OAuth2 login"` (from pr.title) instead of `"Add authentication"` (from task_description)
+   - Updated test documentation to reflect Phase 5 completion
+
+3. **Added comprehensive fallback chain test:**
+   - New test: `test_from_metadata_pr_title_fallback_chain()`
+   - Verifies all three fallback levels:
+     - When pr.title is None → uses task_description
+     - When pr.title is None and no task_description → uses "Task N" format
+
+**Files modified:**
+- `src/claudestep/domain/models.py` (line 163) - Simplified title fallback logic
+- `tests/unit/domain/test_models.py` - Updated and added tests for PRReference title handling
+
+**Test results:**
+- ✅ All 7 PRReference tests passing
+- ✅ All 57 StatisticsService tests passing
+- ✅ Total: 64 relevant tests passing
+
+**Technical notes:**
+- The fallback chain works correctly: `pr.title` → `task_description` → `f"Task {pr.task_index}"`
+- Since Phase 5 added the `title` field to `PullRequest` dataclass, it always exists (may be None)
+- No need for defensive `hasattr()` check - simplified code is cleaner and more Pythonic
+- Statistics now display actual PR titles when available in metadata (populated by finalize command)
 
 - [ ] Phase 7: Remove GitHub API Dependencies from StatisticsService
 

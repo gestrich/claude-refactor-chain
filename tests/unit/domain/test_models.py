@@ -303,11 +303,11 @@ class TestPRReference:
         assert pr_ref.timestamp == timestamp
 
     def test_from_metadata_pr_with_pr_title_attribute(self):
-        """Should use PR title if available (for future Phase 5)"""
+        """Should use PR title from metadata when available (Phase 5 complete)"""
         # Arrange
         timestamp = datetime(2025, 1, 1, 12, 0, 0)
 
-        # Create a PR dict that simulates having a title attribute
+        # Create a PR dict that includes a title attribute (added in Phase 5)
         pr_data = {
             "task_index": 2,
             "pr_number": 999,
@@ -315,10 +315,9 @@ class TestPRReference:
             "reviewer": "charlie",
             "pr_state": "merged",
             "created_at": timestamp.isoformat(),
+            "title": "Implement OAuth2 login",  # PR title from metadata
             "ai_operations": []
         }
-        # Manually add title to the dict before creating PR
-        pr_data["title"] = "Implement OAuth2 login"
         pr = PullRequest.from_dict(pr_data)
 
         # Act
@@ -328,10 +327,41 @@ class TestPRReference:
             task_description="Add authentication"
         )
 
-        # Assert - should NOT use PR title yet since it's not in the model
-        # This test documents the fallback behavior
+        # Assert - should use PR title from metadata (highest priority)
         assert pr_ref.pr_number == 999
-        assert pr_ref.title == "Add authentication"  # Uses task_description fallback
+        assert pr_ref.title == "Implement OAuth2 login"  # Uses pr.title from metadata
+        assert pr_ref.project == "auth-service"
+        assert pr_ref.timestamp == timestamp
+
+    def test_from_metadata_pr_title_fallback_chain(self):
+        """Should use fallback chain: pr.title -> task_description -> generic format"""
+        timestamp = datetime(2025, 1, 1, 12, 0, 0)
+
+        # Test 1: pr.title is None, should use task_description
+        pr_data = {
+            "task_index": 3,
+            "pr_number": 111,
+            "branch_name": "feature/task-3",
+            "reviewer": "alice",
+            "pr_state": "open",
+            "created_at": timestamp.isoformat(),
+            "title": None,  # Explicitly None
+            "ai_operations": []
+        }
+        pr = PullRequest.from_dict(pr_data)
+        pr_ref = PRReference.from_metadata_pr(
+            pr=pr,
+            project="test-project",
+            task_description="Custom task description"
+        )
+        assert pr_ref.title == "Custom task description"
+
+        # Test 2: pr.title is None and no task_description, should use generic format
+        pr_ref2 = PRReference.from_metadata_pr(
+            pr=pr,
+            project="test-project"
+        )
+        assert pr_ref2.title == "Task 3"
 
     def test_format_display(self):
         """Should format display string correctly"""

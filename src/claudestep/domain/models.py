@@ -160,7 +160,7 @@ class PRReference:
         """
         return cls(
             pr_number=pr.pr_number,
-            title=pr.title if hasattr(pr, 'title') and pr.title else task_description or f"Task {pr.task_index}",
+            title=pr.title or task_description or f"Task {pr.task_index}",
             project=project,
             timestamp=pr.created_at  # Could use merged_at if available
         )
