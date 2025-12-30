@@ -120,36 +120,31 @@ Successfully converted PR operations functions to a class-based service with pro
 - Instance variables: `self.repo`
 - Static methods maintain the same signatures for backward compatibility
 
-- [ ] Phase 4: Convert `project_detection.py` to `ProjectDetectionService`
+- [x] Phase 4: Convert `project_detection.py` to `ProjectDetectionService` ✅
 
-Convert project detection functions to a class-based service.
+**Status: COMPLETED**
 
-**Files to modify:**
-- `src/claudestep/application/services/project_detection.py`
-- `src/claudestep/cli/commands/prepare.py` (usage)
-- `tests/unit/application/services/test_project_detection.py`
+Successfully converted project detection functions to a class-based service with proper dependency injection.
 
-**New class structure:**
-```python
-class ProjectDetectionService:
-    """Service for project detection from PRs and paths"""
+**Changes made:**
+- ✅ Converted `project_detection.py` to `ProjectDetectionService` class
+- ✅ Updated `prepare.py` to instantiate and use `ProjectDetectionService`
+- ✅ Updated unit tests (`test_project_detection.py`) to use the class-based service
+- ✅ Updated integration tests (`test_prepare.py`) to mock the service class
+- ✅ All 17 unit tests passing
+- ✅ All 24 prepare command integration tests passing
 
-    def __init__(self, repo: str):
-        self.repo = repo
+**Implementation notes:**
+- `detect_project_from_pr()` is an instance method that uses `self.repo` instead of taking repo as a parameter
+- `detect_project_paths()` is implemented as `@staticmethod` since it's a pure function that doesn't require instance state
+- Service is instantiated once per command execution in CLI commands
+- Eliminated redundant repo parameter passing
 
-    def detect_project_from_pr(self, pr_number: str) -> Optional[str]:
-        # Use self.repo instead of parameter
-
-    @staticmethod
-    def detect_project_paths(project_name: str) -> tuple:
-        # Pure function, can be static method
-```
-
-**Update CLI commands:**
-- Instantiate `ProjectDetectionService` with repo
-- Update function calls to method calls
-
-**Expected outcome:** Project detection logic centralized in a service.
+**Technical details:**
+- Constructor signature: `__init__(self, repo: str)`
+- Instance variables: `self.repo`
+- Static method `detect_project_paths` can be called on the class: `ProjectDetectionService.detect_project_paths(project_name)`
+- Instance method `detect_project_from_pr` is called on service instances: `service.detect_project_from_pr(pr_number)`
 
 - [ ] Phase 5: Convert `statistics_service.py` to `StatisticsService`
 

@@ -4,10 +4,7 @@ import json
 import pytest
 from unittest.mock import Mock, patch
 
-from claudestep.application.services.project_detection import (
-    detect_project_from_pr,
-    detect_project_paths,
-)
+from claudestep.application.services.project_detection import ProjectDetectionService
 from claudestep.domain.exceptions import GitHubAPIError
 
 
@@ -28,9 +25,10 @@ class TestDetectProjectFromPR:
         branch_name = "claude-step-my-project-5"
         pr_data = {"headRefName": branch_name}
         mock_run_gh_command.return_value = json.dumps(pr_data)
+        service = ProjectDetectionService(repo)
 
         # Act
-        result = detect_project_from_pr(pr_number, repo)
+        result = service.detect_project_from_pr(pr_number)
 
         # Assert
         assert result == "my-project"
@@ -48,9 +46,10 @@ class TestDetectProjectFromPR:
         branch_name = "claude-step-my-complex-project-name-42"
         pr_data = {"headRefName": branch_name}
         mock_run_gh_command.return_value = json.dumps(pr_data)
+        service = ProjectDetectionService(repo)
 
         # Act
-        result = detect_project_from_pr(pr_number, repo)
+        result = service.detect_project_from_pr(pr_number)
 
         # Assert
         assert result == "my-complex-project-name"
@@ -62,9 +61,10 @@ class TestDetectProjectFromPR:
         repo = "owner/repo"
         pr_data = {}  # No headRefName
         mock_run_gh_command.return_value = json.dumps(pr_data)
+        service = ProjectDetectionService(repo)
 
         # Act
-        result = detect_project_from_pr(pr_number, repo)
+        result = service.detect_project_from_pr(pr_number)
 
         # Assert
         assert result is None
@@ -76,9 +76,10 @@ class TestDetectProjectFromPR:
         repo = "owner/repo"
         pr_data = {"headRefName": None}
         mock_run_gh_command.return_value = json.dumps(pr_data)
+        service = ProjectDetectionService(repo)
 
         # Act
-        result = detect_project_from_pr(pr_number, repo)
+        result = service.detect_project_from_pr(pr_number)
 
         # Assert
         assert result is None
@@ -91,9 +92,10 @@ class TestDetectProjectFromPR:
         branch_name = "feature/some-random-branch"
         pr_data = {"headRefName": branch_name}
         mock_run_gh_command.return_value = json.dumps(pr_data)
+        service = ProjectDetectionService(repo)
 
         # Act
-        result = detect_project_from_pr(pr_number, repo)
+        result = service.detect_project_from_pr(pr_number)
 
         # Assert
         assert result is None
@@ -106,9 +108,10 @@ class TestDetectProjectFromPR:
         branch_name = "wrong-prefix-my-project-1"
         pr_data = {"headRefName": branch_name}
         mock_run_gh_command.return_value = json.dumps(pr_data)
+        service = ProjectDetectionService(repo)
 
         # Act
-        result = detect_project_from_pr(pr_number, repo)
+        result = service.detect_project_from_pr(pr_number)
 
         # Assert
         assert result is None
@@ -119,9 +122,10 @@ class TestDetectProjectFromPR:
         pr_number = "123"
         repo = "owner/repo"
         mock_run_gh_command.side_effect = GitHubAPIError("API error")
+        service = ProjectDetectionService(repo)
 
         # Act
-        result = detect_project_from_pr(pr_number, repo)
+        result = service.detect_project_from_pr(pr_number)
 
         # Assert
         assert result is None
@@ -132,9 +136,10 @@ class TestDetectProjectFromPR:
         pr_number = "123"
         repo = "owner/repo"
         mock_run_gh_command.return_value = "invalid json {{"
+        service = ProjectDetectionService(repo)
 
         # Act
-        result = detect_project_from_pr(pr_number, repo)
+        result = service.detect_project_from_pr(pr_number)
 
         # Assert
         assert result is None
@@ -147,9 +152,10 @@ class TestDetectProjectFromPR:
         branch_name = "claude-step-x-1"
         pr_data = {"headRefName": branch_name}
         mock_run_gh_command.return_value = json.dumps(pr_data)
+        service = ProjectDetectionService(repo)
 
         # Act
-        result = detect_project_from_pr(pr_number, repo)
+        result = service.detect_project_from_pr(pr_number)
 
         # Assert
         assert result == "x"
@@ -162,9 +168,10 @@ class TestDetectProjectFromPR:
         branch_name = "claude-step-project-123-test-99"
         pr_data = {"headRefName": branch_name}
         mock_run_gh_command.return_value = json.dumps(pr_data)
+        service = ProjectDetectionService(repo)
 
         # Act
-        result = detect_project_from_pr(pr_number, repo)
+        result = service.detect_project_from_pr(pr_number)
 
         # Assert
         assert result == "project-123-test"
@@ -179,7 +186,7 @@ class TestDetectProjectPaths:
         project_name = "my-project"
 
         # Act
-        config_path, spec_path, pr_template_path, project_path = detect_project_paths(project_name)
+        config_path, spec_path, pr_template_path, project_path = ProjectDetectionService.detect_project_paths(project_name)
 
         # Assert
         assert config_path == "claude-step/my-project/configuration.yml"
@@ -193,7 +200,7 @@ class TestDetectProjectPaths:
         project_name = "my-complex-project-name"
 
         # Act
-        config_path, spec_path, pr_template_path, project_path = detect_project_paths(project_name)
+        config_path, spec_path, pr_template_path, project_path = ProjectDetectionService.detect_project_paths(project_name)
 
         # Assert
         assert config_path == "claude-step/my-complex-project-name/configuration.yml"
@@ -207,7 +214,7 @@ class TestDetectProjectPaths:
         project_name = "x"
 
         # Act
-        config_path, spec_path, pr_template_path, project_path = detect_project_paths(project_name)
+        config_path, spec_path, pr_template_path, project_path = ProjectDetectionService.detect_project_paths(project_name)
 
         # Assert
         assert config_path == "claude-step/x/configuration.yml"
@@ -221,7 +228,7 @@ class TestDetectProjectPaths:
         project_name = "test-project"
 
         # Act
-        result = detect_project_paths(project_name)
+        result = ProjectDetectionService.detect_project_paths(project_name)
 
         # Assert
         assert isinstance(result, tuple)
@@ -233,7 +240,7 @@ class TestDetectProjectPaths:
         project_name = "project-123"
 
         # Act
-        config_path, spec_path, pr_template_path, project_path = detect_project_paths(project_name)
+        config_path, spec_path, pr_template_path, project_path = ProjectDetectionService.detect_project_paths(project_name)
 
         # Assert
         assert config_path == "claude-step/project-123/configuration.yml"
@@ -247,7 +254,7 @@ class TestDetectProjectPaths:
         project_name = "consistency-test"
 
         # Act
-        config_path, spec_path, pr_template_path, project_path = detect_project_paths(project_name)
+        config_path, spec_path, pr_template_path, project_path = ProjectDetectionService.detect_project_paths(project_name)
 
         # Assert
         expected_base = "claude-step/consistency-test"
@@ -262,7 +269,7 @@ class TestDetectProjectPaths:
         project_name = "test"
 
         # Act
-        config_path, spec_path, pr_template_path, project_path = detect_project_paths(project_name)
+        config_path, spec_path, pr_template_path, project_path = ProjectDetectionService.detect_project_paths(project_name)
 
         # Assert
         assert config_path.endswith(".yml")

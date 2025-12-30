@@ -12,7 +12,7 @@ from claudestep.infrastructure.github.operations import ensure_label_exists, fil
 from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
 from claudestep.application.services.metadata_service import MetadataService
 from claudestep.application.services.pr_operations import PROperationsService
-from claudestep.application.services.project_detection import detect_project_from_pr, detect_project_paths
+from claudestep.application.services.project_detection import ProjectDetectionService
 from claudestep.application.services.reviewer_management import ReviewerManagementService
 from claudestep.application.services.task_management import TaskManagementService
 
@@ -36,11 +36,14 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         merged_pr_number = os.environ.get("MERGED_PR_NUMBER", "")
         repo = os.environ.get("GITHUB_REPOSITORY", "")
 
+        # Initialize project detection service
+        project_service = ProjectDetectionService(repo)
+
         detected_project = None
 
         # If merged PR number provided, detect project from PR labels
         if merged_pr_number:
-            detected_project = detect_project_from_pr(merged_pr_number, repo)
+            detected_project = project_service.detect_project_from_pr(merged_pr_number)
             if not detected_project:
                 gh.set_error(f"No refactor project found with matching label for PR #{merged_pr_number}")
                 return 1
@@ -74,7 +77,7 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
             return 1
 
         # Determine paths (always use claude-step/ directory structure)
-        config_path, spec_path, pr_template_path, project_path = detect_project_paths(detected_project)
+        config_path, spec_path, pr_template_path, project_path = ProjectDetectionService.detect_project_paths(detected_project)
 
         # Validate spec files exist in base branch before proceeding
         base_branch = os.environ.get("BASE_BRANCH", "main")
