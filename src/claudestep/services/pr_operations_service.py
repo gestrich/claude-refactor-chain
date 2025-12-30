@@ -1,7 +1,8 @@
-"""Centralized PR operations and branch naming utilities
+"""Service Layer class for PR operations and branch naming utilities.
 
-This module provides a unified interface for branch naming and PR fetching,
-eliminating duplication across the codebase.
+Follows Service Layer pattern (Fowler, PoEAA) - provides a unified interface
+for branch naming and PR fetching, eliminating duplication across the codebase.
+Encapsulates business logic for PR-related operations.
 """
 
 import json
@@ -13,7 +14,12 @@ from claudestep.infrastructure.github.operations import run_gh_command
 
 
 class PROperationsService:
-    """Service for PR operations and branch naming utilities"""
+    """Service Layer class for PR operations and branch naming utilities.
+
+    Coordinates PR fetching and branch naming operations by orchestrating
+    GitHub API interactions. Implements business logic for ClaudeStep's
+    PR management workflows.
+    """
 
     def __init__(self, repo: str):
         """Initialize PR operations service

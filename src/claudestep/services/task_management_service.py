@@ -1,4 +1,8 @@
-"""Task finding, marking, and tracking operations"""
+"""Service Layer class for task management operations.
+
+Follows Service Layer pattern (Fowler, PoEAA) - encapsulates business logic
+for task finding, marking, and tracking operations.
+"""
 
 import os
 import re
@@ -9,7 +13,12 @@ from claudestep.domain.exceptions import FileNotFoundError
 
 
 class TaskManagementService:
-    """Service for task finding, marking, and tracking operations"""
+    """Service Layer class for task management operations.
+
+    Coordinates task finding, marking, and tracking by orchestrating
+    domain models and infrastructure operations. Implements business
+    logic for ClaudeStep's task workflow.
+    """
 
     def __init__(self, repo: str, metadata_service: MetadataService):
         """Initialize TaskManagementService

@@ -1,4 +1,8 @@
-"""Project detection logic"""
+"""Service Layer class for project detection operations.
+
+Follows Service Layer pattern (Fowler, PoEAA) - encapsulates business logic
+for detecting projects from PRs and determining project paths.
+"""
 
 import json
 from typing import Optional, Tuple
@@ -8,7 +12,12 @@ from claudestep.services.pr_operations_service import PROperationsService
 
 
 class ProjectDetectionService:
-    """Service for project detection from PRs and paths"""
+    """Service Layer class for project detection operations.
+
+    Coordinates project detection by orchestrating PR operations and path
+    resolution. Implements business logic for identifying ClaudeStep projects
+    from various inputs.
+    """
 
     def __init__(self, repo: str):
         """Initialize project detection service

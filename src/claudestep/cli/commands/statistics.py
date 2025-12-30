@@ -1,4 +1,9 @@
-"""Statistics command - generate and output reports"""
+"""CLI command for statistics workflow.
+
+Orchestrates Service Layer classes to coordinate statistics collection and reporting.
+This command instantiates services and coordinates their operations but
+does not implement business logic directly.
+"""
 
 import argparse
 import os
@@ -12,7 +17,11 @@ from claudestep.services.statistics_service import StatisticsService
 
 
 def cmd_statistics(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
-    """Handle 'statistics' subcommand - compute and output reports
+    """Orchestrate statistics workflow using Service Layer classes.
+
+    This command instantiates services and coordinates their operations but
+    does not implement business logic directly. Follows Service Layer pattern
+    where CLI acts as thin orchestration layer.
 
     Args:
         args: Parsed command-line arguments

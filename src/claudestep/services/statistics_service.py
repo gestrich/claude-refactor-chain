@@ -1,4 +1,8 @@
-"""Statistics collection from GitHub API and spec.md files"""
+"""Service Layer class for statistics operations.
+
+Follows Service Layer pattern (Fowler, PoEAA) - encapsulates business logic
+for collecting and aggregating project statistics from GitHub API and spec.md files.
+"""
 
 import json
 import os
@@ -15,7 +19,12 @@ from claudestep.domain.models import ProjectStats, StatisticsReport, TeamMemberS
 
 
 class StatisticsService:
-    """Service for collecting and aggregating project statistics"""
+    """Service Layer class for statistics operations.
+
+    Coordinates statistics collection by orchestrating metadata queries, GitHub
+    API interactions, and spec.md parsing. Implements business logic for
+    ClaudeStep's statistics and reporting workflows.
+    """
 
     def __init__(self, repo: str, metadata_service: MetadataService):
         """Initialize the statistics service

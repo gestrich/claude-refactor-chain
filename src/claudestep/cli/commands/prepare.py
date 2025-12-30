@@ -1,4 +1,9 @@
-"""Prepare command - setup before Claude Code execution"""
+"""CLI command for prepare workflow.
+
+Orchestrates Service Layer classes to coordinate preparation workflow.
+This command instantiates services and coordinates their operations but
+does not implement business logic directly.
+"""
 
 import argparse
 import json
@@ -18,9 +23,13 @@ from claudestep.services.task_management_service import TaskManagementService
 
 
 def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
-    """Handle 'prepare' subcommand - all setup steps before running Claude
+    """Orchestrate preparation workflow using Service Layer classes.
 
-    This combines: detect-project, setup, check-capacity, find-task, create-branch, prepare-prompt
+    This command instantiates services and coordinates their operations but
+    does not implement business logic directly. Follows Service Layer pattern
+    where CLI acts as thin orchestration layer.
+
+    Workflow: detect-project, setup, check-capacity, find-task, create-branch, prepare-prompt
 
     Args:
         args: Parsed command-line arguments

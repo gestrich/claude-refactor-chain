@@ -1,4 +1,8 @@
-"""Reviewer capacity checking and assignment"""
+"""Service Layer class for reviewer management operations.
+
+Follows Service Layer pattern (Fowler, PoEAA) - encapsulates business logic
+for reviewer capacity checking and assignment.
+"""
 
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
@@ -9,7 +13,12 @@ from claudestep.domain.models import ReviewerCapacityResult
 
 
 class ReviewerManagementService:
-    """Service for reviewer capacity checking and assignment"""
+    """Service Layer class for reviewer management operations.
+
+    Coordinates reviewer capacity checking and assignment by orchestrating
+    artifact operations and metadata queries. Implements business logic for
+    ClaudeStep's reviewer assignment workflow.
+    """
 
     def __init__(self, repo: str, metadata_service: MetadataService):
         self.repo = repo

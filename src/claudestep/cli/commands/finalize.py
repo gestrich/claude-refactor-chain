@@ -1,4 +1,9 @@
-"""Finalize command - commit changes, create PR, and generate summary"""
+"""CLI command for finalize workflow.
+
+Orchestrates Service Layer classes to coordinate finalization workflow.
+This command instantiates services and coordinates their operations but
+does not implement business logic directly.
+"""
 
 import argparse
 import json
@@ -17,9 +22,13 @@ from claudestep.services.task_management_service import TaskManagementService
 
 
 def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
-    """Handle 'finalize' subcommand - commit changes, create PR, and generate summary
+    """Orchestrate finalization workflow using Service Layer classes.
 
-    This combines: commit changes, create-pr, summary
+    This command instantiates services and coordinates their operations but
+    does not implement business logic directly. Follows Service Layer pattern
+    where CLI acts as thin orchestration layer.
+
+    Workflow: commit changes, create-pr, summary
 
     Args:
         args: Parsed command-line arguments

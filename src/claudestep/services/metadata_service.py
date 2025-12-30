@@ -1,8 +1,9 @@
-"""Application service for metadata operations
+"""Service Layer class for metadata operations.
 
-This module provides high-level operations for working with project metadata.
-It serves as the business logic layer between CLI commands and the infrastructure
-storage layer, implementing the use cases required by ClaudeStep commands.
+Follows Service Layer pattern (Fowler, PoEAA) - provides high-level business
+operations for working with project metadata. Serves as the business logic layer
+between CLI commands and the infrastructure storage layer, implementing use cases
+required by ClaudeStep commands.
 
 The service works with the Hybrid model (HybridProjectMetadata, schema version 2.0)
 and provides operations needed by:
@@ -24,10 +25,11 @@ from claudestep.infrastructure.metadata.operations import MetadataStore
 
 
 class MetadataService:
-    """Service for high-level metadata operations
+    """Service Layer class for high-level metadata operations.
 
-    This service provides the business logic layer for metadata operations,
-    abstracting the storage implementation details from CLI commands.
+    Coordinates metadata operations by orchestrating domain models and
+    infrastructure storage. Abstracts storage implementation details from
+    CLI commands and implements business logic for metadata workflows.
 
     Attributes:
         store: MetadataStore implementation (e.g., GitHubMetadataStore)

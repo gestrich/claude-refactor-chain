@@ -1,4 +1,9 @@
-"""Discover all refactor projects that have reviewer capacity and available tasks"""
+"""CLI command for discovering ready projects.
+
+Orchestrates Service Layer classes to coordinate project discovery workflow.
+This command instantiates services and coordinates their operations but
+does not implement business logic directly.
+"""
 
 import json
 import os
@@ -14,7 +19,10 @@ from claudestep.services.task_management_service import TaskManagementService
 
 
 def check_project_ready(project_name: str, repo: str) -> bool:
-    """Check if a project has capacity and available tasks
+    """Orchestrate project readiness check using Service Layer classes.
+
+    This function instantiates services and coordinates their operations but
+    does not implement business logic directly. Follows Service Layer pattern.
 
     Args:
         project_name: Name of the project to check
