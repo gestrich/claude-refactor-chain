@@ -55,5 +55,27 @@ def create_parser() -> argparse.ArgumentParser:
         "statistics",
         help="Generate statistics and reports"
     )
+    parser_statistics.add_argument(
+        "--repo",
+        help="GitHub repository (owner/name)"
+    )
+    parser_statistics.add_argument(
+        "--base-branch",
+        help="Base branch to fetch specs from (default: main)"
+    )
+    parser_statistics.add_argument(
+        "--config-path",
+        help="Path to configuration file"
+    )
+    parser_statistics.add_argument(
+        "--days-back",
+        type=int,
+        help="Days to look back for statistics (default: 30)"
+    )
+    parser_statistics.add_argument(
+        "--format",
+        choices=["slack", "json"],
+        help="Output format (default: slack)"
+    )
 
     return parser
