@@ -30,14 +30,23 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         Exit code (0 for success, non-zero for various failure modes)
     """
     try:
+        # === Get common dependencies ===
+        repo = os.environ.get("GITHUB_REPOSITORY", "")
+
+        # Initialize infrastructure
+        metadata_store = GitHubMetadataStore(repo)
+        metadata_service = MetadataService(metadata_store)
+
+        # Initialize services
+        project_service = ProjectDetectionService(repo)
+        task_service = TaskManagementService(repo, metadata_service)
+        reviewer_service = ReviewerManagementService(repo, metadata_service)
+        pr_service = PROperationsService(repo)
+
         # === STEP 1: Detect Project ===
         print("=== Step 1/6: Detecting project ===")
         project_name = os.environ.get("PROJECT_NAME", "")
         merged_pr_number = os.environ.get("MERGED_PR_NUMBER", "")
-        repo = os.environ.get("GITHUB_REPOSITORY", "")
-
-        # Initialize project detection service
-        project_service = ProjectDetectionService(repo)
 
         detected_project = None
 
@@ -51,9 +60,6 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
             # Update metadata to mark PR as merged and task as completed
             print(f"Processing merged PR #{merged_pr_number} for project '{detected_project}'")
             try:
-                metadata_store = GitHubMetadataStore(repo)
-                metadata_service = MetadataService(metadata_store)
-
                 # Update PR state to "merged"
                 metadata_service.update_pr_state(detected_project, int(merged_pr_number), "merged")
                 print(f"✅ Updated PR #{merged_pr_number} state to 'merged' in metadata")
@@ -140,15 +146,6 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
         # === STEP 3: Check Reviewer Capacity ===
         print("\n=== Step 3/6: Checking reviewer capacity ===")
 
-        # Initialize metadata services if not already initialized
-        if 'metadata_service' not in locals():
-            metadata_store = GitHubMetadataStore(repo)
-            metadata_service = MetadataService(metadata_store)
-
-        # Initialize services
-        reviewer_service = ReviewerManagementService(repo, metadata_service)
-        pr_service = PROperationsService(repo)
-
         selected_reviewer, capacity_result = reviewer_service.find_available_reviewer(reviewers, label, detected_project)
 
         summary = capacity_result.format_summary()
@@ -167,9 +164,6 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
 
         # === STEP 4: Find Next Task ===
         print("\n=== Step 4/6: Finding next task ===")
-
-        # Initialize task management service
-        task_service = TaskManagementService(repo, metadata_service)
 
         in_progress_indices = task_service.get_in_progress_task_indices(label, detected_project)
 

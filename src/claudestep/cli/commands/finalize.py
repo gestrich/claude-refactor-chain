@@ -29,6 +29,13 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         Exit code (0 for success, 1 for failure)
     """
     try:
+        # === Get common dependencies ===
+        github_repository = os.environ.get("GITHUB_REPOSITORY", "")
+
+        # Initialize infrastructure
+        metadata_store = GitHubMetadataStore(github_repository)
+        metadata_service = MetadataService(metadata_store)
+
         # Get environment variables
         branch_name = os.environ.get("BRANCH_NAME", "")
         task = os.environ.get("TASK", "")
@@ -38,7 +45,6 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         spec_path = os.environ.get("SPEC_PATH", "")
         pr_template_path = os.environ.get("PR_TEMPLATE_PATH", "")
         gh_token = os.environ.get("GH_TOKEN", "")
-        github_repository = os.environ.get("GITHUB_REPOSITORY", "")
         github_run_id = os.environ.get("GITHUB_RUN_ID", "")
         base_branch = os.environ.get("BASE_BRANCH", "main")
         has_capacity = os.environ.get("HAS_CAPACITY", "")
@@ -249,8 +255,6 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
 
         # Save to metadata storage
         print("Saving to GitHub metadata storage...")
-        metadata_store = GitHubMetadataStore(github_repository)
-        metadata_service = MetadataService(metadata_store)
 
         # Create PullRequest object
         pr_obj = PullRequest(

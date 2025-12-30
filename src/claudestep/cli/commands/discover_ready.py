@@ -6,7 +6,7 @@ import os
 from claudestep.cli.commands.discover import find_all_projects
 from claudestep.domain.config import load_config, validate_spec_format
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
-from claudestep.application.services.project_detection import detect_project_paths
+from claudestep.application.services.project_detection import ProjectDetectionService
 from claudestep.application.services.reviewer_management import ReviewerManagementService
 from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
 from claudestep.application.services.metadata_service import MetadataService
@@ -25,7 +25,7 @@ def check_project_ready(project_name: str, repo: str) -> bool:
     """
     try:
         # Get project paths
-        config_path, spec_path, pr_template_path, project_path = detect_project_paths(project_name)
+        config_path, spec_path, pr_template_path, project_path = ProjectDetectionService.detect_project_paths(project_name)
 
         # Check if files exist
         if not os.path.exists(config_path):
@@ -54,12 +54,15 @@ def check_project_ready(project_name: str, repo: str) -> bool:
         # Use single 'claudestep' label for all projects
         label = "claudestep"
 
-        # Initialize metadata services
+        # Initialize infrastructure
         metadata_store = GitHubMetadataStore(repo)
         metadata_service = MetadataService(metadata_store)
 
-        # Check reviewer capacity
+        # Initialize services
         reviewer_service = ReviewerManagementService(repo, metadata_service)
+        task_service = TaskManagementService(repo, metadata_service)
+
+        # Check reviewer capacity
         selected_reviewer, capacity_result = reviewer_service.find_available_reviewer(reviewers, label, project_name)
 
         if not selected_reviewer:
@@ -67,8 +70,6 @@ def check_project_ready(project_name: str, repo: str) -> bool:
             return False
 
         # Check for available tasks
-        task_service = TaskManagementService(repo, metadata_service)
-
         in_progress_indices = task_service.get_in_progress_task_indices(label, project_name)
         next_task = task_service.find_next_available_task(spec_path, in_progress_indices)
 

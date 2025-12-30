@@ -171,21 +171,35 @@ Successfully converted statistics collection functions to a class-based service 
 - Methods maintain backward-compatible signatures for smooth transition
 - Service now uses `self.metadata_service.get_project()` for cost collection instead of creating new service instances
 
-- [ ] Phase 6: Update Service Instantiation Pattern in CLI Commands
+- [x] Phase 6: Update Service Instantiation Pattern in CLI Commands ✅
 
-Establish a consistent pattern for service instantiation across all CLI commands.
+**Status: COMPLETED**
 
-**Files to modify:**
-- `src/claudestep/cli/commands/prepare.py`
-- `src/claudestep/cli/commands/finalize.py`
-- `src/claudestep/cli/commands/statistics.py`
-- `src/claudestep/cli/commands/discover_ready.py`
-- Any other commands using services
+Successfully established a consistent pattern for service instantiation across all CLI commands.
 
-**Pattern to establish:**
+**Changes made:**
+- ✅ Updated `prepare.py` to instantiate all services at the beginning
+- ✅ Updated `finalize.py` to instantiate services at the beginning
+- ✅ Verified `statistics.py` already follows the correct pattern
+- ✅ Updated `discover_ready.py` to use `ProjectDetectionService.detect_project_paths()` static method
+- ✅ Eliminated redundant service instantiation throughout CLI commands
+- ✅ All Python files compile successfully
+
+**Implementation notes:**
+- All CLI commands now follow a consistent three-section pattern:
+  1. **Get common dependencies** - Extract `repo` from environment
+  2. **Initialize infrastructure** - Create `GitHubMetadataStore` and `MetadataService`
+  3. **Initialize services** - Instantiate all needed services with their dependencies
+- Services are instantiated once at the beginning of each command execution
+- Eliminated conditional/duplicate service creation (e.g., in `prepare.py` lines 54-55 and 144-146)
+- Each service is created with the appropriate dependencies injected via constructor
+- Static methods are called on the class (e.g., `ProjectDetectionService.detect_project_paths()`)
+- Instance methods are called on service instances
+
+**Pattern established:**
 ```python
 def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
-    # Get common dependencies
+    # === Get common dependencies ===
     repo = os.environ.get("GITHUB_REPOSITORY", "")
 
     # Initialize infrastructure
@@ -193,9 +207,9 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
     metadata_service = MetadataService(metadata_store)
 
     # Initialize services
+    project_service = ProjectDetectionService(repo)
     task_service = TaskManagementService(repo, metadata_service)
     reviewer_service = ReviewerManagementService(repo, metadata_service)
-    project_service = ProjectDetectionService(repo)
     pr_service = PROperationsService(repo)
 
     # Use services throughout command
@@ -205,7 +219,11 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
     branch = pr_service.format_branch_name(project, task_index)
 ```
 
-**Expected outcome:** Consistent service initialization pattern across all commands, making code easier to understand and maintain.
+**Technical details:**
+- `prepare.py`: Moved service instantiation from lines 40, 144-150, 172 to top of function (lines 33-44)
+- `finalize.py`: Moved service instantiation from lines 252-253 to top of function (lines 32-37)
+- `statistics.py`: Already correct - no changes needed
+- `discover_ready.py`: Fixed import (line 9) and function call (line 28) to use `ProjectDetectionService`
 
 - [ ] Phase 7: Update Architecture Documentation
 

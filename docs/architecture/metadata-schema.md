@@ -4,17 +4,24 @@ This document defines the JSON schema used for storing ClaudeStep metadata in th
 
 ## Data Model Overview
 
-ClaudeStep uses a hierarchical structure to track automation progress:
+ClaudeStep uses a **hybrid model** that separates task definitions from pull request execution:
 
 ```
 Project
-  └── Step (one per task in spec.md)
-      ├── PR Properties (task_index, description, branch, reviewer, state, etc.)
-      └── AITask[] (individual AI operations)
-          └── AI Properties (type, model, cost, tokens, duration)
+  ├── Tasks[] (lightweight task references from spec.md)
+  │   └── Task Properties (index, description, status)
+  └── PullRequests[] (execution details)
+      ├── PR Properties (task_index, pr_number, branch, reviewer, state, etc.)
+      └── AIOperations[] (individual AI operations)
+          └── AI Properties (type, model, cost, tokens, duration, workflow_run_id)
 ```
 
-**Typical Flow**: Each step in `spec.md` becomes a Pull Request with 2 AI tasks:
+**Key Design**: Tasks represent "what" (from spec.md) while PullRequests represent "how" (execution). This separation allows:
+- All tasks from spec.md are always present (even if not started)
+- Multiple PRs can reference the same task (retry scenario)
+- Task status is derived from PR state (single source of truth)
+
+**Typical Flow**: Each task in `spec.md` gets a Pull Request with 2 AI operations:
 1. **PRCreation**: Claude Code generates the code changes
 2. **PRSummary**: AI generates the PR description
 
@@ -43,7 +50,7 @@ claudestep-metadata/
 - **Flat structure**: Simple and efficient for typical ClaudeStep usage (5-20 projects per repo)
 - **One file per project**: Enables atomic updates per project and parallel writes across projects
 - **Human-readable JSON**: Easy to inspect and debug using GitHub's web interface or git commands
-- **Clear naming**: "Step" represents each task from spec.md, making the model intuitive
+- **Hybrid model**: Separates tasks (spec.md content) from pull requests (execution), providing clear separation of concerns
 
 ## JSON Schema
 
@@ -53,19 +60,35 @@ Each project file (`projects/{project-name}.json`) has the following structure:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "project": "my-refactor",
   "last_updated": "2025-01-15T10:30:00Z",
-  "steps": [
+  "tasks": [
     {
-      "step_index": 1,
-      "step_description": "Refactor authentication module",
+      "index": 1,
+      "description": "Refactor authentication module",
+      "status": "completed"
+    },
+    {
+      "index": 2,
+      "description": "Add JWT token validation",
+      "status": "pending"
+    },
+    {
+      "index": 3,
+      "description": "Implement OAuth2 integration",
+      "status": "pending"
+    }
+  ],
+  "pull_requests": [
+    {
+      "task_index": 1,
+      "pr_number": 42,
       "branch_name": "claude-step-my-refactor-1",
       "reviewer": "alice",
-      "pr_number": 42,
       "pr_state": "merged",
       "created_at": "2025-01-10T14:22:00Z",
-      "ai_tasks": [
+      "ai_operations": [
         {
           "type": "PRCreation",
           "model": "claude-sonnet-4",
@@ -87,28 +110,17 @@ Each project file (`projects/{project-name}.json`) has the following structure:
           "duration_seconds": 2.1
         }
       ]
-    },
-    {
-      "step_index": 2,
-      "step_description": "Add JWT token validation"
-    },
-    {
-      "step_index": 3,
-      "step_description": "Implement OAuth2 integration"
     }
   ]
 }
 ```
 
-**Key Changes from Legacy Format:**
-- `tasks` → `steps` (clearer naming: each item is a step from spec.md)
-- `task_index` → `step_index` (consistency with "step" terminology)
-- `task_description` → `step_description` (consistency with "step" terminology)
-- Removed `project` field from step (redundant - already at project level)
-- Removed deprecated cost fields from step level
-- Cost and model info now **exclusively** in `ai_tasks` array
-- `workflow_run_id` moved from step to AITask (a step may have multiple workflow runs)
-- **NEW:** Support for not-yet-started steps (only `step_index` and `step_description`)
+**Hybrid Model Design:**
+- **Separation of concerns**: Tasks (what) are separate from PullRequests (how)
+- **All tasks present**: Even tasks not yet started appear in the `tasks` array
+- **Task status**: Derived from associated PR state ("pending", "in_progress", "completed")
+- **Multiple PRs per task**: Supports retry scenario where same task has multiple PRs
+- **Workflow tracking**: Each AI operation links to specific GitHub Actions workflow run
 
 ### Field Definitions
 
@@ -116,52 +128,61 @@ Each project file (`projects/{project-name}.json`) has the following structure:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `schema_version` | string | Yes | Schema version for future migrations (currently "1.0") |
+| `schema_version` | string | Yes | Schema version for future migrations (currently "2.0") |
 | `project` | string | Yes | Project name (matches directory and file name) |
 | `last_updated` | string (ISO 8601) | Yes | Timestamp of last metadata update |
-| `steps` | array | Yes | List of Step objects (one per task from spec.md) |
+| `tasks` | array | Yes | List of Task objects (one per task from spec.md) |
+| `pull_requests` | array | Yes | List of PullRequest objects (execution history) |
 
-#### Step-Level Fields
+#### Task Fields
 
-Each object in the `steps` array represents a single step from spec.md. Steps that haven't started yet will only have `step_index` and `step_description`.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `step_index` | integer | Yes | Step number from spec.md (1-based) |
-| `step_description` | string | Yes | Step description text from spec.md |
-| `branch_name` | string | No | PR branch name (e.g., "claude-step-project-1"). Null if step not started. |
-| `reviewer` | string | No | Assigned reviewer GitHub username. Null if step not started. |
-| `pr_number` | integer | No | Pull request number. Null if step not started. |
-| `pr_state` | string | No | PR state: "open", "merged", or "closed". Null if step not started. |
-| `created_at` | string (ISO 8601) | No | PR creation timestamp. Null if step not started. |
-| `ai_tasks` | array | No | List of AI operations for this step (typically 2: PRCreation + PRSummary). Empty if step not started. |
-
-**Note:**
-- Steps not yet started will have `null` for all fields except `step_index` and `step_description`
-- Cost and model information is NOT stored at the step level - it lives in the `ai_tasks` array
-- `workflow_run_id` is stored in each `AITask`, not at the step level (a step may have multiple workflow runs)
-
-#### AI Task Fields
-
-Each object in the `ai_tasks` array represents a single AI operation:
+Each object in the `tasks` array represents a single task from spec.md:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | Yes | Task type: "PRCreation", "PRRefinement", "PRSummary", etc. |
+| `index` | integer | Yes | Task number from spec.md (1-based) |
+| `description` | string | Yes | Task description text from spec.md |
+| `status` | string | Yes | Task status: "pending", "in_progress", or "completed" |
+
+**Task Status Values:**
+- `pending`: No PR created yet
+- `in_progress`: PR created but not merged (includes open or closed PRs)
+- `completed`: PR merged successfully
+
+**Note:** All tasks from spec.md are present in this array, even if not yet started.
+
+#### PullRequest Fields
+
+Each object in the `pull_requests` array represents a single pull request:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `task_index` | integer | Yes | References Task.index (which task this PR implements) |
+| `pr_number` | integer | Yes | GitHub pull request number |
+| `branch_name` | string | Yes | Git branch name for this PR |
+| `reviewer` | string | Yes | Assigned reviewer GitHub username |
+| `pr_state` | string | Yes | PR state: "open", "merged", or "closed" |
+| `created_at` | string (ISO 8601) | Yes | When this PR was created |
+| `ai_operations` | array | Yes | List of AI operations for this PR |
+
+**Note:** Multiple PRs can reference the same `task_index` in retry scenarios.
+
+#### AIOperation Fields
+
+Each object in the `ai_operations` array represents a single AI operation:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Operation type: "PRCreation", "PRRefinement", "PRSummary", etc. |
 | `model` | string | Yes | AI model used (e.g., "claude-sonnet-4", "claude-opus-4") |
 | `cost_usd` | float | Yes | Cost in USD for this specific AI operation |
-| `created_at` | string (ISO 8601) | Yes | When this AI task was executed |
-| `workflow_run_id` | integer | Yes | GitHub Actions workflow run ID that executed this AI task |
+| `created_at` | string (ISO 8601) | Yes | When this AI operation was executed |
+| `workflow_run_id` | integer | Yes | GitHub Actions workflow run ID that executed this operation |
 | `tokens_input` | integer | No | Input tokens used (default: 0) |
 | `tokens_output` | integer | No | Output tokens generated (default: 0) |
 | `duration_seconds` | float | No | Time taken for this operation in seconds (default: 0.0) |
 
-**Why workflow_run_id is in AITask:**
-- Each AI operation runs in a specific GitHub Actions workflow
-- A single step may have multiple workflow runs (e.g., PRCreation in one run, PRRefinement in another)
-- This enables precise tracking of which workflow execution performed which AI operation
-
-**AI Task Types:**
+**AI Operation Types:**
 - `PRCreation`: Initial code generation for the PR
 - `PRRefinement`: Code refinement or iteration based on feedback
 - `PRSummary`: AI-generated PR description and summary
@@ -191,7 +212,8 @@ The `pr_state` field tracks the lifecycle of each pull request:
 
 The `schema_version` field enables future migrations:
 
-- **Current version**: "1.0"
+- **Current version**: "2.0" (Hybrid model with separated tasks and pull_requests)
+- **Previous version**: "1.0" (Legacy model - not implemented, documentation only)
 - **Forward compatibility**: New fields can be added with default values
 - **Breaking changes**: Increment schema version and implement migration logic
 - **Backward compatibility**: Parsers should handle missing optional fields gracefully
@@ -200,19 +222,45 @@ The `schema_version` field enables future migrations:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "project": "auth-refactor",
   "last_updated": "2025-01-20T15:45:00Z",
-  "steps": [
+  "tasks": [
     {
-      "step_index": 1,
-      "step_description": "Extract authentication logic to separate module",
+      "index": 1,
+      "description": "Extract authentication logic to separate module",
+      "status": "completed"
+    },
+    {
+      "index": 2,
+      "description": "Add JWT token validation",
+      "status": "in_progress"
+    },
+    {
+      "index": 3,
+      "description": "Implement OAuth2 integration",
+      "status": "in_progress"
+    },
+    {
+      "index": 4,
+      "description": "Add rate limiting middleware",
+      "status": "pending"
+    },
+    {
+      "index": 5,
+      "description": "Write integration tests for auth flow",
+      "status": "pending"
+    }
+  ],
+  "pull_requests": [
+    {
+      "task_index": 1,
+      "pr_number": 101,
       "branch_name": "claude-step-auth-refactor-1",
       "reviewer": "alice",
-      "pr_number": 101,
       "pr_state": "merged",
       "created_at": "2025-01-10T09:00:00Z",
-      "ai_tasks": [
+      "ai_operations": [
         {
           "type": "PRCreation",
           "model": "claude-sonnet-4",
@@ -236,14 +284,13 @@ The `schema_version` field enables future migrations:
       ]
     },
     {
-      "step_index": 2,
-      "step_description": "Add JWT token validation",
+      "task_index": 2,
+      "pr_number": 105,
       "branch_name": "claude-step-auth-refactor-2",
       "reviewer": "bob",
-      "pr_number": 105,
       "pr_state": "open",
       "created_at": "2025-01-15T14:30:00Z",
-      "ai_tasks": [
+      "ai_operations": [
         {
           "type": "PRCreation",
           "model": "claude-sonnet-4",
@@ -267,14 +314,13 @@ The `schema_version` field enables future migrations:
       ]
     },
     {
-      "step_index": 3,
-      "step_description": "Implement OAuth2 integration",
+      "task_index": 3,
+      "pr_number": 108,
       "branch_name": "claude-step-auth-refactor-3",
       "reviewer": "alice",
-      "pr_number": 108,
       "pr_state": "open",
       "created_at": "2025-01-20T11:15:00Z",
-      "ai_tasks": [
+      "ai_operations": [
         {
           "type": "PRCreation",
           "model": "claude-opus-4",
@@ -306,14 +352,6 @@ The `schema_version` field enables future migrations:
           "duration_seconds": 2.8
         }
       ]
-    },
-    {
-      "step_index": 4,
-      "step_description": "Add rate limiting middleware"
-    },
-    {
-      "step_index": 5,
-      "step_description": "Write integration tests for auth flow"
     }
   ]
 }
@@ -321,33 +359,38 @@ The `schema_version` field enables future migrations:
 
 **This example demonstrates:**
 
-1. **Typical 2-AI-Task Pattern** (Steps 1 & 2):
+1. **Separation of Tasks and PRs**:
+   - All 5 tasks from spec.md are present in `tasks` array
+   - Tasks 1-3 have associated PRs; tasks 4-5 are pending
+   - Task status is derived from PR state (single source of truth)
+
+2. **Typical 2-AI-Operation Pattern** (Tasks 1 & 2):
    - `PRCreation`: Claude Code generates the code changes
    - `PRSummary`: AI writes the PR description
    - Both run in same workflow (same `workflow_run_id`)
-   - Most steps follow this pattern
+   - Most PRs follow this pattern
 
-2. **Complex Step with Refinement** (Step 3):
+3. **Complex PR with Refinement** (Task 3):
    - `PRCreation`: Initial code generation with Opus 4 (workflow 100050)
    - `PRRefinement`: Additional iteration in a later workflow (100075)
    - `PRSummary`: PR description in same workflow as refinement (100075)
-   - **Note**: Different workflow_run_ids show this step had multiple workflow executions
+   - **Note**: Different workflow_run_ids show this PR had multiple workflow executions
 
-3. **Not-Yet-Started Steps** (Steps 4 & 5):
-   - Only `step_index` and `step_description` fields present
-   - All other fields omitted (will be added when PR is created)
+4. **Pending Tasks** (Tasks 4 & 5):
+   - Present in `tasks` array with "pending" status
+   - No corresponding entries in `pull_requests` array
    - Shows complete project progress at a glance
 
-4. **Model Flexibility**:
-   - Steps 1-2: Use Sonnet 4 throughout (cost-effective)
-   - Step 3: Uses Opus 4 for complex work, Sonnet 4 for summary
+5. **Model Flexibility**:
+   - Tasks 1-2: Use Sonnet 4 throughout (cost-effective)
+   - Task 3: Uses Opus 4 for complex work, Sonnet 4 for summary
 
-5. **Clean Structure**:
-   - No redundant `project` field at step level
-   - No deprecated cost fields at step level
-   - `workflow_run_id` in each AI task (enables tracking multiple workflow runs per step)
-   - Cost/model info encapsulated in AI tasks
-   - Easy to calculate totals: sum `cost_usd` from all `ai_tasks`
+6. **Clean Structure**:
+   - Clear separation: tasks = "what", pull_requests = "how"
+   - `workflow_run_id` in each AI operation (enables tracking multiple workflow runs)
+   - Cost/model info encapsulated in AI operations
+   - Easy to calculate totals: sum `cost_usd` from all `ai_operations` across all PRs
+   - Supports multiple PRs per task (retry scenario)
 
 ## Index Strategy Decision
 
@@ -376,31 +419,30 @@ If performance becomes an issue (e.g., 100+ projects):
 
 ## Implementation Notes
 
-### Python Models (Planned)
+### Python Models
 
-The schema will be implemented in Python using dataclasses:
+The schema is implemented in Python using dataclasses (see `src/claudestep/domain/models.py`):
 
-- **`AITask`**: Represents a single AI operation (type, model, cost, tokens, duration)
-- **`Step`**: Represents a single step from spec.md with its PR info and list of AI tasks
-- **`Project`**: Represents a project with all its steps
+- **`Task`**: Lightweight task reference (index, description, status)
+- **`PullRequest`**: PR execution details (task_index, pr_number, branch_name, reviewer, pr_state, created_at, ai_operations)
+- **`AIOperation`**: Single AI operation (type, model, cost, tokens, duration, workflow_run_id)
+- **`HybridProjectMetadata`**: Project container (schema_version, project, last_updated, tasks, pull_requests)
 - All models have `from_dict()` and `to_dict()` methods for JSON serialization
 
-See: `src/claudestep/domain/models.py` (to be refactored)
+### Key Design Benefits
 
-### Key Improvements Over Legacy Format
+**Hybrid Model Advantages:**
+- **Separation of concerns**: Tasks (spec.md content) are separate from PullRequests (execution)
+- **Complete visibility**: All tasks from spec.md are always present, even if not started
+- **Single source of truth**: Task status is derived from PR state
+- **Retry support**: Multiple PRs can reference the same task (retry scenario)
+- **Clean queries**: Easy to find all tasks, all pending tasks, all PRs for a task, etc.
 
-**Legacy Format Issues:**
-- Mixed concerns: PR info and cost data at same level
-- Redundant fields: `project` repeated in each task
-- Deprecated fields: `model`, `main_task_cost_usd`, `pr_summary_cost_usd`, `total_cost_usd`
-- Unclear naming: "task" could mean spec.md task or AI task
-
-**New Format Benefits:**
-- **Clear separation**: PR properties vs. AI operations
-- **No redundancy**: `project` only at top level
-- **Clean model**: Cost/model info only in `ai_tasks`
-- **Clear naming**: "Step" = spec.md task, "AITask" = AI operation
-- **Encapsulation**: Each AI task owns its cost, model, and metrics
+**Model Characteristics:**
+- **Task**: Lightweight (just index, description, status)
+- **PullRequest**: Contains all execution details and references task by index
+- **AIOperation**: Owns all metrics (cost, tokens, duration) and links to workflow
+- **Workflow tracking**: Each AI operation has workflow_run_id for precise tracking
 
 ### Storage Backend
 
@@ -409,5 +451,6 @@ The schema is stored in GitHub using:
 - **API**: GitHub Contents API for file operations
 - **Encoding**: JSON with UTF-8 encoding
 - **Commits**: One commit per project update (atomic writes)
+- **Optimistic locking**: SHA-based conditional updates prevent conflicts
 
-See: `src/claudestep/infrastructure/metadata/` (to be implemented in Phase 4)
+See: `src/claudestep/infrastructure/metadata/github_metadata_store.py`

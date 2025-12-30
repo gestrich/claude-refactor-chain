@@ -30,34 +30,56 @@ claudestep-metadata/
 
 Each project JSON file contains:
 
-- Task descriptions from `spec.md`
-- PR numbers and branch names
+- Task definitions from `spec.md` (with status tracking)
+- Pull request details (PR numbers, branch names, states)
 - Assigned reviewers
 - Creation timestamps
-- Workflow run IDs
-- PR states (open, merged, closed)
-- AI cost tracking (USD)
+- Workflow run IDs for each AI operation
+- AI cost tracking with detailed breakdowns (USD)
 
 ## Example
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "project": "my-refactor",
   "last_updated": "2025-01-15T10:30:00Z",
   "tasks": [
     {
+      "index": 1,
+      "description": "Refactor authentication",
+      "status": "completed"
+    },
+    {
+      "index": 2,
+      "description": "Add input validation",
+      "status": "pending"
+    }
+  ],
+  "pull_requests": [
+    {
       "task_index": 1,
-      "task_description": "Refactor authentication",
+      "pr_number": 42,
       "branch_name": "claude-step-my-refactor-1",
       "reviewer": "alice",
-      "pr_number": 42,
       "pr_state": "merged",
       "created_at": "2025-01-10T14:22:00Z",
-      "workflow_run_id": 123456,
-      "main_task_cost_usd": 0.15,
-      "pr_summary_cost_usd": 0.02,
-      "total_cost_usd": 0.17
+      "ai_operations": [
+        {
+          "type": "PRCreation",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.15,
+          "created_at": "2025-01-10T14:22:00Z",
+          "workflow_run_id": 123456
+        },
+        {
+          "type": "PRSummary",
+          "model": "claude-sonnet-4",
+          "cost_usd": 0.02,
+          "created_at": "2025-01-10T14:23:00Z",
+          "workflow_run_id": 123456
+        }
+      ]
     }
   ]
 }
