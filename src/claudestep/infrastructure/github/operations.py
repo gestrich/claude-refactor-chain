@@ -197,6 +197,7 @@ def list_pull_requests(
     **Current Usage**:
     - Reviewer capacity checking (filter by assignee + state=open)
     - Project detection (filter by label)
+    - Statistics collection (filter by label, configurable limit)
 
     **Design Principles**:
     - Parses GitHub JSON once into GitHubPullRequest domain models
@@ -204,13 +205,20 @@ def list_pull_requests(
     - Type-safe return values for service layer consumption
     - Generic and reusable for any future GitHub PR query needs
 
+    **Pagination Note**:
+    The limit parameter controls the maximum number of results returned. For
+    repositories with many PRs (>100), callers should increase the limit as needed.
+    The GitHub CLI ('gh pr list') handles pagination internally up to the specified
+    limit. Current usage in StatisticsService uses limit=500 which is sufficient
+    for most ClaudeStep repositories.
+
     Args:
         repo: GitHub repository (owner/name)
         state: "open", "closed", "merged", or "all"
         label: Optional label filter (e.g., "claudestep" for ClaudeStep PRs)
         assignee: Optional assignee filter (e.g., "username" for specific reviewer)
         since: Optional date filter (filters by created_at >= since)
-        limit: Max results (default 100)
+        limit: Max results (default 100, increase for repos with many PRs)
 
     Returns:
         List of GitHubPullRequest domain models with type-safe properties
@@ -222,6 +230,9 @@ def list_pull_requests(
         >>> # Check reviewer capacity
         >>> prs = list_pull_requests("owner/repo", state="open", label="claudestep", assignee="reviewer1")
         >>> print(f"Reviewer has {len(prs)} open PRs")
+        >>>
+        >>> # Statistics for large repos
+        >>> all_prs = list_pull_requests("owner/repo", state="all", label="claudestep", limit=500)
 
     See Also:
         - list_merged_pull_requests(): Convenience wrapper for merged PRs

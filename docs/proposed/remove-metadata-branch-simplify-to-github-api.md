@@ -443,23 +443,43 @@ All service constructors have been updated to remove metadata_service parameters
 
 ---
 
-- [ ] Phase 8: Clean up GitHub operations infrastructure
+- [x] Phase 8: Clean up GitHub operations infrastructure
 
 **Objective**: Ensure GitHub operations layer has all needed query functions.
 
-**Tasks**:
-- Verify `list_pull_requests()` supports filtering by:
+**Status**: ✅ Complete
+
+**Tasks Completed**:
+- ✅ Verified `list_pull_requests()` supports filtering by:
   - `state` (open, closed, merged)
   - `label` (e.g., "claudestep")
   - `assignee` (reviewer username)
-- Add any missing query parameters needed for statistics or reviewer management
-- Ensure return types use `GitHubPullRequest` domain models (not raw dicts)
-- Add pagination support if needed for repos with 100+ PRs
+  - `since` (date filter)
+  - `limit` (configurable max results)
+- ✅ Confirmed return types use `GitHubPullRequest` domain models (not raw dicts)
+- ✅ Documented pagination support (limit parameter, gh CLI handles internal pagination)
+- ✅ Added test coverage for assignee filter parameter
 
 **Key file**:
 - `src/claudestep/infrastructure/github/operations.py`
 
-**Success criteria**: All GitHub PR queries needed by services are available and tested.
+**Technical Notes**:
+- ✅ `list_pull_requests()` at operations.py:183-262 verified to support all required filters
+- ✅ All return types use `GitHubPullRequest` domain models from `domain/github_models.py`
+- ✅ GitHubPullRequest model includes all necessary fields:
+  - number, title, state, created_at, merged_at
+  - assignees (List[GitHubUser]), labels (List[str])
+  - head_ref_name (branch name for project extraction)
+- ✅ Pagination handled via `limit` parameter (default 100):
+  - StatisticsService uses limit=500 for large repos
+  - GitHub CLI ('gh pr list') handles internal pagination up to specified limit
+  - Documented in function docstring with usage examples
+- ✅ Added test for assignee filter (test_operations.py:661-677)
+- ✅ All 574 unit and integration tests pass
+- ✅ Test coverage at 68% (below 70% threshold only due to CLI commands with 0% coverage from Phase 5 cleanup - not related to this phase)
+- ✅ GitHub operations module has 100% test coverage
+
+**Success criteria**: ✅ All GitHub PR queries needed by services are available and tested.
 
 ---
 

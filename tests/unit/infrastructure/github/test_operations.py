@@ -658,6 +658,25 @@ class TestListPullRequests:
         assert "50" in args
 
     @patch('claudestep.infrastructure.github.operations.run_gh_command')
+    def test_list_pull_requests_with_assignee_filter(self, mock_run_gh):
+        """Should build command with assignee filter"""
+        # Arrange
+        mock_run_gh.return_value = "[]"
+        repo = "owner/repo"
+
+        # Act
+        list_pull_requests(repo, state="open", assignee="reviewer1")
+
+        # Assert
+        args = mock_run_gh.call_args[0][0]
+        assert "pr" in args
+        assert "list" in args
+        assert "--assignee" in args
+        assert "reviewer1" in args
+        assert "--state" in args
+        assert "open" in args
+
+    @patch('claudestep.infrastructure.github.operations.run_gh_command')
     def test_list_pull_requests_filters_by_date(self, mock_run_gh):
         """Should filter PRs by date when since parameter provided"""
         # Arrange
