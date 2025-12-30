@@ -6,14 +6,24 @@ reviewers based on artifact metadata tracking their assigned PRs.
 
 import os
 import pytest
+import yaml
 from unittest.mock import Mock, patch
 
 from claudestep.services.reviewer_management_service import ReviewerManagementService
 from claudestep.services.artifact_operations_service import ProjectArtifact, TaskMetadata
 from claudestep.domain.models import ReviewerCapacityResult
+from claudestep.domain.project import Project
+from claudestep.domain.project_configuration import ProjectConfiguration
 from datetime import datetime
 
 from tests.builders import ConfigBuilder, ArtifactBuilder, TaskMetadataBuilder
+
+
+def config_dict_to_project_configuration(config_dict):
+    """Helper to convert config dictionary to ProjectConfiguration domain model"""
+    project = Project("test-project")
+    yaml_content = yaml.dump(config_dict)
+    return ProjectConfiguration.from_yaml_string(project, yaml_content)
 
 
 class TestFindAvailableReviewer:
@@ -22,16 +32,18 @@ class TestFindAvailableReviewer:
     @pytest.fixture
     def reviewers_config(self):
         """Fixture providing sample reviewer configuration"""
-        return (ConfigBuilder()
+        config_dict = (ConfigBuilder()
                 .with_reviewer("alice", 2)
                 .with_reviewer("bob", 3)
                 .with_reviewer("charlie", 1)
-                .build()["reviewers"])
+                .build())
+        return config_dict_to_project_configuration(config_dict)
 
     @pytest.fixture
     def single_reviewer_config(self):
         """Fixture providing single reviewer configuration"""
-        return ConfigBuilder().with_reviewer("alice", 2).build()["reviewers"]
+        config_dict = ConfigBuilder().with_reviewer("alice", 2).build()
+        return config_dict_to_project_configuration(config_dict)
 
     @pytest.fixture
     def mock_env(self):
@@ -195,17 +207,18 @@ class TestFindAvailableReviewer:
     def test_find_reviewer_with_zero_max_prs(self, reviewer_service):
         """Should handle reviewer with maxOpenPRs set to zero"""
         # Arrange
-        reviewers = [
-            {"username": "alice", "maxOpenPRs": 0},
-            {"username": "bob", "maxOpenPRs": 2}
-        ]
+        config_dict = (ConfigBuilder()
+                      .with_reviewer("alice", 0)
+                      .with_reviewer("bob", 2)
+                      .build())
+        config = config_dict_to_project_configuration(config_dict)
 
         with patch('claudestep.services.reviewer_management_service.find_project_artifacts') as mock_find:
             mock_find.return_value = []
 
             # Act
             selected, result = reviewer_service.find_available_reviewer(
-                reviewers, "claudestep", "myproject"
+                config, "claudestep", "myproject"
             )
 
             # Assert
@@ -270,14 +283,15 @@ class TestFindAvailableReviewer:
     def test_find_reviewer_with_empty_reviewers_list(self, reviewer_service):
         """Should handle empty reviewers list gracefully"""
         # Arrange
-        reviewers = []
+        config_dict = ConfigBuilder().with_no_reviewers().build()
+        config = config_dict_to_project_configuration(config_dict)
 
         with patch('claudestep.services.reviewer_management_service.find_project_artifacts') as mock_find:
             mock_find.return_value = []
 
             # Act
             selected, result = reviewer_service.find_available_reviewer(
-                reviewers, "claudestep", "myproject"
+                config, "claudestep", "myproject"
             )
 
             # Assert
@@ -431,11 +445,12 @@ class TestFindAvailableReviewer:
     def test_find_reviewer_mixed_capacity_scenarios(self, reviewer_service):
         """Should handle complex mixed capacity scenario"""
         # Arrange - alice at capacity, bob has room, charlie over capacity
-        reviewers = [
-            {"username": "alice", "maxOpenPRs": 2},
-            {"username": "bob", "maxOpenPRs": 3},
-            {"username": "charlie", "maxOpenPRs": 1}
-        ]
+        config_dict = (ConfigBuilder()
+                      .with_reviewer("alice", 2)
+                      .with_reviewer("bob", 3)
+                      .with_reviewer("charlie", 1)
+                      .build())
+        config = config_dict_to_project_configuration(config_dict)
 
         artifacts = [
             # alice: 2/2 (at capacity)
@@ -453,7 +468,7 @@ class TestFindAvailableReviewer:
 
             # Act
             selected, result = reviewer_service.find_available_reviewer(
-                reviewers, "claudestep", "myproject"
+                config, "claudestep", "myproject"
             )
 
             # Assert

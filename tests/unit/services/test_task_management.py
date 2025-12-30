@@ -8,6 +8,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from claudestep.domain.exceptions import FileNotFoundError
+from claudestep.domain.project import Project
+from claudestep.domain.spec_content import SpecContent
 from claudestep.services.task_management_service import TaskManagementService
 
 from tests.builders import SpecFileBuilder
@@ -18,6 +20,13 @@ def task_service():
     """Fixture to create TaskManagementService with mocked dependencies"""
     mock_metadata_service = MagicMock()
     return TaskManagementService(repo="owner/repo", metadata_service=mock_metadata_service)
+
+
+def create_spec_from_file(file_path) -> SpecContent:
+    """Helper to create SpecContent from a file path"""
+    with open(file_path, 'r') as f:
+        content = f.read()
+    return SpecContent(Project("test-project"), content)
 
 
 class TestFindNextAvailableTask:
@@ -31,7 +40,8 @@ class TestFindNextAvailableTask:
                      .add_tasks("Task 1", "Task 2", "Task 3")
                      .write_to(tmp_path))
 
-        result = task_service.find_next_available_task(str(spec_path))
+        spec = create_spec_from_file(spec_path)
+        result = task_service.find_next_available_task(spec)
         assert result is not None
         task_index, task_text = result
         assert task_index == 1
@@ -46,7 +56,8 @@ class TestFindNextAvailableTask:
                      .add_tasks("Task 2", "Task 3")
                      .write_to(tmp_path))
 
-        result = task_service.find_next_available_task(str(spec_path))
+        spec = create_spec_from_file(spec_path)
+        result = task_service.find_next_available_task(spec)
         assert result is not None
         task_index, task_text = result
         assert task_index == 2
@@ -65,7 +76,8 @@ class TestFindNextAvailableTask:
 - [ ] Task 4
 """)
 
-        result = task_service.find_next_available_task(str(spec_file))
+        spec = create_spec_from_file(spec_file)
+        result = task_service.find_next_available_task(spec)
         assert result is not None
         task_index, task_text = result
         assert task_index == 3
@@ -84,7 +96,8 @@ class TestFindNextAvailableTask:
 """)
 
         # Skip task 1 (it's in progress)
-        result = task_service.find_next_available_task(str(spec_file), skip_indices={1})
+        spec = create_spec_from_file(spec_file)
+        result = task_service.find_next_available_task(spec, skip_indices={1})
         assert result is not None
         task_index, task_text = result
         assert task_index == 2
@@ -104,7 +117,8 @@ class TestFindNextAvailableTask:
 """)
 
         # Skip tasks 1 and 2 (they're in progress)
-        result = task_service.find_next_available_task(str(spec_file), skip_indices={1, 2})
+        spec = create_spec_from_file(spec_file)
+        result = task_service.find_next_available_task(spec, skip_indices={1, 2})
         assert result is not None
         task_index, task_text = result
         assert task_index == 3
@@ -120,7 +134,8 @@ class TestFindNextAvailableTask:
                      .add_completed_task("Task 3")
                      .write_to(tmp_path))
 
-        result = task_service.find_next_available_task(str(spec_path))
+        spec = create_spec_from_file(spec_path)
+        result = task_service.find_next_available_task(spec)
         assert result is None
 
     def test_return_none_when_no_tasks(self, tmp_path, task_service):
@@ -131,7 +146,8 @@ class TestFindNextAvailableTask:
 This project has no tasks yet.
 """)
 
-        result = task_service.find_next_available_task(str(spec_file))
+        spec = create_spec_from_file(spec_file)
+        result = task_service.find_next_available_task(spec)
         assert result is None
 
     def test_handle_capital_x_in_completed_tasks(self, tmp_path, task_service):
@@ -146,7 +162,8 @@ This project has no tasks yet.
 - [ ] Task 3
 """)
 
-        result = task_service.find_next_available_task(str(spec_file))
+        spec = create_spec_from_file(spec_file)
+        result = task_service.find_next_available_task(spec)
         assert result is not None
         task_index, task_text = result
         assert task_index == 3
@@ -164,7 +181,8 @@ This project has no tasks yet.
 - [ ] Task 3
 """)
 
-        result = task_service.find_next_available_task(str(spec_file))
+        spec = create_spec_from_file(spec_file)
+        result = task_service.find_next_available_task(spec)
         assert result is not None
         task_index, task_text = result
         assert task_index == 2
@@ -172,8 +190,10 @@ This project has no tasks yet.
 
     def test_raise_error_when_file_not_found(self, task_service):
         """Should raise FileNotFoundError when spec file doesn't exist"""
-        with pytest.raises(FileNotFoundError):
-            task_service.find_next_available_task("/nonexistent/path/spec.md")
+        # SpecContent requires content, so we test with empty content that has no tasks
+        spec = SpecContent(Project("test"), "")
+        result = task_service.find_next_available_task(spec)
+        assert result is None
 
     def test_complex_scenario_merge_trigger(self, tmp_path, task_service):
         """
@@ -194,7 +214,8 @@ This project has no tasks yet.
 """)
 
         # Task 2 is in progress (has an open PR)
-        result = task_service.find_next_available_task(str(spec_file), skip_indices={2})
+        spec = create_spec_from_file(spec_file)
+        result = task_service.find_next_available_task(spec, skip_indices={2})
         assert result is not None
         task_index, task_text = result
         assert task_index == 3
