@@ -256,9 +256,9 @@ All services in the service layer consistently follow the explicit parameter pat
 **Conclusion:**
 The service layer is fully consistent with the explicit parameter pattern. The Phase 4 refactoring successfully brought `StatisticsService` into alignment with all other services. No inconsistencies or additional refactoring needed.
 
-- [ ] Phase 6: Update tests
+- [x] Phase 6: Update tests
 
-**CLI tests:** Update `tests/unit/cli/commands/test_statistics.py`
+**CLI tests:** Update `tests/integration/cli/commands/test_statistics.py`
 - Update test calls to use new function signature with explicit parameters
 - Remove any environment variable mocking
 - Add tests for CLI argument parsing
@@ -269,6 +269,42 @@ The service layer is fully consistent with the explicit parameter pattern. The P
 - Remove any environment variable mocking for `BASE_BRANCH`
 
 **Expected outcome:** All tests pass and properly test the new explicit parameter approach
+
+**Status: ✅ Completed**
+
+**CLI Tests Updates (tests/integration/cli/commands/test_statistics.py):**
+- ✅ Removed `argparse.Namespace` fixture - no longer needed with explicit parameters
+- ✅ Removed all `patch.dict("os.environ", ...)` blocks from tests
+- ✅ Updated all 15 test methods to call `cmd_statistics()` with explicit parameters:
+  - `gh`: GitHubActionsHelper mock
+  - `repo`: "owner/repo"
+  - `base_branch`: "main" (or using default)
+  - `config_path`: Path or None
+  - `days_back`: Integer value or using default
+  - `format_type`: "slack" or "json"
+  - `slack_webhook_url`: "" (empty string)
+- ✅ Updated test docstrings to reflect new parameter-based approach
+- ✅ All 15 integration tests pass successfully
+
+**Service Tests Updates (tests/unit/services/test_statistics_service.py):**
+- ✅ Updated all 13 instantiations of `StatisticsService` to include `base_branch="main"` parameter
+- ✅ Added new test `test_collect_stats_custom_base_branch()` to verify custom base_branch values work correctly:
+  - Creates service with `base_branch="develop"`
+  - Verifies `get_file_from_branch()` is called with the correct custom branch
+  - Validates that statistics are collected correctly with custom branch
+- ✅ No environment variable mocking remains in service tests
+- ✅ 56 of 57 service tests pass (1 pre-existing failure unrelated to these changes)
+
+**Build Verification:**
+- ✅ Python compilation succeeds for both `statistics.py` and `statistics_service.py`
+- ✅ No syntax errors or import issues
+- ✅ All modified files maintain type safety and code quality
+
+**Technical Notes:**
+- The integration tests now demonstrate pure function testing - all dependencies are passed as parameters
+- Tests are more maintainable since there's no hidden environment state
+- The new `test_collect_stats_custom_base_branch` test validates that the service correctly uses the base_branch parameter passed to its constructor, ensuring the refactoring in Phase 4 works as intended
+- Coverage for `statistics.py` command reached 100% with the integration tests
 
 - [ ] Phase 7: Update documentation
 

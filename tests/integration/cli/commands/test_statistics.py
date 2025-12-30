@@ -1,6 +1,5 @@
 """Tests for the statistics command"""
 
-import argparse
 import json
 from datetime import datetime
 from unittest.mock import Mock, patch, call
@@ -13,12 +12,6 @@ from claudestep.domain.models import StatisticsReport, ProjectStats, TeamMemberS
 
 class TestCmdStatistics:
     """Test suite for cmd_statistics functionality"""
-
-    @pytest.fixture
-    def mock_args(self):
-        """Fixture providing mock command-line arguments"""
-        args = argparse.Namespace()
-        return args
 
     @pytest.fixture
     def mock_github_helper(self):
@@ -88,27 +81,27 @@ class TestCmdStatistics:
         return StatisticsReport()
 
     def test_cmd_statistics_success_with_slack_format(
-        self, mock_args, mock_github_helper, sample_statistics_report
+        self, mock_github_helper, sample_statistics_report
     ):
         """Should generate statistics report in Slack format successfully"""
         # Arrange
-        with patch.dict(
-            "os.environ",
-            {
-                "CONFIG_PATH": "",
-                "STATS_DAYS_BACK": "30",
-                "STATS_FORMAT": "slack",
-            },
-        ):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_service.collect_all_statistics.return_value = sample_statistics_report
-                mock_service_class.return_value = mock_service
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_service.collect_all_statistics.return_value = sample_statistics_report
+            mock_service_class.return_value = mock_service
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                base_branch="main",
+                config_path=None,
+                days_back=30,
+                format_type="slack",
+                slack_webhook_url=""
+            )
 
         # Assert
         assert result == 0
@@ -135,27 +128,27 @@ class TestCmdStatistics:
         assert any("ClaudeStep Statistics Report" in str(c) for c in summary_calls)
 
     def test_cmd_statistics_success_with_json_format(
-        self, mock_args, mock_github_helper, sample_statistics_report
+        self, mock_github_helper, sample_statistics_report
     ):
         """Should generate statistics report in JSON format successfully"""
         # Arrange
-        with patch.dict(
-            "os.environ",
-            {
-                "CONFIG_PATH": "/path/to/config.yml",
-                "STATS_DAYS_BACK": "7",
-                "STATS_FORMAT": "json",
-            },
-        ):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_service.collect_all_statistics.return_value = sample_statistics_report
-                mock_service_class.return_value = mock_service
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_service.collect_all_statistics.return_value = sample_statistics_report
+            mock_service_class.return_value = mock_service
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                base_branch="main",
+                config_path="/path/to/config.yml",
+                days_back=7,
+                format_type="json",
+                slack_webhook_url=""
+            )
 
         # Assert
         assert result == 0
@@ -176,46 +169,52 @@ class TestCmdStatistics:
         assert len(slack_output_calls) == 0
 
     def test_cmd_statistics_uses_default_days_back(
-        self, mock_args, mock_github_helper, sample_statistics_report
+        self, mock_github_helper, sample_statistics_report
     ):
-        """Should use default value of 30 days when STATS_DAYS_BACK not set"""
+        """Should use default value of 30 days when not explicitly provided"""
         # Arrange
-        with patch.dict("os.environ", {"STATS_FORMAT": "slack"}, clear=True):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                mock_collect.return_value = sample_statistics_report
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            mock_collect.return_value = sample_statistics_report
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act (using default days_back parameter value)
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                format_type="slack"
+            )
 
         # Assert
         assert result == 0
         mock_collect.assert_called_once_with(config_path=None, days_back=30)
 
     def test_cmd_statistics_writes_leaderboard_when_present(
-        self, mock_args, mock_github_helper, sample_statistics_report
+        self, mock_github_helper, sample_statistics_report
     ):
         """Should write leaderboard to step summary when team stats exist"""
         # Arrange
-        with patch.dict("os.environ", {"STATS_FORMAT": "slack"}):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                # Mock format_leaderboard to return content
-                sample_statistics_report.format_leaderboard = Mock(
-                    return_value="## Leaderboard\n1. bob - 7 PRs"
-                )
-                mock_collect.return_value = sample_statistics_report
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            # Mock format_leaderboard to return content
+            sample_statistics_report.format_leaderboard = Mock(
+                return_value="## Leaderboard\n1. bob - 7 PRs"
+            )
+            mock_collect.return_value = sample_statistics_report
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                format_type="slack"
+            )
 
         # Assert
         assert result == 0
@@ -223,21 +222,24 @@ class TestCmdStatistics:
         assert any("Leaderboard" in str(c) for c in summary_calls)
 
     def test_cmd_statistics_writes_project_progress(
-        self, mock_args, mock_github_helper, sample_statistics_report
+        self, mock_github_helper, sample_statistics_report
     ):
         """Should write project progress summaries in alphabetical order"""
         # Arrange
-        with patch.dict("os.environ", {"STATS_FORMAT": "slack"}):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                mock_collect.return_value = sample_statistics_report
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            mock_collect.return_value = sample_statistics_report
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                format_type="slack"
+            )
 
         # Assert
         assert result == 0
@@ -254,21 +256,24 @@ class TestCmdStatistics:
         assert project_a_pos < project_b_pos
 
     def test_cmd_statistics_writes_team_member_activity(
-        self, mock_args, mock_github_helper, sample_statistics_report
+        self, mock_github_helper, sample_statistics_report
     ):
         """Should write team member activity sorted by merged count descending"""
         # Arrange
-        with patch.dict("os.environ", {"STATS_FORMAT": "slack"}):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                mock_collect.return_value = sample_statistics_report
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            mock_collect.return_value = sample_statistics_report
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                format_type="slack"
+            )
 
         # Assert
         assert result == 0
@@ -285,21 +290,24 @@ class TestCmdStatistics:
         assert bob_pos < alice_pos
 
     def test_cmd_statistics_handles_empty_report(
-        self, mock_args, mock_github_helper, empty_statistics_report
+        self, mock_github_helper, empty_statistics_report
     ):
         """Should handle empty statistics report gracefully"""
         # Arrange
-        with patch.dict("os.environ", {"STATS_FORMAT": "slack"}):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                mock_collect.return_value = empty_statistics_report
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            mock_collect.return_value = empty_statistics_report
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                format_type="slack"
+            )
 
         # Assert
         assert result == 0
@@ -308,21 +316,24 @@ class TestCmdStatistics:
         assert any("No team member activity found" in str(c) for c in summary_calls)
 
     def test_cmd_statistics_handles_exception(
-        self, mock_args, mock_github_helper, capsys
+        self, mock_github_helper, capsys
     ):
         """Should handle exceptions and return error code"""
         # Arrange
-        with patch.dict("os.environ", {"STATS_FORMAT": "slack"}):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                mock_collect.side_effect = Exception("Test error")
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            mock_collect.side_effect = Exception("Test error")
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                format_type="slack"
+            )
 
         # Assert
         assert result == 1
@@ -342,28 +353,26 @@ class TestCmdStatistics:
         assert any("Test error" in str(c) for c in summary_calls)
 
     def test_cmd_statistics_prints_collection_info(
-        self, mock_args, mock_github_helper, sample_statistics_report, capsys
+        self, mock_github_helper, sample_statistics_report, capsys
     ):
         """Should print collection information to console"""
         # Arrange
-        with patch.dict(
-            "os.environ",
-            {
-                "CONFIG_PATH": "/path/to/config.yml",
-                "STATS_DAYS_BACK": "15",
-                "STATS_FORMAT": "slack",
-            },
-        ):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                mock_collect.return_value = sample_statistics_report
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            mock_collect.return_value = sample_statistics_report
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                config_path="/path/to/config.yml",
+                days_back=15,
+                format_type="slack"
+            )
 
         # Assert
         assert result == 0
@@ -377,21 +386,25 @@ class TestCmdStatistics:
         assert "Statistics generated successfully" in captured.out
 
     def test_cmd_statistics_prints_all_projects_mode_when_no_config(
-        self, mock_args, mock_github_helper, sample_statistics_report, capsys
+        self, mock_github_helper, sample_statistics_report, capsys
     ):
-        """Should print 'All projects' mode when CONFIG_PATH is empty"""
+        """Should print 'All projects' mode when config_path is None"""
         # Arrange
-        with patch.dict("os.environ", {"CONFIG_PATH": "", "STATS_FORMAT": "slack"}):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                mock_collect.return_value = sample_statistics_report
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            mock_collect.return_value = sample_statistics_report
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                config_path=None,
+                format_type="slack"
+            )
 
         # Assert
         assert result == 0
@@ -399,25 +412,28 @@ class TestCmdStatistics:
         assert "Mode: All projects" in captured.out
 
     def test_cmd_statistics_slack_format_outputs_slack_text(
-        self, mock_args, mock_github_helper, sample_statistics_report, capsys
+        self, mock_github_helper, sample_statistics_report, capsys
     ):
         """Should output Slack formatted text to console when format is slack"""
         # Arrange
         slack_output = "Slack formatted report text"
-        with patch.dict("os.environ", {"STATS_FORMAT": "slack"}):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                sample_statistics_report.format_for_slack = Mock(
-                    return_value=slack_output
-                )
-                mock_collect.return_value = sample_statistics_report
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            sample_statistics_report.format_for_slack = Mock(
+                return_value=slack_output
+            )
+            mock_collect.return_value = sample_statistics_report
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                format_type="slack"
+            )
 
         # Assert
         assert result == 0
@@ -426,28 +442,31 @@ class TestCmdStatistics:
         assert slack_output in captured.out
 
     def test_cmd_statistics_writes_timestamp_to_summary(
-        self, mock_args, mock_github_helper, sample_statistics_report
+        self, mock_github_helper, sample_statistics_report
     ):
         """Should write current timestamp to step summary"""
         # Arrange
-        with patch.dict("os.environ", {"STATS_FORMAT": "slack"}):
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            mock_collect.return_value = sample_statistics_report
+
             with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                mock_collect.return_value = sample_statistics_report
+                "claudestep.cli.commands.statistics.datetime"
+            ) as mock_datetime:
+                mock_datetime.now.return_value.isoformat.return_value = (
+                    "2024-01-15T10:30:00"
+                )
 
-                with patch(
-                    "claudestep.cli.commands.statistics.datetime"
-                ) as mock_datetime:
-                    mock_datetime.now.return_value.isoformat.return_value = (
-                        "2024-01-15T10:30:00"
-                    )
-
-                    # Act
-                    result = cmd_statistics(mock_args, mock_github_helper)
+                # Act
+                result = cmd_statistics(
+                    gh=mock_github_helper,
+                    repo="owner/repo",
+                    format_type="slack"
+                )
 
         # Assert
         assert result == 0
@@ -455,21 +474,24 @@ class TestCmdStatistics:
         assert any("2024-01-15T10:30:00" in str(c) for c in summary_calls)
 
     def test_cmd_statistics_json_output_is_valid_json(
-        self, mock_args, mock_github_helper, sample_statistics_report
+        self, mock_github_helper, sample_statistics_report
     ):
         """Should output valid JSON data when format is json or slack"""
         # Arrange
-        with patch.dict("os.environ", {"STATS_FORMAT": "json"}):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                mock_collect.return_value = sample_statistics_report
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            mock_collect.return_value = sample_statistics_report
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                format_type="json"
+            )
 
         # Assert
         assert result == 0
@@ -484,44 +506,51 @@ class TestCmdStatistics:
         assert "projects" in parsed or "team_members" in parsed
 
     def test_cmd_statistics_parses_days_back_as_integer(
-        self, mock_args, mock_github_helper, sample_statistics_report
+        self, mock_github_helper, sample_statistics_report
     ):
-        """Should parse STATS_DAYS_BACK as integer"""
+        """Should accept days_back as integer parameter"""
         # Arrange
-        with patch.dict("os.environ", {"STATS_DAYS_BACK": "90", "STATS_FORMAT": "json"}):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                mock_collect.return_value = sample_statistics_report
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            mock_collect.return_value = sample_statistics_report
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                days_back=90,
+                format_type="json"
+            )
 
         # Assert
         assert result == 0
         mock_collect.assert_called_once_with(config_path=None, days_back=90)
 
     def test_cmd_statistics_no_leaderboard_when_empty(
-        self, mock_args, mock_github_helper, sample_statistics_report
+        self, mock_github_helper, sample_statistics_report
     ):
         """Should not write leaderboard section when format_leaderboard returns empty"""
         # Arrange
-        with patch.dict("os.environ", {"STATS_FORMAT": "slack"}):
-            with patch(
-                "claudestep.cli.commands.statistics.StatisticsService"
-            ) as mock_service_class:
-                mock_service = Mock()
-                mock_collect = mock_service.collect_all_statistics
-                mock_service_class.return_value = mock_service
-                # Mock format_leaderboard to return empty string
-                sample_statistics_report.format_leaderboard = Mock(return_value="")
-                mock_collect.return_value = sample_statistics_report
+        with patch(
+            "claudestep.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class:
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            # Mock format_leaderboard to return empty string
+            sample_statistics_report.format_leaderboard = Mock(return_value="")
+            mock_collect.return_value = sample_statistics_report
 
-                # Act
-                result = cmd_statistics(mock_args, mock_github_helper)
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                format_type="slack"
+            )
 
         # Assert
         assert result == 0

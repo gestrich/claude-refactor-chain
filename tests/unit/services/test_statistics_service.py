@@ -645,7 +645,7 @@ class TestCollectProjectCosts:
         mock_metadata_service.get_project.return_value = project_metadata
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         cost = service.collect_project_costs("test-project", "claudestep")
 
         assert cost == 0.5
@@ -666,7 +666,7 @@ class TestCollectProjectCosts:
         mock_metadata_service.get_project.return_value = project_metadata
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         cost = service.collect_project_costs("test-project", "claudestep")
 
         assert cost == 0.0
@@ -678,7 +678,7 @@ class TestCollectProjectCosts:
         mock_metadata_service.get_project.return_value = None
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         cost = service.collect_project_costs("test-project", "claudestep")
 
         assert cost == 0.0
@@ -690,7 +690,7 @@ class TestCollectProjectCosts:
         mock_metadata_service.get_project.side_effect = Exception("API error")
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         cost = service.collect_project_costs("test-project", "claudestep")
 
         assert cost == 0.0
@@ -731,7 +731,7 @@ class TestCollectTeamMemberStats:
 
         # Create service and test
         mock_metadata_service = Mock()
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         stats = service.collect_team_member_stats(["alice", "bob"], days_back=30)
 
         assert "alice" in stats
@@ -747,7 +747,7 @@ class TestCollectTeamMemberStats:
 
         # Create service and test
         mock_metadata_service = Mock()
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         stats = service.collect_team_member_stats(["alice"])
 
         assert "alice" in stats
@@ -761,7 +761,7 @@ class TestCollectTeamMemberStats:
 
         # Create service and test
         mock_metadata_service = Mock()
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         stats = service.collect_team_member_stats(["alice"])
 
         # Should return empty stats but not crash
@@ -799,7 +799,7 @@ class TestCollectProjectStats:
         mock_metadata_service.get_project.return_value = project_metadata
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         stats = service.collect_project_stats("test-project", "main", "claudestep")
 
         assert stats.project_name == "test-project"
@@ -817,7 +817,7 @@ class TestCollectProjectStats:
 
         # Create service and test
         mock_metadata_service = Mock()
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         stats = service.collect_project_stats("test-project", "main", "claudestep")
 
         assert stats is None
@@ -836,11 +836,36 @@ class TestCollectProjectStats:
         mock_metadata_service.get_project.return_value = None
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         stats = service.collect_project_stats("test-project", "main", "claudestep")
 
         assert stats.in_progress_tasks == 0
         assert stats.pending_tasks == 1
+
+    @patch("claudestep.services.statistics_service.get_file_from_branch")
+    def test_collect_stats_custom_base_branch(self, mock_get_file):
+        """Test that custom base_branch value is used correctly"""
+        spec_content = "- [x] Task 1\n- [ ] Task 2"
+
+        # Mock get_file_from_branch
+        mock_get_file.return_value = spec_content
+
+        # Mock metadata service
+        mock_metadata_service = Mock()
+        mock_metadata_service.find_in_progress_tasks.return_value = []
+        mock_metadata_service.get_project.return_value = None
+
+        # Create service with custom base_branch
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="develop")
+        stats = service.collect_project_stats("test-project", "develop", "claudestep")
+
+        # Verify the service uses the custom base_branch
+        assert stats.project_name == "test-project"
+        assert stats.total_tasks == 2
+        assert stats.completed_tasks == 1
+
+        # Verify get_file_from_branch was called with the custom branch
+        mock_get_file.assert_called_with("owner/repo", "develop", "claude-step/test-project/spec.md")
 
 
 class TestCollectAllStatistics:
@@ -878,7 +903,7 @@ reviewers:
         mock_metadata_service.get_project.return_value = None
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         report = service.collect_all_statistics("claude-step/project1/configuration.yml")
 
         assert len(report.project_stats) == 1
@@ -891,7 +916,7 @@ reviewers:
         """Test that missing GITHUB_REPOSITORY returns empty report"""
         # Create service with empty repo
         mock_metadata_service = Mock()
-        service = StatisticsService("", mock_metadata_service)
+        service = StatisticsService("", mock_metadata_service, base_branch="main")
         report = service.collect_all_statistics()
 
         assert len(report.project_stats) == 0
@@ -905,7 +930,7 @@ reviewers:
 
         # Create service and test
         mock_metadata_service = Mock()
-        service = StatisticsService("owner/repo", mock_metadata_service)
+        service = StatisticsService("owner/repo", mock_metadata_service, base_branch="main")
         report = service.collect_all_statistics("/nonexistent/config.yml")
 
         assert len(report.project_stats) == 0
