@@ -142,7 +142,7 @@ Add `os` import to `__main__.py` if not already present.
 - Verified module imports successfully
 - This completes the adapter layer pattern: env vars are only read in `__main__.py`, not in the command function
 
-- [ ] Phase 4: Refactor StatisticsService to use explicit parameters
+- [x] Phase 4: Refactor StatisticsService to use explicit parameters
 
 Update `src/claudestep/services/statistics_service.py`:
 
@@ -177,6 +177,18 @@ statistics_service = StatisticsService(repo, metadata_service, base_branch)
 ```
 
 **Expected outcome:** `StatisticsService` no longer reads environment variables directly
+
+**Status: ✅ Completed**
+- Updated `StatisticsService.__init__()` to accept `base_branch` parameter with default value "main" in `src/claudestep/services/statistics_service.py:30`
+- Added `self.base_branch = base_branch` to store the parameter as an instance variable in line 40
+- Removed `os.environ.get("BASE_BRANCH", "main")` call from `collect_all_statistics` method (line 63)
+- Replaced with `base_branch = self.base_branch` to use the instance variable
+- Updated `cmd_statistics` in `src/claudestep/cli/commands/statistics.py:57` to pass `base_branch` parameter when instantiating `StatisticsService`
+- Verified syntax with `python3 -m py_compile` - no errors
+- Verified modules import successfully
+- Confirmed no `os.environ` calls remain in `statistics_service.py`
+- The service now receives all configuration explicitly through constructor parameters
+- Note: During implementation, a helper method `_load_project_config` was also refactored to accept `base_branch` as a parameter for consistency
 
 - [ ] Phase 5: Review other services for consistency
 

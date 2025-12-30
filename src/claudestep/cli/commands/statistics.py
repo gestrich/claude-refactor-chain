@@ -54,7 +54,7 @@ def cmd_statistics(
         # Initialize services
         metadata_store = GitHubMetadataStore(repo)
         metadata_service = MetadataService(metadata_store)
-        statistics_service = StatisticsService(repo, metadata_service)
+        statistics_service = StatisticsService(repo, metadata_service, base_branch)
 
         # Collect all statistics
         report = statistics_service.collect_all_statistics(
