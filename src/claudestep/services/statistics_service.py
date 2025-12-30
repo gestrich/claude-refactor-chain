@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 from claudestep.domain.config import load_config_from_string
+from claudestep.domain.constants import DEFAULT_PR_LABEL
 from claudestep.domain.exceptions import FileNotFoundError as ClaudeStepFileNotFoundError
 from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
 from claudestep.infrastructure.github.operations import get_file_from_branch, run_gh_command
@@ -39,13 +40,14 @@ class StatisticsService:
     # Public API methods
 
     def collect_all_statistics(
-        self, config_path: Optional[str] = None, days_back: int = 30
+        self, config_path: Optional[str] = None, days_back: int = 30, label: str = DEFAULT_PR_LABEL
     ) -> StatisticsReport:
         """Collect statistics for all projects and team members
 
         Args:
             config_path: Optional path to specific config (for single project mode)
             days_back: Days to look back for team member stats
+            label: GitHub label to filter PRs
 
         Returns:
             Complete StatisticsReport
@@ -59,7 +61,6 @@ class StatisticsService:
 
         # Get base branch from environment
         base_branch = os.environ.get("BASE_BRANCH", "main")
-        label = "claudestep"
         all_reviewers = set()
         projects_data = []  # List of (project_name, reviewers)
 
@@ -153,7 +154,7 @@ class StatisticsService:
         return report
 
     def collect_project_stats(
-        self, project_name: str, base_branch: str = "main", label: str = "claudestep"
+        self, project_name: str, base_branch: str = "main", label: str = DEFAULT_PR_LABEL
     ) -> ProjectStats:
         """Collect statistics for a single project
 
@@ -210,7 +211,7 @@ class StatisticsService:
         return stats
 
     def collect_team_member_stats(
-        self, reviewers: List[str], days_back: int = 30, label: str = "claudestep"
+        self, reviewers: List[str], days_back: int = 30, label: str = DEFAULT_PR_LABEL
     ) -> Dict[str, TeamMemberStats]:
         """Collect PR statistics for team members
 
@@ -335,7 +336,7 @@ class StatisticsService:
         return stats_dict
 
     def collect_project_costs(
-        self, project_name: str, label: str = "claudestep"
+        self, project_name: str, label: str = DEFAULT_PR_LABEL
     ) -> float:
         """Collect total costs for a project from metadata storage
 
