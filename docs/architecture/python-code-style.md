@@ -92,6 +92,295 @@ class ComplexService:
         pass
 ```
 
+## Dependency Injection and Optional Parameters
+
+### Principle: Avoid Optional Dependencies with Default Factories
+
+Optional parameters with default factory patterns (e.g., `param: Optional[Type] = None` with `self.param = param or DefaultType()`) are a code smell that hides dependencies and makes code harder to reason about.
+
+### Anti-Pattern (❌ Avoid)
+
+```python
+# BAD: Optional dependency with default factory
+class StatisticsService:
+    def __init__(
+        self,
+        repo: str,
+        metadata_service: MetadataService,
+        base_branch: str = "main",
+        project_repository: Optional[ProjectRepository] = None  # ❌ Optional
+    ):
+        self.repo = repo
+        self.metadata_service = metadata_service
+        self.base_branch = base_branch
+        # ❌ Hidden object creation - magic happens here
+        self.project_repository = project_repository or ProjectRepository(repo)
+```
+
+**Problems with this approach:**
+- **Hidden dependencies**: Not obvious that `ProjectRepository` is required
+- **Configuration ambiguity**: Unclear if `None` means "use default" or "not needed"
+- **Testing confusion**: Tests still need to pass mocks explicitly, so optionality provides no benefit
+- **Dangerous defaults**: If caller forgets to pass it, they get an unintended default silently
+- **Hard to reason about**: "Is this actually optional or just convenient?"
+
+### Recommended Pattern (✅ Use This)
+
+```python
+# GOOD: Required dependency - explicit and clear
+class StatisticsService:
+    def __init__(
+        self,
+        repo: str,
+        metadata_service: MetadataService,
+        project_repository: ProjectRepository,  # ✅ Required, no default
+        base_branch: str = "main"
+    ):
+        """Initialize the statistics service
+
+        Args:
+            repo: GitHub repository (owner/name)
+            metadata_service: MetadataService instance for accessing metadata
+            project_repository: ProjectRepository instance for loading project data
+            base_branch: Base branch to fetch specs from (default: "main")
+        """
+        self.repo = repo
+        self.metadata_service = metadata_service
+        self.project_repository = project_repository  # ✅ Direct assignment
+        self.base_branch = base_branch
+```
+
+**In production code:**
+```python
+# ✅ Explicit dependency creation at call site
+metadata_store = GitHubMetadataStore(repo)
+metadata_service = MetadataService(metadata_store)
+project_repository = ProjectRepository(repo)  # ✅ Caller creates it
+statistics_service = StatisticsService(
+    repo,
+    metadata_service,
+    project_repository,  # ✅ Explicitly passed
+    base_branch
+)
+```
+
+**In tests:**
+```python
+# ✅ Tests explicitly pass mocks
+mock_metadata_service = Mock()
+mock_project_repo = Mock()  # ✅ Must create mock
+service = StatisticsService(
+    "owner/repo",
+    mock_metadata_service,
+    mock_project_repo,  # ✅ Explicitly mocked
+    base_branch="main"
+)
+```
+
+### Benefits of Required Dependencies
+
+✅ **Explicit dependencies**: Constructor signature shows exactly what the class needs
+
+✅ **No hidden behavior**: No magic object creation - what you see is what you get
+
+✅ **Clear ownership**: Caller is responsible for creating dependencies, not the class
+
+✅ **Better testing**: Forces explicit mocks, making tests clearer
+
+✅ **Fail fast**: Missing dependency causes immediate error, not silent defaults
+
+✅ **Self-documenting**: Code clearly shows all required collaborators
+
+### When Optional Parameters Are Acceptable
+
+Optional parameters are acceptable only when they represent:
+
+1. **Truly optional behavior**: Feature flags or optional enhancements
+   ```python
+   def send_notification(message: str, priority: Optional[str] = None):
+       # Priority is genuinely optional - default is "normal"
+   ```
+
+2. **Optional filters or constraints**: Narrowing a query
+   ```python
+   def collect_statistics(config_path: Optional[str] = None):
+       # None means "all projects", not "use default config"
+   ```
+
+3. **Backward compatibility**: When adding new parameters to existing APIs
+   ```python
+   def legacy_method(required: str, new_param: Optional[str] = None):
+       # Added for backward compatibility with existing callers
+   ```
+
+**Never use optional for:**
+- Dependencies/services (use required parameters)
+- Configuration that should flow from the caller
+- Cases where `None` has ambiguous meaning
+
+## Configuration Defaults and Flow
+
+### Principle: Configuration Should Flow Downward, Avoid Defaults
+
+Configuration values should flow explicitly from the entry point (CLI, web handler) down through the layers. Defaults in the middle of the call stack are dangerous because callers may unintentionally rely on them, leading to bugs.
+
+### Anti-Pattern (❌ Avoid)
+
+```python
+# BAD: Default configuration deep in the call stack
+class StatisticsService:
+    def __init__(self, repo: str, metadata_service: MetadataService):
+        self.repo = repo
+        self.metadata_service = metadata_service
+
+    def collect_all_statistics(
+        self,
+        config_path: Optional[str] = None,
+        days_back: int = 30,  # ❌ Default here
+        label: str = DEFAULT_PR_LABEL,  # ❌ Default here
+        base_branch: str = "main"  # ❌ Default here
+    ):
+        # Uses defaults if caller doesn't specify
+        ...
+```
+
+**Problems:**
+- **Silent failures**: Caller forgets to pass `base_branch`, gets unexpected "main" instead of their intended branch
+- **Configuration drift**: Different call sites may assume different defaults
+- **Hard to trace**: Where did this value come from? Explicit parameter or default?
+- **Testing issues**: Tests pass with defaults, production fails with actual values
+- **Unclear intent**: Did caller want "main" or did they forget to specify?
+
+### Recommended Pattern (✅ Use This)
+
+```python
+# GOOD: Configuration flows from constructor (set once) or is required per-call
+
+class StatisticsService:
+    def __init__(
+        self,
+        repo: str,
+        metadata_service: MetadataService,
+        project_repository: ProjectRepository,
+        base_branch: str  # ✅ Required in constructor - set once for service lifetime
+    ):
+        """All configuration required at construction"""
+        self.repo = repo
+        self.metadata_service = metadata_service
+        self.project_repository = project_repository
+        self.base_branch = base_branch  # ✅ Stored, used by all methods
+
+    def collect_all_statistics(
+        self,
+        config_path: Optional[str],  # ✅ Truly optional - None has meaning
+        days_back: int,  # ✅ Required - caller must decide
+        label: str  # ✅ Required - caller must decide
+    ) -> StatisticsReport:
+        """No defaults - uses instance variables or requires parameters"""
+        # ✅ Uses instance variable set in constructor
+        base_branch = self.base_branch
+
+        # ✅ All parameters were required, no ambiguity
+        return self._collect_statistics(config_path, days_back, label, base_branch)
+```
+
+**Configuration flows from the top:**
+```python
+# In __main__.py - Entry point sets defaults ONCE
+def main():
+    args = parse_args()
+
+    # ✅ Defaults only at entry point, explicit about source
+    repo = args.repo or os.environ.get("GITHUB_REPOSITORY", "")
+    base_branch = args.base_branch or os.environ.get("BASE_BRANCH", "main")
+    days_back = args.days_back or int(os.environ.get("STATS_DAYS_BACK", "30"))
+    label = args.label or os.environ.get("PR_LABEL", "claudestep")
+
+    # ✅ Pass everything explicitly down the stack
+    return cmd_statistics(
+        gh=gh,
+        repo=repo,
+        base_branch=base_branch,
+        days_back=days_back,
+        label=label
+    )
+
+# In commands/statistics.py - Receives explicit values
+def cmd_statistics(
+    gh: GitHubActionsHelper,
+    repo: str,
+    base_branch: str,  # ✅ Required - no default
+    days_back: int,  # ✅ Required - no default
+    label: str  # ✅ Required - no default
+) -> int:
+    """All configuration passed explicitly"""
+    # ✅ Create service with configuration
+    service = StatisticsService(repo, metadata_service, project_repo, base_branch)
+
+    # ✅ Call with explicit parameters
+    report = service.collect_all_statistics(
+        config_path=None,
+        days_back=days_back,
+        label=label
+    )
+```
+
+### Benefits of Explicit Configuration Flow
+
+✅ **Single source of truth**: Defaults defined once at entry point
+
+✅ **Traceable**: Easy to see where values come from (CLI arg, env var, or hardcoded default)
+
+✅ **Intentional**: Every caller must consciously provide or accept values
+
+✅ **Fail fast**: Missing configuration caught at entry point, not deep in call stack
+
+✅ **Testable**: Tests must explicitly specify values, catching assumptions
+
+✅ **No surprises**: What caller passes is what service uses - no hidden defaults
+
+### When Defaults Are Acceptable
+
+Use defaults only in these specific cases:
+
+1. **Entry point only**: CLI argument parsers, main() functions
+   ```python
+   # ✅ OK: Default at entry point
+   parser.add_argument("--days-back", type=int, default=30)
+   ```
+
+2. **True behavioral flags**: Optional features that are genuinely off/on
+   ```python
+   # ✅ OK: Feature flag with clear default
+   def format_output(data: dict, include_debug: bool = False):
+       # Debug output is optional, False is the natural default
+   ```
+
+3. **Backward compatibility**: When extending existing APIs
+   ```python
+   # ✅ OK: New parameter defaults to old behavior
+   def legacy_api(required: str, new_feature: bool = False):
+       # False preserves existing behavior
+   ```
+
+**Avoid defaults for:**
+- Configuration values (branch names, timeouts, limits)
+- Business logic parameters (user IDs, project names, dates)
+- Any value where the caller should make a conscious choice
+
+### Configuration Checklist
+
+When adding a new parameter, ask:
+
+- [ ] Should this be in the constructor (applies to all operations)?
+- [ ] Should this be a method parameter (varies per call)?
+- [ ] Does this need a default, or should it be required?
+- [ ] If it has a default, is it truly optional or just convenient?
+- [ ] Will callers understand what happens if they omit this?
+- [ ] Can this lead to silent failures if the wrong default is used?
+
+**Default to making parameters required** - only add defaults with clear justification.
+
 ## Environment Variables and Configuration
 
 ### Principle: Services Should Not Read Environment Variables
