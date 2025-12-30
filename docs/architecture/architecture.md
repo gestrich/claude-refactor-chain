@@ -6,6 +6,7 @@ This document describes the architectural decisions and conventions used in the 
 
 - [Action Organization](#action-organization)
 - [Python-First Approach](#python-first-approach)
+- [Service Layer Pattern (Martin Fowler)](#service-layer-pattern-martin-fowler)
 - [Command Dispatcher Pattern](#command-dispatcher-pattern)
 - [Spec File Source of Truth](#spec-file-source-of-truth)
 - [Data Flow](#data-flow)
@@ -247,6 +248,269 @@ def test_progress_bar():
 ```
 
 **Cannot test YAML**: You'd have to run the entire GitHub Action workflow to verify behavior.
+
+---
+
+## Service Layer Pattern (Martin Fowler)
+
+### Convention: Layered Architecture with Service Layer
+
+ClaudeStep follows Martin Fowler's **Service Layer pattern** from "Patterns of Enterprise Application Architecture" (2002). This architectural pattern defines the application's boundary with a layer of services that establishes available operations and coordinates responses.
+
+**Reference**: [Service Layer - Martin Fowler's PoEAA Catalog](https://martinfowler.com/eaaCatalog/serviceLayer.html)
+
+### What is Service Layer?
+
+From Fowler's catalog:
+
+> "Defines an application's boundary with a layer of services that establishes a set of available operations and coordinates the application's response in each operation."
+
+The Service Layer pattern:
+- **Encapsulates business logic** in service classes
+- **Coordinates operations** across domain and infrastructure layers
+- **Provides a unified API** for different client types (CLI, API, etc.)
+- **Manages transactions** and orchestrates responses
+
+### ClaudeStep's Implementation
+
+ClaudeStep implements Service Layer with a **lightweight, pragmatic approach**:
+
+✅ **We follow the spirit, not the letter** - Rough alignment with Fowler's principles, not dogmatic adherence
+✅ **Service classes encapsulate business logic** - All operations coordinated through services
+✅ **Layered architecture** - Clear separation between CLI, Service, Domain, and Infrastructure
+✅ **Dependency injection** - Services receive dependencies via constructors
+✅ **Python-first** - No framework overhead, just well-organized Python classes
+
+❌ **We don't enforce strict boundaries** - Services can call infrastructure directly when practical
+❌ **No transaction management** - Operations are simple enough not to require transaction coordination
+❌ **No complex service contracts** - Services use simple Python methods, not formal interfaces
+
+### Layer Responsibilities
+
+ClaudeStep's architecture consists of four layers:
+
+#### 1. CLI Layer (`cli/`)
+- **Purpose**: Thin orchestration layer - entry point for user interactions
+- **Responsibilities**:
+  - Parse command-line arguments
+  - Read environment variables
+  - Instantiate services with their dependencies
+  - Coordinate service method calls to fulfill commands
+  - Write GitHub Actions outputs
+  - Return exit codes
+- **What it does NOT do**:
+  - ❌ Implement business logic
+  - ❌ Make API calls directly
+  - ❌ Manipulate data structures
+  - ❌ Store state
+
+**Example**:
+```python
+def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
+    # Instantiate services
+    task_service = TaskManagementService(repo, metadata_service)
+    reviewer_service = ReviewerManagementService(repo, metadata_service)
+
+    # Orchestrate operations
+    task = task_service.find_next_available_task(spec_content)
+    reviewer = reviewer_service.find_available_reviewer(reviewers, label, project)
+
+    # Write outputs and return
+    gh.write_output("task_description", task.description)
+    return 0
+```
+
+#### 2. Service Layer (`application/services/`)
+- **Purpose**: Business logic and use case orchestration
+- **Responsibilities**:
+  - Encapsulate business operations (task management, reviewer assignment, etc.)
+  - Coordinate across domain models and infrastructure
+  - Aggregate data from multiple sources (GitHub API, metadata store, filesystem)
+  - Transform data using domain models
+  - Maintain operation state through instance variables
+- **What it does NOT do**:
+  - ❌ Parse command-line arguments
+  - ❌ Write GitHub Actions outputs
+  - ❌ Implement low-level Git/GitHub operations (delegates to infrastructure)
+
+**Example**:
+```python
+class TaskManagementService:
+    """Service Layer class for task management operations.
+
+    Coordinates task finding, marking, and tracking across
+    spec files and metadata storage.
+    """
+
+    def __init__(self, repo: str, metadata_service: MetadataService):
+        self.repo = repo
+        self.metadata_service = metadata_service
+
+    def find_next_available_task(self, spec_content: str) -> TaskMetadata:
+        # Business logic: parse spec, check metadata, find available task
+        tasks = self._parse_tasks(spec_content)
+        in_progress = self.metadata_service.get_in_progress_tasks()
+        return self._find_next(tasks, in_progress)
+```
+
+#### 3. Domain Layer (`domain/`)
+- **Purpose**: Core business models and rules
+- **Responsibilities**:
+  - Define data structures (dataclasses, models)
+  - Implement formatting methods (Slack, JSON, markdown)
+  - Define business exceptions
+  - Store configuration schemas
+  - Provide computed properties
+- **What it does NOT do**:
+  - ❌ Make API calls
+  - ❌ Read/write files
+  - ❌ Execute shell commands
+  - ❌ Access external systems
+
+**Example**:
+```python
+@dataclass
+class ProjectMetadata:
+    """Domain model for project metadata."""
+    project: str
+    spec_path: str
+    total_tasks: int
+    completed_tasks: int
+
+    def format_for_slack(self) -> str:
+        """Format project data for Slack display."""
+        return f"*{self.project}*: {self.completed_tasks}/{self.total_tasks} tasks"
+```
+
+#### 4. Infrastructure Layer (`infrastructure/`)
+- **Purpose**: External system integrations
+- **Responsibilities**:
+  - Wrap Git commands
+  - Wrap GitHub CLI (`gh`) operations
+  - Provide filesystem operations
+  - Handle metadata storage (GitHub artifacts)
+  - Execute subprocess calls
+  - Handle infrastructure errors
+- **What it does NOT do**:
+  - ❌ Implement business logic
+  - ❌ Coordinate multi-step operations
+  - ❌ Make business decisions
+
+**Example**:
+```python
+def get_file_from_branch(repo: str, branch: str, file_path: str) -> Optional[str]:
+    """Infrastructure operation: fetch file via GitHub API."""
+    response = gh_api_call(f"/repos/{repo}/contents/{file_path}?ref={branch}")
+    content = base64.b64decode(response["content"]).decode("utf-8")
+    return content
+```
+
+### Service Class Conventions
+
+All services in ClaudeStep follow consistent patterns:
+
+#### Constructor-Based Dependency Injection
+```python
+class ServiceName:
+    def __init__(self, repo: str, metadata_service: MetadataService):
+        """Initialize service with required dependencies."""
+        self.repo = repo
+        self.metadata_service = metadata_service
+```
+
+#### Services Encapsulate Related Operations
+```python
+class TaskManagementService:
+    """Groups all task-related operations."""
+
+    def find_next_available_task(self, spec_content: str) -> TaskMetadata:
+        pass
+
+    def get_in_progress_task_indices(self, project: str) -> list[int]:
+        pass
+
+    def mark_task_complete(self, spec_content: str, task_index: int) -> str:
+        pass
+```
+
+#### Services Can Depend on Other Services and Infrastructure
+```python
+class StatisticsService:
+    def __init__(self, repo: str, metadata_service: MetadataService):
+        self.repo = repo
+        self.metadata_service = metadata_service  # Service dependency
+
+    def collect_project_stats(self, project: str) -> ProjectStats:
+        # Uses infrastructure directly
+        spec_content = get_file_from_branch(self.repo, "main", f"claude-step/{project}/spec.md")
+
+        # Uses other services
+        metadata = self.metadata_service.get_project(project)
+
+        # Business logic
+        return self._aggregate_statistics(spec_content, metadata)
+```
+
+#### Commands Orchestrate Services, Don't Implement Business Logic
+```python
+# ✅ GOOD: Command orchestrates services
+def cmd_statistics(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
+    metadata_service = MetadataService(metadata_store)
+    stats_service = StatisticsService(repo, metadata_service)
+
+    # Delegate to service
+    report = stats_service.collect_all_statistics(days_back=30)
+
+    # Output results
+    gh.write_output("slack_message", report.format_for_slack())
+    return 0
+
+# ❌ BAD: Command implements business logic
+def cmd_statistics(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
+    # Don't parse, aggregate, or compute in commands
+    projects = find_all_projects()
+    for project in projects:
+        spec = parse_spec_file(project)
+        tasks = count_tasks(spec)
+        # ... more business logic in command
+```
+
+### Benefits of Service Layer Approach
+
+1. **Clear Separation of Concerns** - Each layer has distinct responsibilities
+2. **Testability** - Services can be tested independently with mocked dependencies
+3. **Reusability** - Multiple commands can use the same services
+4. **Maintainability** - Business logic consolidated in service classes, not scattered across commands
+5. **Consistency** - All services follow the same architectural pattern
+6. **Flexibility** - Easy to add new operations or refactor without changing CLI interface
+
+### Example: Full Stack for Task Preparation
+
+```python
+# CLI Layer - Orchestrates the workflow
+def cmd_prepare(args, gh):
+    task_service = TaskManagementService(repo, metadata_service)
+    task = task_service.find_next_available_task(spec_content)
+    gh.write_output("task_description", task.description)
+
+# Service Layer - Implements business logic
+class TaskManagementService:
+    def find_next_available_task(self, spec_content: str) -> TaskMetadata:
+        tasks = self._parse_tasks(spec_content)
+        in_progress = self._get_in_progress_tasks()
+        return self._find_next(tasks, in_progress)
+
+# Domain Layer - Models the data
+@dataclass
+class TaskMetadata:
+    description: str
+    index: int
+    task_id: str
+
+# Infrastructure Layer - Fetches the spec
+def get_file_from_branch(repo: str, branch: str, path: str) -> str:
+    return subprocess.check_output(["gh", "api", f"/repos/{repo}/contents/{path}"])
+```
 
 ---
 
@@ -948,6 +1212,8 @@ class ReviewerManagementService:
 
 **ClaudeStep Architecture** follows these key principles:
 
+✅ **Service Layer Pattern**: Follows Martin Fowler's pattern with a lightweight, pragmatic approach
+✅ **Layered Architecture**: Clear separation between CLI, Service, Domain, and Infrastructure layers
 ✅ **Python-First**: Business logic in Python, YAML as thin wrapper
 ✅ **Command Dispatcher**: Single entry point with subcommands
 ✅ **Multiple Actions**: Organized in subdirectories (`statistics/`, `discovery/`)
