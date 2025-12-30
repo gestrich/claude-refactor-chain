@@ -46,21 +46,6 @@ class StatisticsService:
 
     # Public API methods
 
-    def _load_project_config(
-        self, project_name: str, base_branch: str
-    ) -> Optional[ProjectConfiguration]:
-        """Load project configuration using repository
-
-        Args:
-            project_name: Name of the project
-            base_branch: Base branch to fetch config from
-
-        Returns:
-            ProjectConfiguration domain model, or None if config couldn't be loaded
-        """
-        project = Project(project_name)
-        return self.project_repository.load_configuration(project, base_branch)
-
     def collect_all_statistics(
         self, config_path: Optional[str] = None, days_back: int = 30, label: str = DEFAULT_PR_LABEL
     ) -> StatisticsReport:
@@ -353,6 +338,23 @@ class StatisticsService:
         except Exception as e:
             print(f"  Error: Failed to read from metadata storage: {e}")
             return 0.0
+
+    # Private helper methods
+
+    def _load_project_config(
+        self, project_name: str, base_branch: str
+    ) -> Optional[ProjectConfiguration]:
+        """Load project configuration using repository
+
+        Args:
+            project_name: Name of the project
+            base_branch: Base branch to fetch config from
+
+        Returns:
+            ProjectConfiguration domain model, or None if config couldn't be loaded
+        """
+        project = Project(project_name)
+        return self.project_repository.load_configuration(project, base_branch)
 
     # Static utility methods
 
