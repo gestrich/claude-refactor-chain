@@ -10,7 +10,9 @@ import os
 
 from claudestep.cli.commands.discover import find_all_projects
 from claudestep.domain.config import load_config, validate_spec_format
+from claudestep.domain.project import Project
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
+from claudestep.infrastructure.repositories.project_repository import ProjectRepository
 from claudestep.services.project_detection_service import ProjectDetectionService
 from claudestep.services.reviewer_management_service import ReviewerManagementService
 from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
@@ -32,20 +34,25 @@ def check_project_ready(project_name: str, repo: str) -> bool:
         True if project is ready for work, False otherwise
     """
     try:
-        # Get project paths
-        config_path, spec_path, pr_template_path, project_path = ProjectDetectionService.detect_project_paths(project_name)
+        # Create Project domain model
+        project = Project(project_name)
 
         # Check if files exist
-        if not os.path.exists(config_path):
+        if not os.path.exists(project.config_path):
             print(f"  ⏭️  No configuration file found")
             return False
 
-        if not os.path.exists(spec_path):
+        if not os.path.exists(project.spec_path):
             print(f"  ⏭️  No spec.md found")
             return False
 
+        # Initialize infrastructure
+        metadata_store = GitHubMetadataStore(repo)
+        metadata_service = MetadataService(metadata_store)
+        project_repository = ProjectRepository(repo)
+
         # Load and validate configuration
-        config = load_config(config_path)
+        config = load_config(project.config_path)
         reviewers = config.get("reviewers", [])
 
         if not reviewers:
@@ -54,7 +61,7 @@ def check_project_ready(project_name: str, repo: str) -> bool:
 
         # Validate spec format
         try:
-            validate_spec_format(spec_path)
+            validate_spec_format(project.spec_path)
         except Exception as e:
             print(f"  ⏭️  Invalid spec format: {str(e)}")
             return False
@@ -62,33 +69,39 @@ def check_project_ready(project_name: str, repo: str) -> bool:
         # Use single 'claudestep' label for all projects
         label = "claudestep"
 
-        # Initialize infrastructure
-        metadata_store = GitHubMetadataStore(repo)
-        metadata_service = MetadataService(metadata_store)
+        # Load configuration using repository (for type-safe access)
+        from claudestep.domain.config import load_config_from_string
+        with open(project.config_path, 'r') as f:
+            config_content = f.read()
+        from claudestep.domain.project_configuration import ProjectConfiguration
+        project_config = ProjectConfiguration.from_yaml_string(project, config_content)
 
         # Initialize services
         reviewer_service = ReviewerManagementService(repo, metadata_service)
         task_service = TaskManagementService(repo, metadata_service)
 
         # Check reviewer capacity
-        selected_reviewer, capacity_result = reviewer_service.find_available_reviewer(reviewers, label, project_name)
+        selected_reviewer, capacity_result = reviewer_service.find_available_reviewer(project_config, label, project_name)
 
         if not selected_reviewer:
             print(f"  ⏭️  No reviewer capacity")
             return False
 
-        # Check for available tasks
+        # Load spec and check for available tasks
+        with open(project.spec_path, 'r') as f:
+            spec_content = f.read()
+        from claudestep.domain.spec_content import SpecContent
+        spec = SpecContent(project, spec_content)
+
         in_progress_indices = task_service.get_in_progress_task_indices(label, project_name)
-        next_task = task_service.find_next_available_task(spec_path, in_progress_indices)
+        next_task = task_service.find_next_available_task(spec, in_progress_indices)
 
         if not next_task:
             print(f"  ⏭️  No available tasks")
             return False
 
-        # Count stats for logging
-        with open(spec_path, 'r') as f:
-            spec_content = f.read()
-            uncompleted = spec_content.count('- [ ]')
+        # Get stats for logging
+        uncompleted = spec.pending_tasks
 
         # Get capacity info
         summary = capacity_result.format_summary()

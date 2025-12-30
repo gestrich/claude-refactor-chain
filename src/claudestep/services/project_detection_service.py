@@ -9,6 +9,7 @@ from typing import Optional, Tuple
 
 from claudestep.infrastructure.github.operations import run_gh_command
 from claudestep.services.pr_operations_service import PROperationsService
+from claudestep.domain.project import Project
 
 
 class ProjectDetectionService:
@@ -75,7 +76,7 @@ class ProjectDetectionService:
 
     @staticmethod
     def detect_project_paths(project_name: str) -> Tuple[str, str, str, str]:
-        """Determine project paths from project name
+        """Determine project paths from project name (DEPRECATED - use Project domain model)
 
         Projects must be located in the claude-step/ directory with standard file names.
 
@@ -84,16 +85,20 @@ class ProjectDetectionService:
 
         Returns:
             Tuple of (config_path, spec_path, pr_template_path, project_path)
+
+        Deprecated:
+            Use Project(project_name) and access properties directly instead:
+            - project.config_path
+            - project.spec_path
+            - project.pr_template_path
+            - project.base_path
         """
-        config_path = f"claude-step/{project_name}/configuration.yml"
-        spec_path = f"claude-step/{project_name}/spec.md"
-        pr_template_path = f"claude-step/{project_name}/pr-template.md"
-        project_path = f"claude-step/{project_name}"
+        project = Project(project_name)
 
         print(f"Configuration paths:")
         print(f"  Project: {project_name}")
-        print(f"  Config: {config_path}")
-        print(f"  Spec: {spec_path}")
-        print(f"  PR Template: {pr_template_path}")
+        print(f"  Config: {project.config_path}")
+        print(f"  Spec: {project.spec_path}")
+        print(f"  PR Template: {project.pr_template_path}")
 
-        return config_path, spec_path, pr_template_path, project_path
+        return project.config_path, project.spec_path, project.pr_template_path, project.base_path

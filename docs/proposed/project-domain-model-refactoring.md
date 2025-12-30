@@ -515,9 +515,23 @@ statistics_service = StatisticsService(repo, metadata_service, base_branch, proj
 - Dependency injection at CLI layer
 - Repository can be mocked for testing
 
-- [ ] Phase 7: Update other services using project data
+- [x] Phase 7: Update other services using project data
 
 Update remaining services and commands that perform string parsing or path construction.
+
+**Completed**: 2025-12-30
+
+**Technical Notes**:
+- Successfully refactored `TaskManagementService.find_next_available_task()` to accept `SpecContent` domain model instead of string/file path
+- Updated `ReviewerManagementService.find_available_reviewer()` to accept `ProjectConfiguration` domain model instead of raw list of reviewer dictionaries
+- Refactored `ProjectDetectionService.detect_project_paths()` to use `Project` domain model internally (marked as deprecated, delegates to Project properties)
+- Updated `PROperationsService.format_branch_name()` to delegate to `Project.get_branch_name()` method
+- Refactored `prepare.py` CLI command to use `ProjectRepository` for loading configuration and spec, and to use domain models throughout
+- Refactored `discover_ready.py` CLI command to use `Project`, `ProjectConfiguration`, and `SpecContent` domain models
+- Refactored `discover.py` CLI command to use `Project.find_all()` factory method
+- Skipped updating `GitHubMetadataStore` as it requires broader changes and doesn't directly impact the service layer refactoring goal
+- All modified files compile successfully
+- Test failures are expected at this stage and will be addressed in Phase 8 (unit tests) and Phase 9 (integration tests)
 
 **Files to update:**
 

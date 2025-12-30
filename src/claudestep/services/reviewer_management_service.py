@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from claudestep.services.artifact_operations_service import find_project_artifacts
 from claudestep.services.metadata_service import MetadataService
 from claudestep.domain.models import ReviewerCapacityResult
+from claudestep.domain.project_configuration import ProjectConfiguration
 
 
 class ReviewerManagementService:
@@ -27,12 +28,12 @@ class ReviewerManagementService:
     # Public API methods
 
     def find_available_reviewer(
-        self, reviewers: List[Dict[str, Any]], label: str, project: str
+        self, config: ProjectConfiguration, label: str, project: str
     ) -> tuple[Optional[str], ReviewerCapacityResult]:
         """Find first reviewer with capacity based on artifact metadata
 
         Args:
-            reviewers: List of reviewer dicts with 'username' and 'maxOpenPRs'
+            config: ProjectConfiguration domain model with reviewers
             label: GitHub label to filter PRs
             project: Project name to match
 
@@ -43,8 +44,8 @@ class ReviewerManagementService:
 
         # Initialize reviewer PR lists
         reviewer_prs = defaultdict(list)
-        for reviewer in reviewers:
-            reviewer_prs[reviewer["username"]] = []
+        for reviewer in config.reviewers:
+            reviewer_prs[reviewer.username] = []
 
         # Find open PR artifacts for this project
         artifacts = find_project_artifacts(
@@ -76,9 +77,9 @@ class ReviewerManagementService:
 
         # Build result and find first available reviewer
         selected_reviewer = None
-        for reviewer in reviewers:
-            username = reviewer["username"]
-            max_prs = reviewer["maxOpenPRs"]
+        for reviewer in config.reviewers:
+            username = reviewer.username
+            max_prs = reviewer.max_open_prs
             open_prs = reviewer_prs[username]
             has_capacity = len(open_prs) < max_prs
 

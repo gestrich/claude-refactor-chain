@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import List
 
+from claudestep.domain.project import Project
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 
 
@@ -20,24 +21,21 @@ def find_all_projects(base_dir: str = None) -> List[str]:
     # Auto-detect base directory from environment or use default
     if base_dir is None:
         base_dir = os.environ.get("CLAUDESTEP_PROJECT_DIR", "claude-step")
-    projects = []
 
+    # Check if base directory exists
     if not os.path.exists(base_dir):
         print(f"Base directory '{base_dir}' not found")
-        return projects
+        return []
 
-    # Walk through the base directory
-    for entry in os.listdir(base_dir):
-        project_path = os.path.join(base_dir, entry)
+    # Use Project domain model's find_all factory method
+    projects = Project.find_all(base_dir)
 
-        # Check if it's a directory with a configuration file
-        if os.path.isdir(project_path):
-            config_yml = os.path.join(project_path, "configuration.yml")
-            if os.path.exists(config_yml):
-                projects.append(entry)
-                print(f"Found project: {entry}")
+    # Log found projects
+    for project in projects:
+        print(f"Found project: {project.name}")
 
-    return sorted(projects)
+    # Return just the names for backward compatibility
+    return [project.name for project in projects]
 
 
 def main():

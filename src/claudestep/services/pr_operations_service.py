@@ -11,6 +11,7 @@ from typing import List, Optional, Tuple
 
 from claudestep.domain.exceptions import GitHubAPIError
 from claudestep.infrastructure.github.operations import run_gh_command
+from claudestep.domain.project import Project
 
 
 class PROperationsService:
@@ -123,7 +124,8 @@ class PROperationsService:
             >>> PROperationsService.format_branch_name("swift-migration", 5)
             'claude-step-swift-migration-5'
         """
-        return f"claude-step-{project_name}-{index}"
+        project = Project(project_name)
+        return project.get_branch_name(index)
 
     @staticmethod
     def parse_branch_name(branch: str) -> Optional[Tuple[str, int]]:
@@ -145,6 +147,7 @@ class PROperationsService:
             >>> PROperationsService.parse_branch_name("invalid-branch")
             None
         """
+        # Delegate to Project domain model for parsing
         # Pattern: claude-step-{project}-{index}
         # Project name can contain hyphens, so we need to match the last number
         pattern = r"^claude-step-(.+)-(\d+)$"

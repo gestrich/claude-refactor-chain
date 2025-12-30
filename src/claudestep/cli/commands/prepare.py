@@ -11,10 +11,12 @@ import os
 
 from claudestep.domain.config import load_config, load_config_from_string, validate_spec_format, validate_spec_format_from_string
 from claudestep.domain.exceptions import ConfigurationError, FileNotFoundError, GitError, GitHubAPIError
+from claudestep.domain.project import Project
 from claudestep.infrastructure.git.operations import run_git_command
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 from claudestep.infrastructure.github.operations import ensure_label_exists, file_exists_in_branch, get_file_from_branch
 from claudestep.infrastructure.metadata.github_metadata_store import GitHubMetadataStore
+from claudestep.infrastructure.repositories.project_repository import ProjectRepository
 from claudestep.services.metadata_service import MetadataService
 from claudestep.services.pr_operations_service import PROperationsService
 from claudestep.services.project_detection_service import ProjectDetectionService
@@ -45,6 +47,7 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         # Initialize infrastructure
         metadata_store = GitHubMetadataStore(repo)
         metadata_service = MetadataService(metadata_store)
+        project_repository = ProjectRepository(repo)
 
         # Initialize services
         project_service = ProjectDetectionService(repo)
@@ -91,26 +94,23 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
             gh.set_error("project_name must be provided (use discovery action to find projects)")
             return 1
 
-        # Determine paths (always use claude-step/ directory structure)
-        config_path, spec_path, pr_template_path, project_path = ProjectDetectionService.detect_project_paths(detected_project)
+        # Create Project domain model
+        project = Project(detected_project)
 
         # Validate spec files exist in base branch before proceeding
         base_branch = os.environ.get("BASE_BRANCH", "main")
         print(f"Validating spec files exist in branch '{base_branch}'...")
 
         # Check if spec.md exists
-        spec_file_path = f"claude-step/{detected_project}/spec.md"
-        config_file_path = f"claude-step/{detected_project}/configuration.yml"
-
-        spec_exists = file_exists_in_branch(repo, base_branch, spec_file_path)
-        config_exists = file_exists_in_branch(repo, base_branch, config_file_path)
+        spec_exists = file_exists_in_branch(repo, base_branch, project.spec_path)
+        config_exists = file_exists_in_branch(repo, base_branch, project.config_path)
 
         if not spec_exists or not config_exists:
             missing_files = []
             if not spec_exists:
-                missing_files.append(f"  - {spec_file_path}")
+                missing_files.append(f"  - {project.spec_path}")
             if not config_exists:
-                missing_files.append(f"  - {config_file_path}")
+                missing_files.append(f"  - {project.config_path}")
 
             error_msg = f"""Error: Spec files not found in branch '{base_branch}'
 Required files:
@@ -125,37 +125,35 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
         # === STEP 2: Load and Validate Configuration ===
         print("\n=== Step 2/6: Loading configuration ===")
 
-        # Fetch configuration from GitHub API
-        config_content = get_file_from_branch(repo, base_branch, config_file_path)
-        if not config_content:
-            gh.set_error(f"Failed to fetch configuration file from branch '{base_branch}'")
+        # Load configuration using ProjectRepository
+        config = project_repository.load_configuration(project, base_branch)
+        if not config:
+            gh.set_error(f"Failed to load configuration file from branch '{base_branch}'")
             return 1
 
-        config = load_config_from_string(config_content, config_file_path)
-        reviewers = config.get("reviewers")
         slack_webhook_url = os.environ.get("SLACK_WEBHOOK_URL", "")  # From action input
         label = os.environ.get("PR_LABEL", "claudestep")  # From action input, defaults to "claudestep"
 
-        if not reviewers:
+        if not config.reviewers:
             raise ConfigurationError("Missing required field: reviewers")
 
         # Ensure label exists
         ensure_label_exists(label, gh)
 
-        # Fetch and validate spec format from GitHub API
-        spec_content = get_file_from_branch(repo, base_branch, spec_file_path)
-        if not spec_content:
-            gh.set_error(f"Failed to fetch spec file from branch '{base_branch}'")
+        # Load and validate spec using ProjectRepository
+        spec = project_repository.load_spec(project, base_branch)
+        if not spec:
+            gh.set_error(f"Failed to load spec file from branch '{base_branch}'")
             return 1
 
-        validate_spec_format_from_string(spec_content, spec_file_path)
+        validate_spec_format_from_string(spec.content, project.spec_path)
 
-        print(f"✅ Configuration loaded: label={label}, reviewers={len(reviewers)}")
+        print(f"✅ Configuration loaded: label={label}, reviewers={len(config.reviewers)}")
 
         # === STEP 3: Check Reviewer Capacity ===
         print("\n=== Step 3/6: Checking reviewer capacity ===")
 
-        selected_reviewer, capacity_result = reviewer_service.find_available_reviewer(reviewers, label, detected_project)
+        selected_reviewer, capacity_result = reviewer_service.find_available_reviewer(config, label, detected_project)
 
         summary = capacity_result.format_summary()
         gh.write_step_summary(summary)
@@ -179,7 +177,7 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
         if in_progress_indices:
             print(f"Found in-progress tasks: {sorted(in_progress_indices)}")
 
-        result = task_service.find_next_available_task(spec_content, in_progress_indices)
+        result = task_service.find_next_available_task(spec, in_progress_indices)
 
         if not result:
             gh.write_output("has_task", "false")
@@ -205,7 +203,7 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
         # === STEP 6: Prepare Claude Prompt ===
         print("\n=== Step 6/6: Preparing Claude prompt ===")
 
-        # Create the prompt (spec_content already fetched in Step 2)
+        # Create the prompt using spec content
         claude_prompt = f"""Complete the following task from spec.md:
 
 Task: {task}
@@ -213,7 +211,7 @@ Task: {task}
 Instructions: Read the entire spec.md file below to understand both WHAT to do and HOW to do it. Follow all guidelines and patterns specified in the document.
 
 --- BEGIN spec.md ---
-{spec_content}
+{spec.content}
 --- END spec.md ---
 
 Now complete the task '{task}' following all the details and instructions in the spec.md file above. When you're done, use git add and git commit to commit your changes."""
@@ -222,12 +220,12 @@ Now complete the task '{task}' following all the details and instructions in the
 
         # === Write All Outputs ===
         gh.write_output("project_name", detected_project)
-        gh.write_output("project_path", project_path)
-        gh.write_output("config_path", config_path)
-        gh.write_output("spec_path", spec_path)
-        gh.write_output("pr_template_path", pr_template_path)
+        gh.write_output("project_path", project.base_path)
+        gh.write_output("config_path", project.config_path)
+        gh.write_output("spec_path", project.spec_path)
+        gh.write_output("pr_template_path", project.pr_template_path)
         gh.write_output("label", label)
-        gh.write_output("reviewers_json", json.dumps(reviewers))
+        gh.write_output("reviewers_json", json.dumps([{"username": r.username, "maxOpenPRs": r.max_open_prs} for r in config.reviewers]))
         gh.write_output("slack_webhook_url", slack_webhook_url)
         gh.write_output("task", task)
         gh.write_output("task_index", str(task_index))
