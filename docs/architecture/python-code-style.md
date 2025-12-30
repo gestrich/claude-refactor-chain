@@ -988,6 +988,218 @@ This approach aligns with:
 - **Domain-Driven Design**: Rich domain models with behavior
 - **Dependency Inversion**: Services depend on domain abstractions, not infrastructure
 
+## Datetime and Timezone Handling
+
+### Principle: Always Use Timezone-Aware Datetimes
+
+**All datetime objects in ClaudeStep must be timezone-aware.** Naive datetimes (without timezone information) are not allowed and will raise validation errors.
+
+### Anti-Pattern (❌ Avoid)
+
+```python
+# BAD: Naive datetime - no timezone information
+from datetime import datetime
+
+now = datetime.now()  # ❌ Naive datetime
+timestamp = datetime(2025, 1, 15, 10, 30, 0)  # ❌ Naive datetime
+utc_now = datetime.utcnow()  # ❌ Deprecated and naive
+```
+
+**Problems with naive datetimes:**
+- **Ambiguous**: Which timezone does this represent?
+- **Comparison errors**: Cannot compare naive and timezone-aware datetimes
+- **Data bugs**: Serialized without timezone, leading to misinterpretation
+- **Not interoperable**: Different systems may interpret differently
+
+### Recommended Pattern (✅ Use This)
+
+```python
+# GOOD: Always use timezone-aware datetimes
+from datetime import datetime, timezone
+
+# Creating new timestamps - always use UTC
+now = datetime.now(timezone.utc)  # ✅ Timezone-aware
+timestamp = datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc)  # ✅ Timezone-aware
+
+# Parsing ISO 8601 timestamps with timezone
+from claudestep.domain.models import parse_iso_timestamp
+
+# Parse with helper function (handles both "Z" and "+00:00" formats)
+parsed_dt = parse_iso_timestamp("2025-01-15T10:30:00Z")  # ✅ Returns timezone-aware
+parsed_dt2 = parse_iso_timestamp("2025-01-15T10:30:00+00:00")  # ✅ Also works
+
+# Serializing to ISO 8601 with timezone
+timestamp_str = now.isoformat()  # ✅ Produces "2025-01-15T10:30:00+00:00"
+```
+
+### Timezone Convention
+
+**Always use UTC** for internal operations and storage:
+
+```python
+# ✅ GOOD: Use UTC for all internal timestamps
+created_at = datetime.now(timezone.utc)
+last_updated = datetime.now(timezone.utc)
+
+# Store in metadata as ISO 8601 with timezone
+metadata = {
+    "created_at": created_at.isoformat(),  # "2025-01-15T10:30:00+00:00"
+    "last_updated": last_updated.isoformat()
+}
+```
+
+**Why UTC:**
+- **Unambiguous**: UTC has no daylight saving time
+- **Standard**: Industry best practice for system timestamps
+- **Interoperable**: Works across all timezones
+- **Comparable**: All timestamps in same timezone can be directly compared
+
+### Domain Model Validation
+
+All domain models with datetime fields include automatic validation:
+
+```python
+from dataclasses import dataclass
+from datetime import datetime, timezone
+
+@dataclass
+class MyModel:
+    created_at: datetime
+
+    def __post_init__(self):
+        """Validate that datetime fields are timezone-aware."""
+        if self.created_at.tzinfo is None:
+            raise ValueError(
+                f"created_at must be timezone-aware. "
+                f"Use datetime.now(timezone.utc) or parse_iso_timestamp()"
+            )
+```
+
+This validation prevents naive datetimes from being created, catching timezone bugs immediately.
+
+### Common Pitfalls to Avoid
+
+❌ **Don't use `datetime.now()` without timezone:**
+```python
+# BAD
+timestamp = datetime.now()  # ❌ Naive datetime
+```
+
+✅ **Use `datetime.now(timezone.utc)` instead:**
+```python
+# GOOD
+timestamp = datetime.now(timezone.utc)  # ✅ Timezone-aware UTC
+```
+
+❌ **Don't use deprecated `datetime.utcnow()`:**
+```python
+# BAD
+timestamp = datetime.utcnow()  # ❌ Deprecated and naive
+```
+
+✅ **Use `datetime.now(timezone.utc)` instead:**
+```python
+# GOOD
+timestamp = datetime.now(timezone.utc)  # ✅ Modern and timezone-aware
+```
+
+❌ **Don't parse ISO 8601 strings directly with `fromisoformat()`:**
+```python
+# BAD - fromisoformat() doesn't handle "Z" suffix
+timestamp = datetime.fromisoformat("2025-01-15T10:30:00Z")  # ❌ Raises ValueError
+```
+
+✅ **Use the `parse_iso_timestamp()` helper:**
+```python
+# GOOD
+from claudestep.domain.models import parse_iso_timestamp
+timestamp = parse_iso_timestamp("2025-01-15T10:30:00Z")  # ✅ Handles "Z" and "+00:00"
+```
+
+### ISO 8601 Serialization Format
+
+When serializing datetimes to JSON or strings, always include timezone information:
+
+```python
+# ✅ GOOD: ISO 8601 with timezone
+timestamp = datetime.now(timezone.utc)
+json_value = timestamp.isoformat()  # "2025-01-15T10:30:00+00:00"
+
+# The isoformat() method automatically includes the timezone suffix
+# - UTC timezone: "+00:00" suffix
+# - "Z" suffix is equivalent to "+00:00" (both represent UTC)
+```
+
+**Acceptable formats:**
+- `2025-01-15T10:30:00+00:00` (preferred - Python's default)
+- `2025-01-15T10:30:00Z` (also valid - common in APIs)
+
+**Invalid formats:**
+- `2025-01-15T10:30:00` ❌ (no timezone - ambiguous)
+
+### Helper Function: parse_iso_timestamp()
+
+Use the centralized helper function for parsing ISO 8601 timestamps:
+
+```python
+from claudestep.domain.models import parse_iso_timestamp
+from datetime import datetime, timezone
+
+# Handles both "Z" and "+00:00" timezone formats
+dt1 = parse_iso_timestamp("2025-01-15T10:30:00Z")
+dt2 = parse_iso_timestamp("2025-01-15T10:30:00+00:00")
+
+# Both return timezone-aware datetime objects
+assert dt1.tzinfo is not None  # ✅ Always timezone-aware
+assert dt2.tzinfo is not None  # ✅ Always timezone-aware
+
+# For backward compatibility, also handles naive timestamps (adds UTC)
+# But all new code should only produce timezone-aware timestamps
+dt3 = parse_iso_timestamp("2025-01-15T10:30:00")  # Adds timezone.utc
+```
+
+### Testing with Datetimes
+
+In tests, always create timezone-aware datetimes:
+
+```python
+# ✅ GOOD: Timezone-aware test fixtures
+from datetime import datetime, timezone
+
+def test_my_feature():
+    # Create test timestamp with timezone
+    test_time = datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+
+    # Use in assertions
+    result = my_function(test_time)
+    assert result.created_at == test_time
+```
+
+### Benefits
+
+✅ **Prevents comparison errors**: No more "can't compare offset-naive and offset-aware datetimes"
+
+✅ **Unambiguous data**: Timestamps clearly indicate their timezone
+
+✅ **ISO 8601 compliant**: Standard format works everywhere
+
+✅ **Interoperable**: Data works across systems and timezones
+
+✅ **Self-describing**: Data itself indicates timezone, not relying on implicit conventions
+
+✅ **Validated**: Domain models prevent naive datetimes at construction time
+
+### Checklist
+
+When working with datetimes:
+
+- [ ] Use `datetime.now(timezone.utc)` for new timestamps (never `datetime.now()`)
+- [ ] Use `parse_iso_timestamp()` when parsing ISO 8601 strings
+- [ ] Always create test datetimes with `tzinfo=timezone.utc`
+- [ ] Verify `.isoformat()` includes timezone suffix in output
+- [ ] Never use deprecated `datetime.utcnow()`
+- [ ] Check that domain models validate timezone-aware datetimes in `__post_init__`
+
 ## Related Documentation
 
 - See [docs/completed/reorganize-service-methods.md](../completed/reorganize-service-methods.md) for the history of applying these principles to the codebase

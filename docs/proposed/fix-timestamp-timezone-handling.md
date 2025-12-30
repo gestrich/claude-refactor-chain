@@ -165,22 +165,46 @@ Test results:
 
 Expected outcome: ✅ Future code cannot create naive datetimes in domain models - all datetime fields are validated at construction time
 
-- [ ] Phase 6: Document timezone handling convention
+- [x] Phase 6: Document timezone handling convention ✅ **COMPLETED**
 
 Add documentation about timezone handling to architecture docs:
 
-Files to modify:
-- `docs/architecture/python-code-style.md` - Add "Datetime and Timezone Handling" section
-- `docs/architecture/metadata-schema.md` - Update timestamp field documentation
+Files modified:
+- `docs/architecture/python-code-style.md` - Added comprehensive "Datetime and Timezone Handling" section (lines 991-1202)
+- `docs/architecture/metadata-schema.md` - Updated "Timestamp Format" section with detailed timezone requirements (lines 194-224)
 
-Content to add:
-- Always use timezone-aware datetimes (never naive)
-- Always use UTC for storage and internal operations
-- ISO 8601 format with timezone for JSON serialization
-- Example of correct usage
-- Common pitfalls to avoid
+Technical implementation:
+- **python-code-style.md** - Added new section covering:
+  - Principle: Always use timezone-aware datetimes (never naive)
+  - Anti-patterns vs. recommended patterns with code examples
+  - Timezone convention: Always use UTC for internal operations
+  - Domain model validation with `__post_init__` examples
+  - Common pitfalls to avoid (datetime.now(), datetime.utcnow(), fromisoformat())
+  - ISO 8601 serialization format (acceptable: "+00:00" or "Z", invalid: no timezone)
+  - Helper function documentation: parse_iso_timestamp()
+  - Testing guidelines with timezone-aware datetimes
+  - Benefits checklist
+  - Developer checklist for working with datetimes
 
-Expected outcome: Clear guidance for future development
+- **metadata-schema.md** - Updated "Timestamp Format" section with:
+  - Clear requirement: All timestamps MUST include timezone information
+  - Format specifications with examples ("+00:00" preferred, "Z" also valid)
+  - Invalid format example (no timezone)
+  - Python implementation guidelines (serialization and parsing)
+  - Rationale: Why timezone-aware timestamps are required
+  - Domain model validation explanation
+  - Cross-reference to python-code-style.md for detailed guidelines
+
+Test results:
+- ✅ All 137 timezone-related tests passed:
+  - 32 hybrid metadata model tests
+  - 48 domain model tests
+  - 57 statistics service tests
+- ✅ Documentation is clear, comprehensive, and actionable
+- ✅ Examples show both anti-patterns (what to avoid) and recommended patterns (what to use)
+- ✅ Cross-references between documents provide complete coverage
+
+Expected outcome: ✅ Clear guidance for future development - developers have comprehensive documentation on timezone handling with practical examples, validation patterns, and a checklist for compliance
 
 - [ ] Phase 7: Validation
 

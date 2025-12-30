@@ -193,12 +193,35 @@ Each object in the `ai_operations` array represents a single AI operation:
 
 ### Timestamp Format
 
+**All timestamps MUST include timezone information.** Naive timestamps (without timezone) are not allowed.
+
 All timestamps use ISO 8601 format with timezone:
 
-- **Format**: `YYYY-MM-DDTHH:MM:SSZ` (UTC)
-- **Example**: `2025-01-15T10:30:00Z`
-- Python: Use `datetime.isoformat()` for serialization
-- Python: Use `datetime.fromisoformat(s.replace("Z", "+00:00"))` for parsing
+- **Format**: `YYYY-MM-DDTHH:MM:SS+00:00` (preferred) or `YYYY-MM-DDTHH:MM:SSZ` (UTC)
+- **Examples**:
+  - `2025-01-15T10:30:00+00:00` (preferred - Python's default)
+  - `2025-01-15T10:30:00Z` (also valid - equivalent to +00:00)
+- **Invalid**: `2025-01-15T10:30:00` ❌ (no timezone - ambiguous and will cause errors)
+
+**Python Implementation:**
+- **Serialization**: Use `datetime.now(timezone.utc).isoformat()`
+  - Produces: `"2025-01-15T10:30:00+00:00"`
+- **Parsing**: Use `parse_iso_timestamp()` helper from `claudestep.domain.models`
+  - Handles both "Z" and "+00:00" formats
+  - Always returns timezone-aware datetime objects
+  - Example: `parse_iso_timestamp("2025-01-15T10:30:00Z")`
+
+**Why Timezone-Aware Timestamps:**
+- **Unambiguous**: Clear what timezone each timestamp represents
+- **ISO 8601 compliant**: Standard format recognized everywhere
+- **Prevents comparison errors**: Python cannot compare naive and timezone-aware datetimes
+- **Self-describing**: Data itself indicates timezone, not relying on implicit conventions
+- **Interoperable**: Works correctly across systems and timezones
+
+**Domain Model Validation:**
+All domain models with datetime fields validate that they are timezone-aware in their `__post_init__` methods. Attempting to create a domain model with a naive datetime will raise a `ValueError`.
+
+See [docs/architecture/python-code-style.md](./python-code-style.md#datetime-and-timezone-handling) for detailed guidelines on datetime handling.
 
 ## PR State Values
 
