@@ -4,13 +4,12 @@ Follows Service Layer pattern (Fowler, PoEAA) - encapsulates business logic
 for task finding, marking, and tracking operations.
 """
 
-import hashlib
 import os
 import re
 from typing import Optional
 
 from claudestep.domain.exceptions import FileNotFoundError
-from claudestep.domain.spec_content import SpecContent
+from claudestep.domain.spec_content import SpecContent, generate_task_hash
 from claudestep.services.core.pr_service import PRService
 
 
@@ -42,8 +41,9 @@ class TaskService:
             skip_indices: Set of task indices to skip (in-progress tasks)
 
         Returns:
-            Tuple of (task_index, task_text) or None if no available task found
+            Tuple of (task_index, task_text, task_hash) or None if no available task found
             task_index is 1-based position in spec.md
+            task_hash is 8-character hash of task description
         """
         if skip_indices is None:
             skip_indices = set()
@@ -55,7 +55,7 @@ class TaskService:
                 if not skipped_task.is_completed and skipped_task.index in skip_indices and skipped_task.index < task.index:
                     print(f"Skipping task {skipped_task.index} (already in progress)")
 
-            return (task.index, task.description)
+            return (task.index, task.description, task.task_hash)
 
         return None
 
@@ -134,15 +134,8 @@ class TaskService:
             >>> TaskService.generate_task_hash("")
             'e3b0c442'  # Hash of empty string
         """
-        # Normalize whitespace: strip leading/trailing, collapse internal whitespace
-        normalized = " ".join(description.split())
-
-        # Compute SHA-256 hash of normalized description
-        hash_bytes = hashlib.sha256(normalized.encode('utf-8')).digest()
-
-        # Convert to hex and truncate to 8 characters
-        # 8 hex chars = 32 bits = ~4 billion combinations (sufficient for task lists)
-        return hash_bytes.hex()[:8]
+        # Delegate to domain model function
+        return generate_task_hash(description)
 
     @staticmethod
     def generate_task_id(task: str, max_length: int = 30) -> str:

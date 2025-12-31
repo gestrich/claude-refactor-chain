@@ -3,7 +3,7 @@
 import pytest
 
 from claudestep.domain.project import Project
-from claudestep.domain.spec_content import SpecTask, SpecContent
+from claudestep.domain.spec_content import SpecTask, SpecContent, generate_task_hash
 
 
 class TestSpecTaskFromMarkdownLine:
@@ -24,6 +24,7 @@ class TestSpecTaskFromMarkdownLine:
         assert task.description == "Implement feature X"
         assert task.is_completed is False
         assert task.raw_line == line
+        assert task.task_hash == generate_task_hash("Implement feature X")
 
     def test_from_markdown_line_with_completed_task_lowercase_x(self):
         """Should parse completed task with lowercase [x]"""
@@ -138,7 +139,8 @@ class TestSpecTaskToMarkdownLine:
             index=1,
             description="My task",
             is_completed=False,
-            raw_line="original"
+            raw_line="original",
+            task_hash=generate_task_hash("My task")
         )
 
         # Act
@@ -154,7 +156,8 @@ class TestSpecTaskToMarkdownLine:
             index=1,
             description="My task",
             is_completed=True,
-            raw_line="original"
+            raw_line="original",
+            task_hash=generate_task_hash("My task")
         )
 
         # Act

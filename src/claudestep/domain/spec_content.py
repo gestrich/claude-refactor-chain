@@ -1,10 +1,41 @@
 """Domain models for spec.md content parsing"""
 
+import hashlib
 import re
 from dataclasses import dataclass
 from typing import List, Optional
 
 from claudestep.domain.project import Project
+
+
+def generate_task_hash(description: str) -> str:
+    """Generate stable hash identifier for a task description.
+
+    Uses SHA-256 hash truncated to 8 characters for readability.
+    This provides a stable identifier that doesn't change when tasks
+    are reordered in spec.md, only when the description itself changes.
+
+    Args:
+        description: Task description text
+
+    Returns:
+        8-character hash string (lowercase hexadecimal)
+
+    Examples:
+        >>> generate_task_hash("Add user authentication")
+        'a3f2b891'
+        >>> generate_task_hash("  Add user authentication  ")
+        'a3f2b891'  # Same hash after whitespace normalization
+    """
+    # Normalize whitespace: strip leading/trailing, collapse internal whitespace
+    normalized = " ".join(description.split())
+
+    # Compute SHA-256 hash of normalized description
+    hash_bytes = hashlib.sha256(normalized.encode('utf-8')).digest()
+
+    # Convert to hex and truncate to 8 characters
+    # 8 hex chars = 32 bits = ~4 billion combinations (sufficient for task lists)
+    return hash_bytes.hex()[:8]
 
 
 @dataclass
@@ -15,6 +46,7 @@ class SpecTask:
     description: str
     is_completed: bool
     raw_line: str  # Original markdown line
+    task_hash: str  # 8-character hash of task description
 
     @classmethod
     def from_markdown_line(cls, line: str, index: int) -> Optional['SpecTask']:
@@ -34,12 +66,14 @@ class SpecTask:
 
         checkbox, description = match.groups()
         is_completed = checkbox.lower() == 'x'
+        description_stripped = description.strip()
 
         return cls(
             index=index,
-            description=description.strip(),
+            description=description_stripped,
             is_completed=is_completed,
-            raw_line=line
+            raw_line=line,
+            task_hash=generate_task_hash(description_stripped)
         )
 
     def to_markdown_line(self) -> str:

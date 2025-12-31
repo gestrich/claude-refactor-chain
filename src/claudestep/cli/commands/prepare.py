@@ -167,8 +167,9 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
             gh.set_notice("No available tasks (all completed or in progress)")
             return 0  # Not an error, just no tasks
 
-        task_index, task = result
+        task_index, task, task_hash = result
         print(f"✅ Found task {task_index}: {task}")
+        print(f"   Task hash: {task_hash}")
 
         # === STEP 5: Create Branch ===
         print("\n=== Step 5/6: Creating branch ===")
