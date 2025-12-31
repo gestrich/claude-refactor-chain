@@ -132,8 +132,7 @@ Available commands:
 - `prepare` - Prepare everything for Claude Code execution
 - `finalize` - Finalize after Claude Code execution (commit, PR, summary)
 - `prepare-summary` - Prepare prompt for PR summary generation
-- `extract-cost` - Extract cost from workflow logs
-- `add-cost-comment` - Post cost breakdown comment to PR
+- `post-pr-comment` - Post unified PR comment with summary and cost breakdown
 - `notify-pr` - Generate Slack notification for created PR
 - `statistics` - Generate statistics and reports
 

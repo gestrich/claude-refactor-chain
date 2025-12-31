@@ -39,14 +39,6 @@ def create_parser() -> argparse.ArgumentParser:
         "prepare-summary",
         help="Prepare prompt for PR summary generation"
     )
-    parser_extract_cost = subparsers.add_parser(
-        "extract-cost",
-        help="Extract cost from workflow logs"
-    )
-    parser_add_cost_comment = subparsers.add_parser(
-        "add-cost-comment",
-        help="Post cost breakdown comment to PR"
-    )
     parser_post_pr_comment = subparsers.add_parser(
         "post-pr-comment",
         help="Post unified PR comment with summary and cost breakdown"

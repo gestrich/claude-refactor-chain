@@ -9,11 +9,9 @@ Run with: python3 -m claudestep <command>
 import os
 import sys
 
-from claudestep.cli.commands.add_cost_comment import cmd_add_cost_comment
 from claudestep.cli.commands.auto_start import cmd_auto_start, cmd_auto_start_summary
 from claudestep.cli.commands.discover import main as cmd_discover
 from claudestep.cli.commands.discover_ready import main as cmd_discover_ready
-from claudestep.cli.commands.extract_cost import cmd_extract_cost
 from claudestep.cli.commands.finalize import cmd_finalize
 from claudestep.cli.commands.notify_pr import cmd_notify_pr
 from claudestep.cli.commands.post_pr_comment import cmd_post_pr_comment
@@ -48,10 +46,6 @@ def main():
         return cmd_finalize(args, gh)
     elif args.command == "prepare-summary":
         return cmd_prepare_summary(args, gh)
-    elif args.command == "extract-cost":
-        return cmd_extract_cost(args, gh)
-    elif args.command == "add-cost-comment":
-        return cmd_add_cost_comment(args, gh)
     elif args.command == "post-pr-comment":
         return cmd_post_pr_comment(args, gh)
     elif args.command == "notify-pr":

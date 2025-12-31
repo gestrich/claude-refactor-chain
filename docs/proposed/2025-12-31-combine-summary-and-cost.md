@@ -170,7 +170,7 @@ Expected outcome: Cleaner workflow with fewer steps, all posting done by Python
 - Build succeeds: `python3 -m claudestep --help` shows all commands
 - Test suite: 700 tests pass (4 pre-existing failures unrelated to this change), coverage at 70.19%
 
-- [ ] Phase 5: Clean up obsolete code
+- [x] Phase 5: Clean up obsolete code
 
 Remove or deprecate old commands and references:
 - Mark `src/claudestep/cli/commands/add_cost_comment.py` as deprecated or remove entirely (replaced by post_pr_comment.py)
@@ -180,6 +180,34 @@ Remove or deprecate old commands and references:
 - Verify `add_pr_summary` input in `action.yml:39-42` still makes sense (controls whether summary is generated)
 
 Expected outcome: Clean codebase with no obsolete commands or dead code
+
+**Technical notes:**
+- Removed obsolete command files:
+  - Deleted `src/claudestep/cli/commands/add_cost_comment.py` (fully replaced by post_pr_comment.py)
+  - Deleted `tests/integration/cli/commands/test_add_cost_comment.py`
+  - Deleted `tests/integration/cli/commands/test_extract_cost.py`
+- Refactored `src/claudestep/cli/commands/extract_cost.py`:
+  - Removed `cmd_extract_cost()` CLI command handler (no longer used in action.yml)
+  - Kept `extract_cost_from_execution()` utility function as it's still imported and used by prepare_summary.py
+  - Updated module docstring to clarify it's now a utility module, not a CLI command
+- Updated CLI routing in `src/claudestep/__main__.py`:
+  - Removed import of `cmd_add_cost_comment`
+  - Removed import of `cmd_extract_cost`
+  - Removed routing for "add-cost-comment" command
+  - Removed routing for "extract-cost" command
+- Updated CLI parser in `src/claudestep/cli/parser.py`:
+  - Removed parser definition for "add-cost-comment"
+  - Removed parser definition for "extract-cost"
+- Updated documentation in `docs/api.md`:
+  - Removed "add-cost-comment" from command list
+  - Removed "extract-cost" from command list
+  - Added "post-pr-comment" with correct description
+- Verified `add_pr_summary` input in action.yml:39-42:
+  - Input still makes sense - controls whether summary generation steps run
+  - When true: both prepare_summary and pr_summary steps execute, post-pr-comment posts combined comment
+  - When false: summary steps are skipped, post-pr-comment posts cost-only comment
+- Build succeeds: `python3 -m claudestep --help` shows only active commands
+- All tests pass: 21 tests for post_pr_comment, 9 tests for prepare_summary
 
 - [ ] Phase 6: Update tests
 
