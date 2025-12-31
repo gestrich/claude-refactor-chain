@@ -631,3 +631,326 @@ class TestGitHubPullRequestList:
         assert filtered.count() == 2
         assert filtered.pull_requests[0].number == 2
         assert filtered.pull_requests[1].number == 4
+
+
+class TestGitHubPullRequestPropertyEnhancements:
+    """Tests for new properties added to GitHubPullRequest in Phase 2
+
+    Tests the domain model enhancements for parsing ClaudeStep-specific
+    information from branch names and PR titles.
+    """
+
+    def test_project_name_with_valid_claudestep_branch(self):
+        """Should extract project name from valid ClaudeStep branch"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="ClaudeStep: Test task",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="claude-step-my-refactor-1"
+        )
+
+        # Act & Assert
+        assert pr.project_name == "my-refactor"
+
+    def test_project_name_with_multipart_project_name(self):
+        """Should handle project names with hyphens"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="claude-step-my-complex-refactor-project-5"
+        )
+
+        # Act & Assert
+        assert pr.project_name == "my-complex-refactor-project"
+
+    def test_project_name_with_invalid_branch_name(self):
+        """Should return None for non-ClaudeStep branch names"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="feature/new-feature"
+        )
+
+        # Act & Assert
+        assert pr.project_name is None
+
+    def test_project_name_with_main_branch(self):
+        """Should return None for main branch"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="main"
+        )
+
+        # Act & Assert
+        assert pr.project_name is None
+
+    def test_project_name_with_no_branch_name(self):
+        """Should return None when head_ref_name is None"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name=None
+        )
+
+        # Act & Assert
+        assert pr.project_name is None
+
+    def test_task_index_with_valid_claudestep_branch(self):
+        """Should extract task index from valid ClaudeStep branch"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="claude-step-my-refactor-5"
+        )
+
+        # Act & Assert
+        assert pr.task_index == 5
+
+    def test_task_index_with_single_digit(self):
+        """Should handle single-digit task indices"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="claude-step-project-1"
+        )
+
+        # Act & Assert
+        assert pr.task_index == 1
+
+    def test_task_index_with_large_number(self):
+        """Should handle large task indices"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="claude-step-project-999"
+        )
+
+        # Act & Assert
+        assert pr.task_index == 999
+
+    def test_task_index_with_invalid_branch_name(self):
+        """Should return None for non-ClaudeStep branch names"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="feature/new-feature"
+        )
+
+        # Act & Assert
+        assert pr.task_index is None
+
+    def test_task_index_with_no_branch_name(self):
+        """Should return None when head_ref_name is None"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name=None
+        )
+
+        # Act & Assert
+        assert pr.task_index is None
+
+    def test_task_description_strips_claudestep_prefix(self):
+        """Should strip 'ClaudeStep: ' prefix from title"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="ClaudeStep: Add user authentication",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[]
+        )
+
+        # Act & Assert
+        assert pr.task_description == "Add user authentication"
+
+    def test_task_description_handles_title_without_prefix(self):
+        """Should return title as-is when no ClaudeStep prefix"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Fix bug in login",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[]
+        )
+
+        # Act & Assert
+        assert pr.task_description == "Fix bug in login"
+
+    def test_task_description_handles_empty_title(self):
+        """Should handle empty title gracefully"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[]
+        )
+
+        # Act & Assert
+        assert pr.task_description == ""
+
+    def test_task_description_handles_prefix_only(self):
+        """Should handle title that is just the prefix"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="ClaudeStep: ",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[]
+        )
+
+        # Act & Assert
+        assert pr.task_description == ""
+
+    def test_task_description_case_sensitive(self):
+        """Should only strip exact prefix (case-sensitive)"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="claudestep: Add feature",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[]
+        )
+
+        # Act & Assert
+        assert pr.task_description == "claudestep: Add feature"
+
+    def test_is_claudestep_pr_with_valid_branch(self):
+        """Should return True for valid ClaudeStep branch names"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="claude-step-my-refactor-1"
+        )
+
+        # Act & Assert
+        assert pr.is_claudestep_pr is True
+
+    def test_is_claudestep_pr_with_feature_branch(self):
+        """Should return False for feature branch"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="feature/new-feature"
+        )
+
+        # Act & Assert
+        assert pr.is_claudestep_pr is False
+
+    def test_is_claudestep_pr_with_main_branch(self):
+        """Should return False for main branch"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="main"
+        )
+
+        # Act & Assert
+        assert pr.is_claudestep_pr is False
+
+    def test_is_claudestep_pr_with_no_branch_name(self):
+        """Should return False when head_ref_name is None"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name=None
+        )
+
+        # Act & Assert
+        assert pr.is_claudestep_pr is False
+
+    def test_is_claudestep_pr_with_similar_branch_name(self):
+        """Should return False for branch names similar to but not matching pattern"""
+        # Arrange
+        pr = GitHubPullRequest(
+            number=1,
+            title="Test",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            head_ref_name="claude-step-invalid"  # Missing task index
+        )
+
+        # Act & Assert
+        assert pr.is_claudestep_pr is False
