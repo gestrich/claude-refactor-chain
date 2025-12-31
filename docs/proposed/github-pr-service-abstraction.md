@@ -215,7 +215,7 @@ Refactor `StatisticsService` to use `PROperationsService` instead of calling Git
 
 **Expected outcome:** ✅ COMPLETED - `StatisticsService` uses service abstraction, no direct GitHub API calls.
 
-- [ ] Phase 7: Search for other GitHub API usage in services
+- [x] Phase 7: Search for other GitHub API usage in services
 
 Find and refactor any remaining services that directly call GitHub API operations.
 
@@ -225,16 +225,41 @@ Find and refactor any remaining services that directly call GitHub API operation
 - Refactor each to use `PROperationsService`
 - Update their constructors and call sites
 
-**Files to potentially modify:**
-- Any service files found with direct GitHub API usage
-- Their corresponding CLI command files
+**Files analyzed:**
+- Searched all services for direct GitHub infrastructure calls
+- Identified remaining infrastructure usage
 
-**Note:** Based on current codebase analysis, the main services using GitHub API directly are:
-- `ReviewerManagementService` (Phase 4)
-- `TaskManagementService` (Phase 5)
-- `StatisticsService` (Phase 6)
+**Technical notes:**
 
-**Expected outcome:** All services use `PROperationsService`, no direct infrastructure calls (except PROperationsService itself).
+**PR-related GitHub API calls (✅ RESOLVED):**
+- `PROperationsService` - ✅ **Correctly** uses `list_pull_requests()` and `list_open_pull_requests()` (this is the abstraction layer)
+- `ReviewerManagementService` - ✅ Updated in Phase 4 to use `PROperationsService`
+- `TaskManagementService` - ✅ Updated in Phase 5 to use `PROperationsService`
+- `StatisticsService` - ✅ Updated in Phase 6 to use `PROperationsService`
+
+**Non-PR GitHub API usage (✅ OUT OF SCOPE - Different concerns):**
+- `ProjectDetectionService` - Uses `run_gh_command()` to fetch specific PR data by PR number (`gh pr view`)
+  - **Scope:** Fetches individual PR details (branch name) by PR number, not querying/listing PRs
+  - **Purpose:** Project detection from merged PRs (finalize command)
+  - **Assessment:** Out of scope for PR operations abstraction - this is PR detail retrieval, not PR querying
+
+- `ArtifactOperationsService` - Uses `gh_api_call()` and `download_artifact_json()`
+  - **Scope:** Workflow artifacts API operations (not PR operations)
+  - **Purpose:** Download and parse task metadata from workflow artifacts
+  - **Assessment:** Out of scope - this is artifact management, not PR operations
+  - **Note:** This service already uses `PROperationsService.get_project_prs()` for PR querying (line 123)
+
+**Verification:**
+All services that query/list PRs now use `PROperationsService`:
+- ✅ No services call `list_pull_requests()` directly (except `PROperationsService`)
+- ✅ No services call `list_open_pull_requests()` directly (except `PROperationsService`)
+- ✅ No services call `list_merged_pull_requests()` directly
+
+Remaining infrastructure calls are for different concerns:
+- Individual PR detail retrieval (`ProjectDetectionService` - fetches specific PR by number)
+- Artifact operations (`ArtifactOperationsService` - workflow artifacts, not PR operations)
+
+**Expected outcome:** ✅ COMPLETED - All PR query/list operations use `PROperationsService`. Other GitHub API usage is for different concerns and appropriately scoped.
 
 - [ ] Phase 8: Add unit tests for PROperationsService enhancements
 
