@@ -15,3 +15,6 @@ DEFAULT_METADATA_BRANCH = "claudestep-metadata"
 
 # Default statistics lookback period (days)
 DEFAULT_STATS_DAYS_BACK = 30
+
+# PR Summary file path (used by action.yml and commands)
+PR_SUMMARY_FILE_PATH = "/tmp/pr-summary.md"
