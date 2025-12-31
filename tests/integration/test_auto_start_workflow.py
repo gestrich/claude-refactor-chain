@@ -181,10 +181,9 @@ class TestAutoStartWorkflowYAML:
 
         required_steps = [
             "Checkout repository",
-            "Detect changed spec files",
-            "Check if projects are new",
-            "Check if auto-start is enabled",
-            "Trigger ClaudeStep for new projects",
+            "Setup Python",
+            "Install ClaudeStep",
+            "Detect and trigger auto-start",
             "Generate summary",
         ]
 
