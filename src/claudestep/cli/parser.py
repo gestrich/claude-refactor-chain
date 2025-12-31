@@ -97,5 +97,17 @@ def create_parser() -> argparse.ArgumentParser:
         "--ref-after",
         help="Git ref after the push"
     )
+    parser_auto_start_summary = subparsers.add_parser(
+        "auto-start-summary",
+        help="Generate summary for auto-start workflow"
+    )
+    parser_auto_start_summary.add_argument(
+        "--triggered-projects",
+        help="Space-separated list of successfully triggered projects"
+    )
+    parser_auto_start_summary.add_argument(
+        "--failed-projects",
+        help="Space-separated list of projects that failed to trigger"
+    )
 
     return parser

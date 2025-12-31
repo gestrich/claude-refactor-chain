@@ -154,3 +154,103 @@ def cmd_auto_start(
         import traceback
         traceback.print_exc()
         return 1
+
+
+def cmd_auto_start_summary(
+    gh: GitHubActionsHelper,
+    triggered_projects: str,
+    failed_projects: str
+) -> int:
+    """Generate GitHub Actions step summary for auto-start workflow.
+
+    This command reads the outputs from the auto-start command and generates
+    a formatted markdown summary showing:
+    - Projects that were successfully triggered
+    - Projects that failed to trigger
+    - Overall status
+
+    Args:
+        gh: GitHub Actions helper instance
+        triggered_projects: Space-separated list of successfully triggered projects
+        failed_projects: Space-separated list of projects that failed to trigger
+
+    Returns:
+        Exit code (0 for success, non-zero for failure)
+    """
+    try:
+        # Parse project lists
+        triggered_list = [p for p in triggered_projects.split() if p]
+        failed_list = [p for p in failed_projects.split() if p]
+
+        # Write step summary header
+        gh.write_step_summary("# ClaudeStep Auto-Start Summary")
+        gh.write_step_summary("")
+
+        # Determine overall status
+        if triggered_list and not failed_list:
+            # All succeeded
+            gh.write_step_summary("✅ **Status**: All workflows triggered successfully")
+            gh.write_step_summary("")
+            gh.write_step_summary(f"**Triggered Projects** ({len(triggered_list)}):")
+            gh.write_step_summary("")
+            for project in triggered_list:
+                gh.write_step_summary(f"- `{project}` - Workflow started")
+            gh.write_step_summary("")
+
+        elif triggered_list and failed_list:
+            # Partial success
+            gh.write_step_summary("⚠️ **Status**: Partial success - some workflows failed to trigger")
+            gh.write_step_summary("")
+            gh.write_step_summary(f"**Successfully Triggered** ({len(triggered_list)}):")
+            gh.write_step_summary("")
+            for project in triggered_list:
+                gh.write_step_summary(f"- `{project}` ✓")
+            gh.write_step_summary("")
+            gh.write_step_summary(f"**Failed to Trigger** ({len(failed_list)}):")
+            gh.write_step_summary("")
+            for project in failed_list:
+                gh.write_step_summary(f"- `{project}` ✗")
+            gh.write_step_summary("")
+
+        elif failed_list and not triggered_list:
+            # All failed
+            gh.write_step_summary("❌ **Status**: All workflow triggers failed")
+            gh.write_step_summary("")
+            gh.write_step_summary(f"**Failed Projects** ({len(failed_list)}):")
+            gh.write_step_summary("")
+            for project in failed_list:
+                gh.write_step_summary(f"- `{project}` ✗")
+            gh.write_step_summary("")
+
+        else:
+            # No projects detected
+            gh.write_step_summary("ℹ️ **Status**: No new projects detected")
+            gh.write_step_summary("")
+            gh.write_step_summary("No spec.md changes found that require auto-start.")
+            gh.write_step_summary("")
+
+        # Add helpful information
+        gh.write_step_summary("---")
+        gh.write_step_summary("")
+        gh.write_step_summary("**What happens next?**")
+        gh.write_step_summary("")
+        if triggered_list:
+            gh.write_step_summary("- Triggered workflows will process the first task from each project's spec.md")
+            gh.write_step_summary("- Pull requests will be created automatically for each task")
+            gh.write_step_summary("- Check the Actions tab to monitor workflow progress")
+        else:
+            gh.write_step_summary("- Auto-start only triggers for new projects (projects with no existing PRs)")
+            gh.write_step_summary("- Existing projects must be triggered manually or via scheduled workflows")
+        gh.write_step_summary("")
+
+        print("✅ Auto-start summary generated successfully")
+        return 0
+
+    except Exception as e:
+        gh.set_error(f"Auto-start summary generation failed: {str(e)}")
+        gh.write_step_summary("# ClaudeStep Auto-Start Summary")
+        gh.write_step_summary("")
+        gh.write_step_summary(f"❌ **Error**: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return 1

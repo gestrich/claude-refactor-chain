@@ -299,7 +299,7 @@ Move all bash logic to Python. YAML only:
 - YAML file reduced from 163 lines to 82 lines (50% reduction)
 - All business logic now lives in testable Python service layer
 
-- [ ] Phase 9: Add auto-start summary command
+- [x] Phase 9: Add auto-start summary command ✅
 
 Create `cmd_auto_start_summary()` in `src/claudestep/cli/commands/auto_start.py`:
 - Read outputs from auto-start step
@@ -311,6 +311,28 @@ Create `cmd_auto_start_summary()` in `src/claudestep/cli/commands/auto_start.py`
   - Any failures
 
 Keep summary generation in Python, not bash.
+
+**Technical Notes:**
+- Created `cmd_auto_start_summary()` function in `src/claudestep/cli/commands/auto_start.py`
+- Function signature: `cmd_auto_start_summary(gh, triggered_projects, failed_projects) -> int`
+- Reads space-separated project lists from environment variables or CLI arguments
+- Generates formatted markdown summary using `gh.write_step_summary()`:
+  - ✅ All succeeded: Shows triggered projects with workflow started indicator
+  - ⚠️ Partial success: Shows successful triggers and failed triggers separately
+  - ❌ All failed: Shows all failed projects
+  - ℹ️ No projects: Informational message when no projects detected
+- Includes helpful "What happens next?" section with context-appropriate guidance
+- Added `auto-start-summary` subparser to `src/claudestep/cli/parser.py` with two arguments:
+  - `--triggered-projects`: Successfully triggered projects
+  - `--failed-projects`: Projects that failed to trigger
+- Wired up command dispatcher in `src/claudestep/__main__.py`:
+  - Reads from CLI arguments with fallback to environment variables
+  - Maps `TRIGGERED_PROJECTS` and `FAILED_PROJECTS` environment variables
+- Updated `src/claudestep/cli/commands/__init__.py` to export `cmd_auto_start_summary`
+- Command is now accessible via `python3 -m claudestep auto-start-summary`
+- Tested all scenarios: all successful, partial success, all failed, no projects
+- All 641 tests collect successfully
+- Build passes with command functioning correctly
 
 - [ ] Phase 10: Add configuration option to disable auto-start
 

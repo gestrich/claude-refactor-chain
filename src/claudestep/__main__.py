@@ -10,7 +10,7 @@ import os
 import sys
 
 from claudestep.cli.commands.add_cost_comment import cmd_add_cost_comment
-from claudestep.cli.commands.auto_start import cmd_auto_start
+from claudestep.cli.commands.auto_start import cmd_auto_start, cmd_auto_start_summary
 from claudestep.cli.commands.discover import main as cmd_discover
 from claudestep.cli.commands.discover_ready import main as cmd_discover_ready
 from claudestep.cli.commands.extract_cost import cmd_extract_cost
@@ -70,6 +70,12 @@ def main():
             base_branch=args.base_branch or os.environ.get("BASE_BRANCH", "main"),
             ref_before=args.ref_before or os.environ.get("REF_BEFORE", ""),
             ref_after=args.ref_after or os.environ.get("REF_AFTER", ""),
+        )
+    elif args.command == "auto-start-summary":
+        return cmd_auto_start_summary(
+            gh=gh,
+            triggered_projects=args.triggered_projects or os.environ.get("TRIGGERED_PROJECTS", ""),
+            failed_projects=args.failed_projects or os.environ.get("FAILED_PROJECTS", ""),
         )
     else:
         gh.set_error(f"Unknown command: {args.command}")
