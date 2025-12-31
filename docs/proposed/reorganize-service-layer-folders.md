@@ -391,7 +391,7 @@ src/claudestep/services/
 
 ---
 
-- [ ] Phase 7: Update test structure to match service structure
+- [x] Phase 7: Update test structure to match service structure
 
 **Tasks:**
 1. Create matching subdirectories in `tests/unit/services/`
@@ -417,6 +417,20 @@ src/claudestep/services/
 - Test structure mirrors service structure
 - Easy to find tests for any service
 - All tests still pass
+
+**Completion Notes:**
+- Successfully created `tests/unit/services/core/` and `tests/unit/services/composite/` subdirectories
+- Created `__init__.py` files in both new test directories
+- Moved and renamed test files to match service structure:
+  - `test_pr_operations.py` → `core/test_pr_service.py`
+  - `test_project_detection.py` → `core/test_project_service.py`
+  - `test_reviewer_management.py` → `core/test_reviewer_service.py`
+  - `test_statistics_service.py` → `composite/test_statistics_service.py`
+  - `test_artifact_operations.py` → `composite/test_artifact_service.py`
+- Note: `test_task_management.py` was not found (appears to not exist in the codebase)
+- All 517 unit tests pass successfully
+- pytest auto-discovers tests in new locations without any configuration changes
+- Test structure now perfectly mirrors service structure, making it easy to find tests for any service
 
 ---
 
