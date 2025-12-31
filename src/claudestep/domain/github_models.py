@@ -397,3 +397,125 @@ class GitHubPullRequestList:
     def __iter__(self):
         """Allow iteration over PRs"""
         return iter(self.pull_requests)
+
+
+@dataclass
+class WorkflowRun:
+    """Domain model for GitHub Actions workflow run
+
+    Represents a workflow run from GitHub API with type-safe properties.
+    Used for tracking workflow execution status in E2E tests and monitoring.
+    """
+
+    database_id: int
+    status: str  # "queued", "in_progress", "completed"
+    conclusion: Optional[str]  # "success", "failure", "cancelled", etc.
+    created_at: datetime
+    head_branch: str
+    url: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'WorkflowRun':
+        """Parse from GitHub API response
+
+        Args:
+            data: Dictionary from GitHub API (workflow run object)
+
+        Returns:
+            WorkflowRun instance with parsed data
+
+        Example:
+            >>> run_data = {
+            ...     "databaseId": 12345,
+            ...     "status": "completed",
+            ...     "conclusion": "success",
+            ...     "createdAt": "2024-01-01T12:00:00Z",
+            ...     "headBranch": "main",
+            ...     "url": "https://github.com/owner/repo/actions/runs/12345"
+            ... }
+            >>> run = WorkflowRun.from_dict(run_data)
+        """
+        # Parse created_at
+        created_at = data["createdAt"]
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+
+        return cls(
+            database_id=data["databaseId"],
+            status=data["status"],
+            conclusion=data.get("conclusion"),
+            created_at=created_at,
+            head_branch=data["headBranch"],
+            url=data["url"]
+        )
+
+    def is_completed(self) -> bool:
+        """Check if workflow run has completed
+
+        Returns:
+            True if workflow run is completed
+        """
+        return self.status == "completed"
+
+    def is_success(self) -> bool:
+        """Check if workflow run succeeded
+
+        Returns:
+            True if workflow run completed successfully
+        """
+        return self.is_completed() and self.conclusion == "success"
+
+    def is_failure(self) -> bool:
+        """Check if workflow run failed
+
+        Returns:
+            True if workflow run completed with failure
+        """
+        return self.is_completed() and self.conclusion == "failure"
+
+
+@dataclass
+class PRComment:
+    """Domain model for GitHub pull request comment
+
+    Represents a comment on a pull request from GitHub API.
+    Used for testing and verification of automated PR interactions.
+    """
+
+    body: str
+    author: str
+    created_at: datetime
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'PRComment':
+        """Parse from GitHub API response
+
+        Args:
+            data: Dictionary from GitHub API (comment object)
+
+        Returns:
+            PRComment instance with parsed data
+
+        Example:
+            >>> comment_data = {
+            ...     "body": "LGTM!",
+            ...     "author": {"login": "reviewer"},
+            ...     "createdAt": "2024-01-01T12:00:00Z"
+            ... }
+            >>> comment = PRComment.from_dict(comment_data)
+        """
+        # Parse created_at
+        created_at = data["createdAt"]
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+
+        # Extract author login
+        author = data["author"]
+        if isinstance(author, dict):
+            author = author["login"]
+
+        return cls(
+            body=data["body"],
+            author=author,
+            created_at=created_at
+        )

@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from claudestep.domain.exceptions import GitHubAPIError
-from claudestep.domain.github_models import GitHubPullRequest
+from claudestep.domain.github_models import GitHubPullRequest, PRComment, WorkflowRun
 from claudestep.infrastructure.git.operations import run_command
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 
@@ -404,3 +404,307 @@ def list_pull_requests_for_project(
     project_prs = [pr for pr in all_prs if pr.head_ref_name.startswith(branch_prefix)]
 
     return project_prs
+
+
+# ============================================================================
+# Workflow operations
+# ============================================================================
+
+
+def list_workflow_runs(
+    repo: str,
+    workflow_name: str,
+    branch: str,
+    limit: int = 10
+) -> List[WorkflowRun]:
+    """List workflow runs for a specific workflow and branch
+
+    Fetches workflow runs from GitHub Actions API and returns them as
+    domain models. Used for monitoring workflow execution and testing.
+
+    Args:
+        repo: GitHub repository (owner/name)
+        workflow_name: Name of workflow file (e.g., "ci.yml")
+        branch: Branch name to filter runs
+        limit: Maximum number of runs to return (default: 10)
+
+    Returns:
+        List of WorkflowRun domain models, sorted by creation time (newest first)
+
+    Raises:
+        GitHubAPIError: If gh command fails
+
+    Example:
+        >>> # Get recent workflow runs for a branch
+        >>> runs = list_workflow_runs("owner/repo", "ci.yml", "main", limit=5)
+        >>> for run in runs:
+        ...     print(f"Run {run.database_id}: {run.status} - {run.conclusion}")
+        >>> # Check latest run status
+        >>> latest = runs[0] if runs else None
+        >>> if latest and latest.is_success():
+        ...     print("Latest run succeeded!")
+    """
+    # Build gh run list command
+    args = [
+        "run", "list",
+        "--repo", repo,
+        "--workflow", workflow_name,
+        "--branch", branch,
+        "--limit", str(limit),
+        "--json", "databaseId,status,conclusion,createdAt,headBranch,url"
+    ]
+
+    # Execute command and parse JSON
+    try:
+        output = run_gh_command(args)
+        run_data = json.loads(output) if output else []
+    except json.JSONDecodeError as e:
+        raise GitHubAPIError(f"Invalid JSON from gh run list: {str(e)}")
+
+    # Parse into domain models
+    runs = [WorkflowRun.from_dict(run) for run in run_data]
+
+    return runs
+
+
+def trigger_workflow(
+    repo: str,
+    workflow_name: str,
+    inputs: Dict[str, str],
+    ref: str
+) -> None:
+    """Trigger a GitHub Actions workflow with inputs
+
+    Dispatches a workflow_dispatch event to trigger a workflow run.
+    The workflow must have workflow_dispatch trigger configured.
+
+    Args:
+        repo: GitHub repository (owner/name)
+        workflow_name: Name of workflow file (e.g., "ci.yml")
+        inputs: Workflow inputs as key-value pairs
+        ref: Git reference (branch, tag, or SHA) to run workflow on
+
+    Raises:
+        GitHubAPIError: If gh command fails
+
+    Example:
+        >>> # Trigger a workflow with inputs
+        >>> trigger_workflow(
+        ...     repo="owner/repo",
+        ...     workflow_name="deploy.yml",
+        ...     inputs={"environment": "staging", "version": "v1.2.3"},
+        ...     ref="main"
+        ... )
+        >>> # Trigger with no inputs
+        >>> trigger_workflow(
+        ...     repo="owner/repo",
+        ...     workflow_name="test.yml",
+        ...     inputs={},
+        ...     ref="feature-branch"
+        ... )
+    """
+    # Build gh workflow run command
+    args = [
+        "workflow", "run", workflow_name,
+        "--repo", repo,
+        "--ref", ref
+    ]
+
+    # Add inputs as --field arguments
+    for key, value in inputs.items():
+        args.extend(["--field", f"{key}={value}"])
+
+    # Execute command (no output expected)
+    run_gh_command(args)
+
+
+# ============================================================================
+# Pull request operations (extensions)
+# ============================================================================
+
+
+def get_pull_request_by_branch(
+    repo: str,
+    branch: str
+) -> Optional[GitHubPullRequest]:
+    """Get pull request for a specific branch
+
+    Searches for an open PR with the given head branch name.
+
+    Args:
+        repo: GitHub repository (owner/name)
+        branch: Branch name to search for
+
+    Returns:
+        GitHubPullRequest if found, None otherwise
+
+    Raises:
+        GitHubAPIError: If gh command fails
+
+    Example:
+        >>> # Find PR for a branch
+        >>> pr = get_pull_request_by_branch("owner/repo", "feature-branch")
+        >>> if pr:
+        ...     print(f"Found PR #{pr.number}: {pr.title}")
+        >>> else:
+        ...     print("No PR found for branch")
+    """
+    # Get all open PRs and filter by branch
+    open_prs = list_open_pull_requests(repo, limit=100)
+
+    # Find PR with matching branch
+    for pr in open_prs:
+        if pr.head_ref_name == branch:
+            return pr
+
+    return None
+
+
+def get_pull_request_comments(
+    repo: str,
+    pr_number: int
+) -> List[PRComment]:
+    """Get comments on a pull request
+
+    Fetches all comments on a PR and returns them as domain models.
+
+    Args:
+        repo: GitHub repository (owner/name)
+        pr_number: Pull request number
+
+    Returns:
+        List of PRComment domain models
+
+    Raises:
+        GitHubAPIError: If gh command fails
+
+    Example:
+        >>> # Get all comments on a PR
+        >>> comments = get_pull_request_comments("owner/repo", 123)
+        >>> for comment in comments:
+        ...     print(f"{comment.author}: {comment.body}")
+    """
+    # Build gh pr view command to get comments
+    args = [
+        "pr", "view", str(pr_number),
+        "--repo", repo,
+        "--json", "comments"
+    ]
+
+    # Execute command and parse JSON
+    try:
+        output = run_gh_command(args)
+        data = json.loads(output) if output else {}
+    except json.JSONDecodeError as e:
+        raise GitHubAPIError(f"Invalid JSON from gh pr view: {str(e)}")
+
+    # Extract comments array
+    comments_data = data.get("comments", [])
+
+    # Parse into domain models
+    comments = [PRComment.from_dict(comment) for comment in comments_data]
+
+    return comments
+
+
+def close_pull_request(repo: str, pr_number: int) -> None:
+    """Close a pull request without merging
+
+    Args:
+        repo: GitHub repository (owner/name)
+        pr_number: Pull request number to close
+
+    Raises:
+        GitHubAPIError: If gh command fails
+
+    Example:
+        >>> # Close a PR
+        >>> close_pull_request("owner/repo", 123)
+    """
+    # Build gh pr close command
+    args = [
+        "pr", "close", str(pr_number),
+        "--repo", repo
+    ]
+
+    # Execute command
+    run_gh_command(args)
+
+
+# ============================================================================
+# Branch operations
+# ============================================================================
+
+
+def delete_branch(repo: str, branch: str) -> None:
+    """Delete a remote branch
+
+    Args:
+        repo: GitHub repository (owner/name)
+        branch: Branch name to delete
+
+    Raises:
+        GitHubAPIError: If gh command fails
+
+    Example:
+        >>> # Delete a remote branch
+        >>> delete_branch("owner/repo", "feature-branch")
+    """
+    # Use GitHub API to delete the branch
+    endpoint = f"/repos/{repo}/git/refs/heads/{branch}"
+
+    try:
+        # Use gh api with DELETE method
+        run_gh_command(["api", endpoint, "--method", "DELETE"])
+    except GitHubAPIError as e:
+        # Ignore 404 errors (branch already deleted)
+        if "404" not in str(e):
+            raise
+
+
+def list_branches(repo: str, prefix: Optional[str] = None) -> List[str]:
+    """List remote branches, optionally filtered by prefix
+
+    Args:
+        repo: GitHub repository (owner/name)
+        prefix: Optional prefix to filter branches (e.g., "claude-step-")
+
+    Returns:
+        List of branch names
+
+    Raises:
+        GitHubAPIError: If gh command fails
+
+    Example:
+        >>> # List all branches
+        >>> branches = list_branches("owner/repo")
+        >>> print(f"Found {len(branches)} branches")
+        >>> # List branches with prefix
+        >>> test_branches = list_branches("owner/repo", prefix="test-")
+        >>> for branch in test_branches:
+        ...     print(branch)
+    """
+    # Use GitHub API to list branches
+    endpoint = f"/repos/{repo}/branches"
+    params = "?per_page=100"  # Get up to 100 branches per page
+
+    try:
+        # Get branches from API
+        data = gh_api_call(endpoint + params, method="GET")
+
+        # Extract branch names
+        if isinstance(data, list):
+            branches = [branch["name"] for branch in data]
+        else:
+            # Handle pagination if needed (unlikely for most repos)
+            branches = []
+
+        # Filter by prefix if specified
+        if prefix:
+            branches = [b for b in branches if b.startswith(prefix)]
+
+        return branches
+
+    except GitHubAPIError:
+        # Return empty list on error
+        return []
