@@ -10,8 +10,8 @@ import yaml
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
-from claudestep.services.reviewer_management_service import ReviewerManagementService
-from claudestep.services.pr_operations_service import PROperationsService
+from claudestep.services.core.reviewer_service import ReviewerService
+from claudestep.services.core.pr_service import PRService
 from claudestep.domain.models import ReviewerCapacityResult
 from claudestep.domain.project import Project
 from claudestep.domain.project_configuration import ProjectConfiguration
@@ -71,13 +71,13 @@ class TestFindAvailableReviewer:
 
     @pytest.fixture
     def mock_pr_service(self):
-        """Fixture providing mock PROperationsService instance"""
-        return Mock(spec=PROperationsService)
+        """Fixture providing mock PRService instance"""
+        return Mock(spec=PRService)
 
     @pytest.fixture
     def reviewer_service(self, mock_env, mock_pr_service):
-        """Fixture providing ReviewerManagementService instance"""
-        return ReviewerManagementService("owner/repo", mock_pr_service)
+        """Fixture providing ReviewerService instance"""
+        return ReviewerService("owner/repo", mock_pr_service)
 
     def test_find_reviewer_returns_first_with_capacity_when_all_available(
         self, reviewers_config, reviewer_service, mock_pr_service
@@ -310,11 +310,11 @@ class TestFindAvailableReviewer:
         """Should use GITHUB_REPOSITORY environment variable"""
         # Arrange
         with patch.dict(os.environ, {"GITHUB_REPOSITORY": "test-owner/test-repo"}):
-            mock_pr_service = Mock(spec=PROperationsService)
+            mock_pr_service = Mock(spec=PRService)
             mock_pr_service.get_reviewer_prs_for_project.return_value = []
 
             # Create service with test repo
-            service = ReviewerManagementService("test-owner/test-repo", mock_pr_service)
+            service = ReviewerService("test-owner/test-repo", mock_pr_service)
 
             # Act
             service.find_available_reviewer(reviewers_config, "claudestep", "myproject")
@@ -463,11 +463,11 @@ class TestFindAvailableReviewer:
         """Should handle missing GITHUB_REPOSITORY environment variable"""
         # Arrange - no GITHUB_REPOSITORY env var
         with patch.dict(os.environ, {}, clear=True):
-            mock_pr_service = Mock(spec=PROperationsService)
+            mock_pr_service = Mock(spec=PRService)
             mock_pr_service.get_reviewer_prs_for_project.return_value = []
 
             # Create service with empty repo
-            service = ReviewerManagementService("", mock_pr_service)
+            service = ReviewerService("", mock_pr_service)
 
             # Act
             selected, result = service.find_available_reviewer(

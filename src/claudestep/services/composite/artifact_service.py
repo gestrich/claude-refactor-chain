@@ -113,13 +113,13 @@ def find_project_artifacts(
         4. Filter artifacts by project name
         5. Optionally download and parse metadata JSON
     """
-    from claudestep.services.pr_operations_service import PROperationsService
+    from claudestep.services.core.pr_service import PRService
 
     result_artifacts = []
     seen_artifact_ids = set()
 
     # Get PRs for this project
-    pr_service = PROperationsService(repo)
+    pr_service = PRService(repo)
     prs = pr_service.get_project_prs(project, state=pr_state, label=label)
     print(f"Found {len(prs)} PR(s) for project '{project}' with state '{pr_state}'")
 

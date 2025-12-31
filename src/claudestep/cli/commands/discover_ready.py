@@ -13,9 +13,9 @@ from claudestep.domain.config import load_config, validate_spec_format
 from claudestep.domain.project import Project
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 from claudestep.infrastructure.repositories.project_repository import ProjectRepository
-from claudestep.services.project_detection_service import ProjectDetectionService
-from claudestep.services.reviewer_management_service import ReviewerManagementService
-from claudestep.services.task_management_service import TaskManagementService
+from claudestep.services.core.project_service import ProjectService
+from claudestep.services.core.reviewer_service import ReviewerService
+from claudestep.services.core.task_service import TaskService
 
 
 def check_project_ready(project_name: str, repo: str) -> bool:
@@ -73,10 +73,10 @@ def check_project_ready(project_name: str, repo: str) -> bool:
         project_config = ProjectConfiguration.from_yaml_string(project, config_content)
 
         # Initialize services
-        from claudestep.services.pr_operations_service import PROperationsService
-        pr_service = PROperationsService(repo)
-        reviewer_service = ReviewerManagementService(repo, pr_service)
-        task_service = TaskManagementService(repo, pr_service)
+        from claudestep.services.core.pr_service import PRService
+        pr_service = PRService(repo)
+        reviewer_service = ReviewerService(repo, pr_service)
+        task_service = TaskService(repo, pr_service)
 
         # Check reviewer capacity
         selected_reviewer, capacity_result = reviewer_service.find_available_reviewer(project_config, label, project_name)

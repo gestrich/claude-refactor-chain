@@ -16,10 +16,10 @@ from claudestep.infrastructure.git.operations import run_git_command
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 from claudestep.infrastructure.github.operations import ensure_label_exists, file_exists_in_branch, get_file_from_branch
 from claudestep.infrastructure.repositories.project_repository import ProjectRepository
-from claudestep.services.pr_operations_service import PROperationsService
-from claudestep.services.project_detection_service import ProjectDetectionService
-from claudestep.services.reviewer_management_service import ReviewerManagementService
-from claudestep.services.task_management_service import TaskManagementService
+from claudestep.services.core.pr_service import PRService
+from claudestep.services.core.project_service import ProjectService
+from claudestep.services.core.reviewer_service import ReviewerService
+from claudestep.services.core.task_service import TaskService
 
 
 def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
@@ -46,10 +46,10 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         project_repository = ProjectRepository(repo)
 
         # Initialize services
-        pr_service = PROperationsService(repo)
-        project_service = ProjectDetectionService(repo)
-        task_service = TaskManagementService(repo, pr_service)
-        reviewer_service = ReviewerManagementService(repo, pr_service)
+        pr_service = PRService(repo)
+        project_service = ProjectService(repo)
+        task_service = TaskService(repo, pr_service)
+        reviewer_service = ReviewerService(repo, pr_service)
 
         # === STEP 1: Detect Project ===
         print("=== Step 1/6: Detecting project ===")

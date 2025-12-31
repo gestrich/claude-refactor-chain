@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 from claudestep.domain.models import TeamMemberStats, ProjectStats, StatisticsReport, PRReference
 from claudestep.domain.project import Project
 from claudestep.domain.spec_content import SpecContent
-from claudestep.services.statistics_service import StatisticsService
+from claudestep.services.composite.statistics_service import StatisticsService
 
 from tests.builders import SpecFileBuilder
 

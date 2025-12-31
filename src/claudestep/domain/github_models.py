@@ -192,9 +192,9 @@ class GitHubPullRequest:
             return None
 
         # Import here to avoid circular dependency
-        from claudestep.services.pr_operations_service import PROperationsService
+        from claudestep.services.core.pr_service import PRService
 
-        parsed = PROperationsService.parse_branch_name(self.head_ref_name)
+        parsed = PRService.parse_branch_name(self.head_ref_name)
         if parsed:
             return parsed[0]
         return None
@@ -221,9 +221,9 @@ class GitHubPullRequest:
             return None
 
         # Import here to avoid circular dependency
-        from claudestep.services.pr_operations_service import PROperationsService
+        from claudestep.services.core.pr_service import PRService
 
-        parsed = PROperationsService.parse_branch_name(self.head_ref_name)
+        parsed = PRService.parse_branch_name(self.head_ref_name)
         if parsed:
             return parsed[1]
         return None
@@ -269,9 +269,9 @@ class GitHubPullRequest:
             return False
 
         # Import here to avoid circular dependency
-        from claudestep.services.pr_operations_service import PROperationsService
+        from claudestep.services.core.pr_service import PRService
 
-        return PROperationsService.parse_branch_name(self.head_ref_name) is not None
+        return PRService.parse_branch_name(self.head_ref_name) is not None
 
 
 @dataclass

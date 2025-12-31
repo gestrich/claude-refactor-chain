@@ -15,7 +15,7 @@ from claudestep.domain.exceptions import ConfigurationError, FileNotFoundError, 
 from claudestep.infrastructure.git.operations import run_git_command
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 from claudestep.infrastructure.github.operations import run_gh_command, get_file_from_branch
-from claudestep.services.task_management_service import TaskManagementService
+from claudestep.services.core.task_service import TaskService
 
 
 def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
@@ -139,7 +139,7 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
 
                 # Mark task as complete in the spec file
                 print(f"Marking task {task_index} as complete in spec.md...")
-                TaskManagementService.mark_task_complete(spec_file_path, task)
+                TaskService.mark_task_complete(spec_file_path, task)
 
                 # Stage and commit the updated spec.md
                 run_git_command(["add", spec_file_path])

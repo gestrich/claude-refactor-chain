@@ -12,7 +12,7 @@ from claudestep.domain.constants import DEFAULT_PR_LABEL
 from claudestep.domain.project import Project
 from claudestep.domain.project_configuration import ProjectConfiguration
 from claudestep.infrastructure.repositories.project_repository import ProjectRepository
-from claudestep.services.pr_operations_service import PROperationsService
+from claudestep.services.core.pr_service import PRService
 from claudestep.domain.models import ProjectStats, StatisticsReport, TeamMemberStats, PRReference
 
 
@@ -28,7 +28,7 @@ class StatisticsService:
         self,
         repo: str,
         project_repository: ProjectRepository,
-        pr_operations_service: PROperationsService,
+        pr_service: PRService,
         base_branch: str = "main"
     ):
         """Initialize the statistics service
@@ -36,13 +36,13 @@ class StatisticsService:
         Args:
             repo: GitHub repository (owner/name)
             project_repository: ProjectRepository instance for loading project data
-            pr_operations_service: PROperationsService instance for PR operations
+            pr_service: PRService instance for PR operations
             base_branch: Base branch to fetch specs from (default: "main")
         """
         self.repo = repo
         self.base_branch = base_branch
         self.project_repository = project_repository
-        self.pr_operations_service = pr_operations_service
+        self.pr_service = pr_service
 
     # Public API methods
 
@@ -97,8 +97,8 @@ class StatisticsService:
             print("Multi-project mode: discovering projects from GitHub PRs...")
 
             try:
-                # Get unique project names using PROperationsService
-                project_names = self.pr_operations_service.get_unique_projects(label=label)
+                # Get unique project names using PRService
+                project_names = self.pr_service.get_unique_projects(label=label)
 
                 print(f"Found {len(project_names)} unique project(s)")
             except Exception as e:
@@ -188,7 +188,7 @@ class StatisticsService:
 
         # Get in-progress tasks from GitHub (open PRs for this project)
         try:
-            open_prs = self.pr_operations_service.get_open_prs_for_project(project_name, label=label)
+            open_prs = self.pr_service.get_open_prs_for_project(project_name, label=label)
             stats.in_progress_tasks = len(open_prs)
             print(f"  In-progress: {stats.in_progress_tasks}")
         except Exception as e:
@@ -238,8 +238,8 @@ class StatisticsService:
         open_count = 0
 
         try:
-            # Query all PRs with claudestep label from GitHub using PROperationsService
-            all_prs = self.pr_operations_service.get_all_prs(label=label, state="all", limit=500)
+            # Query all PRs with claudestep label from GitHub using PRService
+            all_prs = self.pr_service.get_all_prs(label=label, state="all", limit=500)
 
             for pr in all_prs:
                 # Skip if no assignee or not a ClaudeStep PR
