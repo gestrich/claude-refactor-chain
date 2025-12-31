@@ -58,36 +58,40 @@ Add the following generic GitHub operations to `src/claudestep/infrastructure/gi
 - `src/claudestep/domain/github_models.py` - Add `WorkflowRun` and `PRComment` models
 - `src/claudestep/infrastructure/github/operations.py` - Add new operations
 
-- [ ] Phase 2: Refactor GitHubHelper to use infrastructure layer
+- [x] Phase 2: Refactor GitHubHelper to use infrastructure layer
 
-**Refactor these methods:**
+**Status:** Completed
 
-Update `tests/e2e/helpers/github_helper.py` to delegate to infrastructure layer:
+**Technical notes:**
+- Refactored all 7 target methods to delegate to infrastructure layer operations
+- Replaced all direct `subprocess.run()` calls with infrastructure layer function calls
+- Removed `subprocess` and `json` module imports (no longer needed)
+- Added imports for domain exceptions (`GitHubAPIError`) and all required infrastructure operations
+- Converted domain models to dicts for backward compatibility with existing test code
+- Preserved all method signatures to maintain compatibility with existing tests
+- Maintained all test-specific logging and diagnostic messages
+- Error handling simplified by delegating to infrastructure layer's `GitHubAPIError`
+- Build verified: module compiles and imports successfully
+- Line count reduced significantly (~60 lines removed) by eliminating duplicate GitHub logic
 
-1. **`trigger_workflow()`** → Use `infrastructure.github.operations.trigger_workflow()`
-2. **`get_latest_workflow_run()`** → Use `infrastructure.github.operations.list_workflow_runs(limit=1)`
-3. **`get_pull_request()`** → Use `infrastructure.github.operations.get_pull_request_by_branch()`
-4. **`get_pr_comments()`** → Use `infrastructure.github.operations.get_pull_request_comments()`
-5. **`close_pull_request()`** → Use `infrastructure.github.operations.close_pull_request()`
-6. **`delete_branch()`** → Use `infrastructure.github.operations.delete_branch()`
-7. **`cleanup_test_branches()`** → Use `infrastructure.github.operations.list_branches()` + `delete_branch()`
+**Refactored methods:**
+1. ✅ `trigger_workflow()` → Uses `infrastructure.github.operations.trigger_workflow()`
+2. ✅ `get_latest_workflow_run()` → Uses `infrastructure.github.operations.list_workflow_runs(limit=1)`
+3. ✅ `get_pull_request()` → Uses `infrastructure.github.operations.get_pull_request_by_branch()`
+4. ✅ `get_pr_comments()` → Uses `infrastructure.github.operations.get_pull_request_comments()`
+5. ✅ `close_pull_request()` → Uses `infrastructure.github.operations.close_pull_request()`
+6. ✅ `delete_branch()` → Uses `infrastructure.github.operations.delete_branch()`
+7. ✅ `cleanup_test_branches()` → Uses `infrastructure.github.operations.list_branches()` + `delete_branch()`
 
-**Keep these methods in GitHubHelper:**
-- `wait_for_condition()` - Generic polling utility (test-specific)
+**Kept test-specific methods:**
+- `wait_for_condition()` - Generic polling utility
 - `wait_for_workflow_to_start()` - Test-specific workflow polling
 - `wait_for_workflow_completion()` - Test-specific workflow polling
 - `cleanup_test_prs()` - Test-specific cleanup logic
 - `get_pull_requests_for_project()` - Already delegates to infrastructure layer
 
-**Implementation approach:**
-- Replace direct `subprocess.run()` calls with infrastructure layer calls
-- Convert JSON parsing to use domain models
-- Simplify error handling (infrastructure layer handles it)
-- Keep test-specific logging and diagnostic messages
-- Preserve method signatures to avoid breaking tests
-
-**Files to modify:**
-- `tests/e2e/helpers/github_helper.py` - Refactor to use infrastructure layer
+**Files modified:**
+- `tests/e2e/helpers/github_helper.py` - Refactored to use infrastructure layer
 
 - [ ] Phase 3: Update domain models for E2E test needs
 

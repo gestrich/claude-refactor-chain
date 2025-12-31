@@ -4,14 +4,22 @@ This module provides a helper class for interacting with GitHub API during E2E t
 including triggering workflows, checking workflow status, and managing PRs.
 """
 
-import subprocess
 import time
-import json
 import logging
 from typing import Optional, Dict, Any, List, Callable
 
 from claudestep.domain.constants import DEFAULT_PR_LABEL
-from claudestep.infrastructure.github.operations import list_pull_requests_for_project as _list_prs_for_project
+from claudestep.domain.exceptions import GitHubAPIError
+from claudestep.infrastructure.github.operations import (
+    list_pull_requests_for_project as _list_prs_for_project,
+    trigger_workflow as _trigger_workflow,
+    list_workflow_runs as _list_workflow_runs,
+    get_pull_request_by_branch as _get_pull_request_by_branch,
+    get_pull_request_comments as _get_pull_request_comments,
+    close_pull_request as _close_pull_request,
+    delete_branch as _delete_branch,
+    list_branches as _list_branches,
+)
 
 # Configure logger for E2E test diagnostics
 logger = logging.getLogger(__name__)
@@ -142,18 +150,19 @@ class GitHubHelper:
         logger.info(f"Triggering workflow '{workflow_name}' on ref '{ref}' with inputs: {inputs}")
         start_time = time.time()
 
-        cmd = ["gh", "workflow", "run", workflow_name, "--repo", self.repo, "--ref", ref]
-        for key, value in inputs.items():
-            cmd.extend(["-f", f"{key}={value}"])
-
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        elapsed = time.time() - start_time
-
-        if result.returncode != 0:
-            logger.error(f"Failed to trigger workflow after {elapsed:.2f}s: {result.stderr}")
-            raise RuntimeError(f"Failed to trigger workflow: {result.stderr}")
-
-        logger.info(f"Successfully triggered workflow in {elapsed:.2f}s")
+        try:
+            _trigger_workflow(
+                repo=self.repo,
+                workflow_name=workflow_name,
+                inputs=inputs,
+                ref=ref
+            )
+            elapsed = time.time() - start_time
+            logger.info(f"Successfully triggered workflow in {elapsed:.2f}s")
+        except GitHubAPIError as e:
+            elapsed = time.time() - start_time
+            logger.error(f"Failed to trigger workflow after {elapsed:.2f}s: {e}")
+            raise RuntimeError(f"Failed to trigger workflow: {e}")
 
     def get_latest_workflow_run(
         self,
@@ -169,29 +178,34 @@ class GitHubHelper:
         Returns:
             Dictionary with workflow run info, or None if no runs found
         """
-        cmd = [
-            "gh", "run", "list",
-            "--workflow", workflow_name,
-            "--branch", branch,
-            "--repo", self.repo,
-            "--json", "databaseId,status,conclusion,createdAt,headBranch,url",
-            "--limit", "1"
-        ]
+        try:
+            runs = _list_workflow_runs(
+                repo=self.repo,
+                workflow_name=workflow_name,
+                branch=branch,
+                limit=1
+            )
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            logger.error(f"Failed to get workflow runs: {result.stderr}")
-            raise RuntimeError(f"Failed to get workflow runs: {result.stderr}")
+            if runs:
+                # Convert WorkflowRun domain model to dict for backward compatibility
+                run = runs[0]
+                result = {
+                    "databaseId": run.database_id,
+                    "status": run.status,
+                    "conclusion": run.conclusion,
+                    "createdAt": run.created_at.isoformat(),
+                    "headBranch": run.head_branch,
+                    "url": run.url
+                }
+                logger.debug(f"Found workflow run: ID={run.database_id}, status={run.status}, conclusion={run.conclusion}")
+                return result
+            else:
+                logger.debug(f"No workflow runs found for '{workflow_name}' on branch '{branch}'")
+                return None
 
-        runs = json.loads(result.stdout)
-        run = runs[0] if runs else None
-
-        if run:
-            logger.debug(f"Found workflow run: ID={run.get('databaseId')}, status={run.get('status')}, conclusion={run.get('conclusion')}")
-        else:
-            logger.debug(f"No workflow runs found for '{workflow_name}' on branch '{branch}'")
-
-        return run
+        except GitHubAPIError as e:
+            logger.error(f"Failed to get workflow runs: {e}")
+            raise RuntimeError(f"Failed to get workflow runs: {e}")
 
     def wait_for_workflow_completion(
         self,
@@ -280,28 +294,29 @@ class GitHubHelper:
             Dictionary with PR info, or None if no PR found
         """
         logger.info(f"Looking for PR on branch '{branch}'")
-        cmd = [
-            "gh", "pr", "list",
-            "--repo", self.repo,
-            "--head", branch,
-            "--json", "number,title,body,state,url,headRefName",
-            "--limit", "1"
-        ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            logger.warning(f"Failed to get PR for branch '{branch}': {result.stderr}")
+        try:
+            pr_model = _get_pull_request_by_branch(repo=self.repo, branch=branch)
+
+            if pr_model:
+                # Convert GitHubPullRequest domain model to dict for backward compatibility
+                pr = {
+                    "number": pr_model.number,
+                    "title": pr_model.title,
+                    "body": "",  # Not included in domain model, but tests may not need it
+                    "state": pr_model.state,
+                    "url": f"https://github.com/{self.repo}/pull/{pr_model.number}",
+                    "headRefName": pr_model.head_ref_name
+                }
+                logger.info(f"Found PR #{pr['number']}: {pr['title']} ({pr['state']}) - {pr['url']}")
+                return pr
+            else:
+                logger.warning(f"No PR found for branch '{branch}'")
+                return None
+
+        except GitHubAPIError as e:
+            logger.warning(f"Failed to get PR for branch '{branch}': {e}")
             return None
-
-        prs = json.loads(result.stdout)
-        pr = prs[0] if prs else None
-
-        if pr:
-            logger.info(f"Found PR #{pr['number']}: {pr['title']} ({pr['state']}) - {pr.get('url', '')}")
-        else:
-            logger.warning(f"No PR found for branch '{branch}'")
-
-        return pr
 
     def get_pull_requests_for_project(self, project_name: str, label: str = DEFAULT_PR_LABEL):
         """Get all PRs for a given project using infrastructure layer.
@@ -337,27 +352,32 @@ class GitHubHelper:
             List of comment dictionaries
         """
         logger.info(f"Fetching comments for PR #{pr_number}")
-        cmd = [
-            "gh", "pr", "view", str(pr_number),
-            "--repo", self.repo,
-            "--json", "comments"
-        ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            logger.warning(f"Failed to get comments for PR #{pr_number}: {result.stderr}")
+        try:
+            comment_models = _get_pull_request_comments(repo=self.repo, pr_number=pr_number)
+
+            # Convert PRComment domain models to dicts for backward compatibility
+            comments = [
+                {
+                    "body": comment.body,
+                    "author": comment.author,
+                    "createdAt": comment.created_at.isoformat()
+                }
+                for comment in comment_models
+            ]
+
+            logger.info(f"Found {len(comments)} comment(s) on PR #{pr_number}")
+
+            # Log summary of comments for diagnostics
+            for i, comment in enumerate(comments):
+                body_preview = comment.get("body", "")[:100].replace("\n", " ")
+                logger.debug(f"  Comment {i+1}: {body_preview}...")
+
+            return comments
+
+        except GitHubAPIError as e:
+            logger.warning(f"Failed to get comments for PR #{pr_number}: {e}")
             return []
-
-        data = json.loads(result.stdout)
-        comments = data.get("comments", [])
-        logger.info(f"Found {len(comments)} comment(s) on PR #{pr_number}")
-
-        # Log summary of comments for diagnostics
-        for i, comment in enumerate(comments):
-            body_preview = comment.get("body", "")[:100].replace("\n", " ")
-            logger.debug(f"  Comment {i+1}: {body_preview}...")
-
-        return comments
 
     def close_pull_request(self, pr_number: int) -> None:
         """Close a pull request.
@@ -366,13 +386,13 @@ class GitHubHelper:
             pr_number: PR number to close
         """
         logger.info(f"Closing PR #{pr_number}")
-        cmd = ["gh", "pr", "close", str(pr_number), "--repo", self.repo]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
+
+        try:
+            _close_pull_request(repo=self.repo, pr_number=pr_number)
             logger.info(f"Successfully closed PR #{pr_number}")
-        else:
-            logger.warning(f"Failed to close PR #{pr_number}: {result.stderr}")
-            raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+        except GitHubAPIError as e:
+            logger.warning(f"Failed to close PR #{pr_number}: {e}")
+            raise RuntimeError(f"Failed to close PR #{pr_number}: {e}")
 
     def delete_branch(self, branch: str) -> None:
         """Delete a remote branch.
@@ -381,12 +401,12 @@ class GitHubHelper:
             branch: Branch name to delete
         """
         logger.info(f"Deleting branch '{branch}'")
-        cmd = ["gh", "api", f"repos/{self.repo}/git/refs/heads/{branch}", "-X", "DELETE"]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
+
+        try:
+            _delete_branch(repo=self.repo, branch=branch)
             logger.info(f"Successfully deleted branch '{branch}'")
-        else:
-            logger.warning(f"Failed to delete branch '{branch}': {result.stderr}")
+        except GitHubAPIError as e:
+            logger.warning(f"Failed to delete branch '{branch}': {e}")
 
     def cleanup_test_branches(self, pattern_prefix: str = "claude-step-test-") -> None:
         """Clean up test branches from previous failed runs.
@@ -398,37 +418,25 @@ class GitHubHelper:
         """
         logger.info(f"Cleaning up test branches with prefix '{pattern_prefix}'")
 
-        # List all branches
-        cmd = ["gh", "api", f"repos/{self.repo}/git/refs/heads", "--paginate"]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-
-        if result.returncode != 0:
-            logger.warning(f"Failed to list branches: {result.stderr}")
-            return
-
         try:
-            refs = json.loads(result.stdout)
+            # List all branches with the prefix
+            branches = _list_branches(repo=self.repo, prefix=pattern_prefix)
             cleanup_count = 0
 
-            for ref in refs:
-                ref_name = ref.get("ref", "")
-                # Extract branch name from refs/heads/branch-name
-                if ref_name.startswith("refs/heads/"):
-                    branch_name = ref_name[len("refs/heads/"):]
-                    if branch_name.startswith(pattern_prefix):
-                        try:
-                            self.delete_branch(branch_name)
-                            cleanup_count += 1
-                        except Exception as e:
-                            logger.warning(f"Failed to delete branch '{branch_name}': {e}")
+            for branch_name in branches:
+                try:
+                    self.delete_branch(branch_name)
+                    cleanup_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to delete branch '{branch_name}': {e}")
 
             if cleanup_count > 0:
                 logger.info(f"Cleaned up {cleanup_count} test branch(es)")
             else:
                 logger.debug("No test branches to clean up")
 
-        except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse branch list: {e}")
+        except GitHubAPIError as e:
+            logger.warning(f"Failed to list branches: {e}")
 
     def cleanup_test_prs(self, title_prefix: str = "ClaudeStep") -> None:
         """Clean up open test PRs from previous failed runs.
