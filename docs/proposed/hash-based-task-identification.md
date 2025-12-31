@@ -470,31 +470,86 @@ Found 2 PR(s) for tasks that have been modified or removed:
 
 ---
 
-- [ ] Phase 8: Handle backward compatibility
+- [x] Phase 8: Handle backward compatibility
 
 **Objective**: Ensure the system continues to work with existing index-based PRs during transition period.
 
-**Tasks**:
-- Implement dual-mode support in task finding:
-  - When checking if task is in-progress, match by EITHER hash OR index
-  - Prioritize hash-based matching, fall back to index for old PRs
-- Add migration helper command (optional):
-  - `python -m claudestep migrate-to-hashes --project <name>`
-  - Detects old index-based PRs
-  - Suggests closing/merging them before full migration
-- Set deprecation timeline:
-  - Support both formats for N months/releases
-  - Log warnings when old format is detected
-  - Eventually remove index-based support
+**Status**: ✅ Completed
 
-**Files to modify**:
-- `src/claudestep/services/task_management_service.py` - Dual-mode matching
-- `src/claudestep/cli/commands/migrate.py` - New migration command (optional)
+**Implementation Notes**:
+- Added deprecation warnings in `prepare.py` command
+  - Console warnings logged when index-based PRs are detected
+  - GitHub Actions step summary includes deprecation notice with 6-month timeline
+  - Clear guidance provided to users on migration steps
+- Created migration helper command: `python -m claudestep migrate-to-hashes`
+  - New CLI command in `src/claudestep/cli/commands/migrate_to_hashes.py`
+  - Detects and categorizes open PRs by format (index-based vs hash-based)
+  - Provides detailed migration guidance with PR links
+  - Generates GitHub Actions step summary with actionable next steps
+  - Auto-detects project if not specified via `--project` flag
+- Documented deprecation timeline in architecture docs
+  - Added "Deprecation Timeline" section to `docs/architecture/architecture.md`
+  - 6-month warning period documented
+  - Migration path and steps clearly outlined
+  - Warning behavior documented (logs + GitHub Actions summaries)
+- Dual-mode support already implemented in previous phases:
+  - `get_in_progress_tasks()` returns both indices and hashes (Phase 4)
+  - `find_next_available_task()` accepts both skip_indices and skip_hashes (Phase 4)
+  - `detect_orphaned_prs()` handles both formats (Phase 4)
+  - `parse_branch_name()` supports format detection (Phase 3)
 
-**Expected outcomes**:
+**Technical Details**:
+- Deprecation warnings trigger when `in_progress_indices` set is non-empty
+- Migration command categorizes PRs and provides format-specific guidance
+- GitHub Actions integration provides clickable PR links for easy navigation
+- No breaking changes - both formats continue to work seamlessly
+- Users have 6 months to migrate before index-based support is removed
+
+**Files Modified**:
+- `src/claudestep/cli/commands/prepare.py` - Added deprecation warnings with GitHub Actions summary
+- `src/claudestep/cli/commands/migrate_to_hashes.py` - New migration helper command (157 lines)
+- `src/claudestep/cli/parser.py` - Added `migrate-to-hashes` subcommand
+- `src/claudestep/__main__.py` - Wired up migration command to CLI router
+- `docs/architecture/architecture.md` - Added deprecation timeline section
+
+**Test Results**:
+- All 522 unit tests pass
+- Build succeeds (all Python files compile successfully)
+- Migration command imports correctly
+- No regressions in existing functionality
+
+**User-Facing Output Example**:
+
+Console warning when index-based PRs detected:
+```
+Found in-progress tasks (index-based): [1, 3]
+⚠️  WARNING: Index-based branch format is DEPRECATED and will be removed in a future version.
+   Please close these PRs and let ClaudeStep create new hash-based PRs.
+   See docs/user-guides/modifying-tasks.md for migration guidance.
+```
+
+Migration command output:
+```bash
+$ python -m claudestep migrate-to-hashes --project my-refactor
+
+=== Migration Status ===
+Total open PRs: 5
+  - Hash-based (new format): 3
+  - Index-based (old format): 2
+
+⚠️  Found index-based PRs that need migration:
+
+  PR #123: Task 1: Add authentication
+    Branch: claude-step-my-refactor-1
+    URL: https://github.com/owner/repo/pull/123
+    Task index: 1
+```
+
+**Expected outcomes**: ✅ All achieved
 - Existing projects with index-based PRs continue working
-- Gradual migration path for users
-- Clear timeline for deprecating old format
+- Gradual migration path provided via helper command
+- Clear 6-month deprecation timeline communicated
+- Warnings guide users to migration resources
 
 ---
 

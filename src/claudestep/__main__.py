@@ -14,6 +14,7 @@ from claudestep.cli.commands.discover import main as cmd_discover
 from claudestep.cli.commands.discover_ready import main as cmd_discover_ready
 from claudestep.cli.commands.extract_cost import cmd_extract_cost
 from claudestep.cli.commands.finalize import cmd_finalize
+from claudestep.cli.commands.migrate_to_hashes import run_migrate_to_hashes
 from claudestep.cli.commands.notify_pr import cmd_notify_pr
 from claudestep.cli.commands.prepare import cmd_prepare
 from claudestep.cli.commands.prepare_summary import cmd_prepare_summary
@@ -62,6 +63,8 @@ def main():
             format_type=args.format or os.environ.get("STATS_FORMAT", "slack"),
             slack_webhook_url=os.environ.get("SLACK_WEBHOOK_URL", ""),
         )
+    elif args.command == "migrate-to-hashes":
+        return run_migrate_to_hashes(args)
     else:
         gh.set_error(f"Unknown command: {args.command}")
         return 1

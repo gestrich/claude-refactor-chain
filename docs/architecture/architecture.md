@@ -742,6 +742,25 @@ def find_next_available_task(
 3. As old PRs are merged/closed, they're replaced with hash-based PRs
 4. Eventually all PRs will be hash-based (index support can be removed in future)
 
+**Deprecation Timeline**:
+
+- **Current Status**: Both formats supported (index-based and hash-based)
+- **Deprecation Notice**: Index-based format is **DEPRECATED** as of Phase 8 completion
+- **Warning Period**: 6 months from deprecation (warnings logged when index-based PRs detected)
+- **Target Removal Date**: ~6 months from Phase 8 completion
+- **Migration Helper**: Use `python -m claudestep migrate-to-hashes` to detect old PRs and get migration guidance
+
+**What Happens During Warning Period**:
+- System logs deprecation warnings when index-based PRs are detected
+- GitHub Actions step summary includes migration guidance
+- Users encouraged to close old PRs and let system create new hash-based PRs
+- No functional impact - both formats continue to work
+
+**After Removal**:
+- Index-based branch parsing will be removed
+- Only hash-based format will be supported
+- Existing index-based PRs will need to be closed/recreated
+
 ### Related Files
 
 **Core Implementation**:
@@ -752,6 +771,7 @@ def find_next_available_task(
 **CLI Integration**:
 - `src/claudestep/cli/commands/prepare.py` - Orphaned PR detection and warnings
 - `src/claudestep/cli/commands/discover_ready.py` - Dual-mode task filtering
+- `src/claudestep/cli/commands/migrate_to_hashes.py` - Migration helper command
 
 **Tests**:
 - `tests/unit/domain/test_spec_content.py` - Hash generation and task parsing tests
