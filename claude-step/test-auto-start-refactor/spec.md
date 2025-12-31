@@ -9,3 +9,6 @@ This is a test project to validate the refactored auto-start workflow.
 
 - [ ] Task 2: Update the test file
   - Change the content to "Hello from auto-start"
+
+- [ ] Task 3: Verify the auto-start workflow works correctly
+  - Confirm that the workflow detects new projects and triggers appropriately
