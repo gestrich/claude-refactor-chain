@@ -10,6 +10,7 @@ import os
 import sys
 
 from claudestep.cli.commands.add_cost_comment import cmd_add_cost_comment
+from claudestep.cli.commands.auto_start import cmd_auto_start
 from claudestep.cli.commands.discover import main as cmd_discover
 from claudestep.cli.commands.discover_ready import main as cmd_discover_ready
 from claudestep.cli.commands.extract_cost import cmd_extract_cost
@@ -61,6 +62,14 @@ def main():
             days_back=args.days_back or int(os.environ.get("STATS_DAYS_BACK", "30")),
             format_type=args.format or os.environ.get("STATS_FORMAT", "slack"),
             slack_webhook_url=os.environ.get("SLACK_WEBHOOK_URL", ""),
+        )
+    elif args.command == "auto-start":
+        return cmd_auto_start(
+            gh=gh,
+            repo=args.repo or os.environ.get("GITHUB_REPOSITORY", ""),
+            base_branch=args.base_branch or os.environ.get("BASE_BRANCH", "main"),
+            ref_before=args.ref_before or os.environ.get("REF_BEFORE", ""),
+            ref_after=args.ref_after or os.environ.get("REF_AFTER", ""),
         )
     else:
         gh.set_error(f"Unknown command: {args.command}")

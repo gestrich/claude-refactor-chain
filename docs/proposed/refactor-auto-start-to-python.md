@@ -146,7 +146,7 @@ Environment variables to read in `__main__.py` adapter layer:
 - Module imports successfully and syntax check passes
 - Ready for Phase 5 integration with `__main__.py` dispatcher
 
-- [ ] Phase 5: Wire up command in __main__.py dispatcher
+- [x] Phase 5: Wire up command in __main__.py dispatcher ✅
 
 Add command registration in `src/claudestep/__main__.py`:
 - Add `auto-start` subparser
@@ -155,6 +155,21 @@ Add command registration in `src/claudestep/__main__.py`:
 - Read environment variables in adapter layer, pass as explicit parameters
 
 Follow pattern from existing commands like `statistics` and `discover`.
+
+**Technical Notes:**
+- Added `auto-start` subparser to `src/claudestep/cli/parser.py` with four arguments:
+  - `--repo`: GitHub repository (owner/name)
+  - `--base-branch`: Base branch to fetch specs from (default: main)
+  - `--ref-before`: Git ref before the push
+  - `--ref-after`: Git ref after the push
+- Added import for `cmd_auto_start` in `src/claudestep/__main__.py`
+- Wired up command dispatcher following the pattern from `statistics` command:
+  - Reads arguments from CLI args with fallback to environment variables
+  - Maps `GITHUB_REPOSITORY` → `repo`, `BASE_BRANCH` → `base_branch`, `REF_BEFORE` → `ref_before`, `REF_AFTER` → `ref_after`
+  - Passes `gh` (GitHubActionsHelper) and explicit parameters to `cmd_auto_start()`
+- Command is now accessible via `python3 -m claudestep auto-start`
+- Build passes successfully and command help shows correctly
+- All 641 tests collect without import errors
 
 - [ ] Phase 6: Create workflow trigger service for GitHub workflow dispatch
 

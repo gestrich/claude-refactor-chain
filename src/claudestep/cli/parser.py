@@ -77,5 +77,25 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["slack", "json"],
         help="Output format (default: slack)"
     )
+    parser_auto_start = subparsers.add_parser(
+        "auto-start",
+        help="Detect new projects and trigger workflows"
+    )
+    parser_auto_start.add_argument(
+        "--repo",
+        help="GitHub repository (owner/name)"
+    )
+    parser_auto_start.add_argument(
+        "--base-branch",
+        help="Base branch to fetch specs from (default: main)"
+    )
+    parser_auto_start.add_argument(
+        "--ref-before",
+        help="Git ref before the push"
+    )
+    parser_auto_start.add_argument(
+        "--ref-after",
+        help="Git ref after the push"
+    )
 
     return parser
