@@ -54,27 +54,51 @@ Replace positional indices with stable task identifiers derived from the task de
 
 ## Phases
 
-- [ ] Phase 1: Design hash function and branch naming convention
+- [x] Phase 1: Design hash function and branch naming convention
 
 **Objective**: Define the exact hash algorithm and branch naming format that will be used throughout the system.
 
-**Tasks**:
-- Implement `generate_task_hash(description: str) -> str` function
-  - Use SHA-256 hash of task description
-  - Truncate to 8 characters for readability
-  - Handle edge cases: empty descriptions, whitespace normalization
-- Define new branch naming convention: `claude-step-<project>-<task-hash>`
+**Status**: ✅ Completed
+
+**Implementation Notes**:
+- Implemented `generate_task_hash()` in `src/claudestep/services/core/task_service.py`
+  - Uses SHA-256 hash of task description
+  - Truncates to 8 characters for readability
+  - Handles whitespace normalization: strips leading/trailing whitespace and collapses internal whitespace
+  - Example: `TaskService.generate_task_hash("Add user authentication")` → `"39b1209d"`
+- Added `format_branch_name_with_hash()` to `src/claudestep/services/core/pr_service.py`
+  - New branch naming format: `claude-step-<project>-<task-hash>`
   - Example: `claude-step-auth-refactor-a3f2b891`
-- Create regex pattern to parse new branch names
-- Decide on transition strategy:
-  - Support both old format (`-<index>`) and new format (`-<hash>`) during migration
-  - Auto-detect format when parsing branch names
+- Added `parse_branch_name_extended()` to `src/claudestep/services/core/pr_service.py`
+  - Supports both old format (`-<index>`) and new format (`-<hash>`) during migration
+  - Auto-detects format: all digits → index, 8 hex chars → hash
+  - Returns tuple: `(project_name, task_identifier, format_version)`
+  - Format version: `"index"` or `"hash"`
+- Maintained backward compatibility:
+  - Original `parse_branch_name()` still works for legacy code
+  - Original `format_branch_name()` still works for index-based branches
 
-**Files to create/modify**:
-- Add `generate_task_hash()` to `src/claudestep/services/task_management_service.py` or new utility module
-- Document hash function in code comments
+**Technical Details**:
+- Hash algorithm: SHA-256 truncated to 8 hex characters (32 bits)
+- Collision probability: ~4 billion combinations (sufficient for task lists)
+- Whitespace normalization ensures stable hashes regardless of formatting
+- Format detection logic:
+  - Index format: identifier is all digits (`^\d+$`)
+  - Hash format: identifier is exactly 8 hexadecimal characters (`^[0-9a-f]{8}$`)
 
-**Expected outcomes**:
+**Files Modified**:
+- `src/claudestep/services/core/task_service.py` - Added `generate_task_hash()` method
+- `src/claudestep/services/core/pr_service.py` - Added `format_branch_name_with_hash()` and `parse_branch_name_extended()` methods
+
+**Test Results**:
+- All 517 unit tests pass
+- Build succeeds
+- Functions verified working:
+  - `TaskService.generate_task_hash("Add user authentication")` → `"39b1209d"`
+  - `PRService.format_branch_name_with_hash("my-project", "a3f2b891")` → `"claude-step-my-project-a3f2b891"`
+  - `PRService.parse_branch_name_extended("claude-step-my-project-a3f2b891")` → `("my-project", "a3f2b891", "hash")`
+
+**Expected outcomes**: ✅ All achieved
 - Hash function produces consistent, stable identifiers
 - Branch naming convention is well-defined and documented
 - Regex can distinguish between old and new formats

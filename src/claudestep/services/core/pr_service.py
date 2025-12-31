@@ -6,7 +6,7 @@ Encapsulates business logic for PR-related operations.
 """
 
 import re
-from typing import List, Optional, Set, Tuple
+from typing import List, Literal, Optional, Set, Tuple, Union
 
 from claudestep.domain.exceptions import GitHubAPIError
 from claudestep.domain.github_models import GitHubPullRequest
@@ -262,7 +262,10 @@ class PRService:
 
     @staticmethod
     def format_branch_name(project_name: str, index: int) -> str:
-        """Format branch name using the standard ClaudeStep format.
+        """Format branch name using the standard ClaudeStep format (index-based).
+
+        This is the legacy format maintained for backward compatibility.
+        New code should use format_branch_name_with_hash() instead.
 
         Args:
             project_name: Project name (e.g., "my-refactor")
@@ -281,8 +284,33 @@ class PRService:
         return project.get_branch_name(index)
 
     @staticmethod
+    def format_branch_name_with_hash(project_name: str, task_hash: str) -> str:
+        """Format branch name using hash-based ClaudeStep format.
+
+        This is the new format that provides stable task identification
+        regardless of task position in spec.md.
+
+        Args:
+            project_name: Project name (e.g., "my-refactor")
+            task_hash: 8-character task hash from generate_task_hash()
+
+        Returns:
+            Formatted branch name (e.g., "claude-step-my-refactor-a3f2b891")
+
+        Examples:
+            >>> PRService.format_branch_name_with_hash("my-refactor", "a3f2b891")
+            'claude-step-my-refactor-a3f2b891'
+            >>> PRService.format_branch_name_with_hash("auth-refactor", "f7c4d3e2")
+            'claude-step-auth-refactor-f7c4d3e2'
+        """
+        return f"claude-step-{project_name}-{task_hash}"
+
+    @staticmethod
     def parse_branch_name(branch: str) -> Optional[Tuple[str, int]]:
-        """Parse branch name to extract project name and task index.
+        """Parse branch name to extract project name and task index (legacy format only).
+
+        This method maintains backward compatibility by only parsing index-based branches.
+        Use parse_branch_name_extended() to parse both index and hash-based formats.
 
         Expected format: claude-step-{project_name}-{index}
 
@@ -315,3 +343,66 @@ class PRService:
                 return None
 
         return None
+
+    @staticmethod
+    def parse_branch_name_extended(branch: str) -> Optional[Tuple[str, Union[int, str], Literal["index", "hash"]]]:
+        """Parse branch name and detect format (index-based or hash-based).
+
+        Supports both old and new branch naming formats:
+        - Old: claude-step-{project}-{index} where index is all digits
+        - New: claude-step-{project}-{hash} where hash is 8 hex characters
+
+        Args:
+            branch: Branch name to parse
+
+        Returns:
+            Tuple of (project_name, task_identifier, format_version) where:
+            - project_name: str - The project name
+            - task_identifier: int (for index format) or str (for hash format)
+            - format_version: "index" or "hash"
+            Returns None if branch doesn't match ClaudeStep pattern
+
+        Examples:
+            >>> PRService.parse_branch_name_extended("claude-step-my-refactor-1")
+            ('my-refactor', 1, 'index')
+            >>> PRService.parse_branch_name_extended("claude-step-auth-a3f2b891")
+            ('auth', 'a3f2b891', 'hash')
+            >>> PRService.parse_branch_name_extended("claude-step-my-refactor-123")
+            ('my-refactor', 123, 'index')
+            >>> PRService.parse_branch_name_extended("invalid-branch")
+            None
+        """
+        # Pattern: claude-step-{project}-{identifier}
+        # Project name can contain hyphens, so we match greedily up to the last hyphen
+        pattern = r"^claude-step-(.+)-([a-z0-9]+)$"
+        match = re.match(pattern, branch)
+
+        if not match:
+            return None
+
+        project_name = match.group(1)
+        identifier = match.group(2)
+
+        # Determine format based on identifier pattern
+        # Index format: all digits (can be any length: 1, 12, 123, etc.)
+        # Hash format: 8 hexadecimal characters (lowercase)
+        if identifier.isdigit():
+            # Old format: index-based
+            try:
+                index = int(identifier)
+                return (project_name, index, "index")
+            except ValueError:
+                return None
+        elif len(identifier) == 8 and all(c in "0123456789abcdef" for c in identifier):
+            # New format: hash-based (8 hex chars)
+            return (project_name, identifier, "hash")
+        else:
+            # Unknown format - could be a very long index or malformed hash
+            # Try to parse as index for backward compatibility
+            if identifier.isdigit():
+                try:
+                    index = int(identifier)
+                    return (project_name, index, "index")
+                except ValueError:
+                    pass
+            return None

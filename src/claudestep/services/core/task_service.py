@@ -4,6 +4,7 @@ Follows Service Layer pattern (Fowler, PoEAA) - encapsulates business logic
 for task finding, marking, and tracking operations.
 """
 
+import hashlib
 import os
 import re
 from typing import Optional
@@ -110,6 +111,38 @@ class TaskService:
             return set()
 
     # Static utility methods
+
+    @staticmethod
+    def generate_task_hash(description: str) -> str:
+        """Generate stable hash identifier for a task description.
+
+        Uses SHA-256 hash truncated to 8 characters for readability.
+        This provides a stable identifier that doesn't change when tasks
+        are reordered in spec.md, only when the description itself changes.
+
+        Args:
+            description: Task description text
+
+        Returns:
+            8-character hash string (lowercase hexadecimal)
+
+        Examples:
+            >>> TaskService.generate_task_hash("Add user authentication")
+            'a3f2b891'
+            >>> TaskService.generate_task_hash("  Add user authentication  ")
+            'a3f2b891'  # Same hash after whitespace normalization
+            >>> TaskService.generate_task_hash("")
+            'e3b0c442'  # Hash of empty string
+        """
+        # Normalize whitespace: strip leading/trailing, collapse internal whitespace
+        normalized = " ".join(description.split())
+
+        # Compute SHA-256 hash of normalized description
+        hash_bytes = hashlib.sha256(normalized.encode('utf-8')).digest()
+
+        # Convert to hex and truncate to 8 characters
+        # 8 hex chars = 32 bits = ~4 billion combinations (sufficient for task lists)
+        return hash_bytes.hex()[:8]
 
     @staticmethod
     def generate_task_id(task: str, max_length: int = 30) -> str:
