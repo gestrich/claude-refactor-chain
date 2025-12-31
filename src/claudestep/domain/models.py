@@ -1,10 +1,83 @@
 """Data models for ClaudeStep operations"""
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from claudestep.services.formatters.table_formatter import TableFormatter
+
+
+@dataclass(frozen=True)
+class BranchInfo:
+    """Parsed ClaudeStep branch information.
+
+    Represents the components of a ClaudeStep branch name in the format:
+    claude-step-{project_name}-{task_hash}
+
+    Attributes:
+        project_name: Name of the project (e.g., "my-refactor", "auth-migration")
+        task_hash: 8-character hexadecimal task identifier (e.g., "a3f2b891")
+        format_version: Branch format version (currently always "hash")
+
+    Examples:
+        >>> info = BranchInfo.from_branch_name("claude-step-my-refactor-a3f2b891")
+        >>> info.project_name
+        'my-refactor'
+        >>> info.task_hash
+        'a3f2b891'
+        >>> info.format_version
+        'hash'
+    """
+
+    project_name: str
+    task_hash: str
+    format_version: Literal["hash"] = "hash"
+
+    @classmethod
+    def from_branch_name(cls, branch: str) -> Optional["BranchInfo"]:
+        """Parse a ClaudeStep branch name into its components.
+
+        Expected format: claude-step-{project_name}-{hash}
+
+        The project name can contain hyphens, so we match greedily up to the
+        last hyphen before the hash. The hash must be exactly 8 lowercase
+        hexadecimal characters.
+
+        Args:
+            branch: Branch name to parse
+
+        Returns:
+            BranchInfo instance if branch matches pattern, None otherwise
+
+        Examples:
+            >>> BranchInfo.from_branch_name("claude-step-my-refactor-a3f2b891")
+            BranchInfo(project_name='my-refactor', task_hash='a3f2b891', format_version='hash')
+            >>> BranchInfo.from_branch_name("invalid-branch")
+            None
+            >>> BranchInfo.from_branch_name("claude-step-auth-api-migration-f7c4d3e2")
+            BranchInfo(project_name='auth-api-migration', task_hash='f7c4d3e2', format_version='hash')
+        """
+        # Pattern: claude-step-{project}-{hash}
+        # Project name can contain hyphens, so we match greedily up to the last hyphen
+        pattern = r"^claude-step-(.+)-([a-z0-9]+)$"
+        match = re.match(pattern, branch)
+
+        if not match:
+            return None
+
+        project_name = match.group(1)
+        identifier = match.group(2)
+
+        # Hash format: 8 hexadecimal characters (lowercase)
+        if len(identifier) == 8 and all(c in "0123456789abcdef" for c in identifier):
+            return cls(
+                project_name=project_name,
+                task_hash=identifier,
+                format_version="hash"
+            )
+
+        return None
 
 
 def parse_iso_timestamp(timestamp_str: str) -> datetime:

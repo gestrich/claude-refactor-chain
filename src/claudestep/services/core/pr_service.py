@@ -6,7 +6,7 @@ Encapsulates business logic for PR-related operations.
 """
 
 import re
-from typing import List, Literal, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, List, Literal, Optional, Set, Tuple, Union
 
 from claudestep.domain.exceptions import GitHubAPIError
 from claudestep.domain.github_models import GitHubPullRequest
@@ -15,6 +15,9 @@ from claudestep.infrastructure.github.operations import (
     list_open_pull_requests,
 )
 from claudestep.domain.project import Project
+
+if TYPE_CHECKING:
+    from claudestep.domain.models import BranchInfo
 
 # Re-export for external use and test mocking compatibility
 __all__ = ["PRService", "list_pull_requests", "list_open_pull_requests"]
@@ -191,8 +194,7 @@ class PRService:
             if pr.head_ref_name:
                 parsed = self.parse_branch_name(pr.head_ref_name)
                 if parsed:
-                    project_name, _, _ = parsed
-                    projects.add(project_name)
+                    projects.add(parsed.project_name)
 
         return projects
 
@@ -305,7 +307,7 @@ class PRService:
         return f"claude-step-{project_name}-{task_hash}"
 
     @staticmethod
-    def parse_branch_name(branch: str) -> Optional[Tuple[str, str, Literal["hash"]]]:
+    def parse_branch_name(branch: str) -> Optional["BranchInfo"]:
         """Parse branch name for hash-based format.
 
         Expected format: claude-step-{project_name}-{hash}
@@ -314,28 +316,16 @@ class PRService:
             branch: Branch name to parse
 
         Returns:
-            Tuple of (project_name, task_hash, "hash") or None if branch
-            doesn't match ClaudeStep pattern
+            BranchInfo instance if branch matches pattern, None otherwise
 
         Examples:
-            >>> PRService.parse_branch_name("claude-step-my-refactor-a3f2b891")
-            ('my-refactor', 'a3f2b891', 'hash')
+            >>> info = PRService.parse_branch_name("claude-step-my-refactor-a3f2b891")
+            >>> info.project_name
+            'my-refactor'
+            >>> info.task_hash
+            'a3f2b891'
             >>> PRService.parse_branch_name("invalid-branch")
             None
         """
-        # Pattern: claude-step-{project}-{hash}
-        # Project name can contain hyphens, so we match greedily up to the last hyphen
-        pattern = r"^claude-step-(.+)-([a-z0-9]+)$"
-        match = re.match(pattern, branch)
-
-        if not match:
-            return None
-
-        project_name = match.group(1)
-        identifier = match.group(2)
-
-        # Hash format: 8 hexadecimal characters (lowercase)
-        if len(identifier) == 8 and all(c in "0123456789abcdef" for c in identifier):
-            return (project_name, identifier, "hash")
-
-        return None
+        from claudestep.domain.models import BranchInfo
+        return BranchInfo.from_branch_name(branch)

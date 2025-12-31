@@ -42,20 +42,18 @@ class TestParseBranchName:
         """Should parse hash-based branch name (new format)"""
         result = PRService.parse_branch_name("claude-step-my-refactor-a3f2b891")
         assert result is not None
-        project, identifier, format_version = result
-        assert project == "my-refactor"
-        assert identifier == "a3f2b891"
-        assert format_version == "hash"
+        assert result.project_name == "my-refactor"
+        assert result.task_hash == "a3f2b891"
+        assert result.format_version == "hash"
 
 
     def test_parse_multi_word_project_hash(self):
         """Should parse project names with multiple words (hash format)"""
         result = PRService.parse_branch_name("claude-step-swift-migration-f7c4d3e2")
         assert result is not None
-        project, identifier, format_version = result
-        assert project == "swift-migration"
-        assert identifier == "f7c4d3e2"
-        assert format_version == "hash"
+        assert result.project_name == "swift-migration"
+        assert result.task_hash == "f7c4d3e2"
+        assert result.format_version == "hash"
 
 
 
@@ -89,10 +87,9 @@ class TestParseBranchName:
         result = PRService.parse_branch_name(branch)
 
         assert result is not None
-        project, identifier, format_version = result
-        assert project == original_project
-        assert identifier == original_hash
-        assert format_version == "hash"
+        assert result.project_name == original_project
+        assert result.task_hash == original_hash
+        assert result.format_version == "hash"
 
 
     def test_parse_invalid_branch_non_hex_hash(self):
@@ -108,10 +105,9 @@ class TestParseBranchName:
         # This should parse, but the project name will be "my-refactor-"
         # Actually testing the current behavior
         if result:
-            project, identifier, format_version = result
-            assert project == "my-refactor-"
-            assert identifier == "a3f2b891"
-            assert format_version == "hash"
+            assert result.project_name == "my-refactor-"
+            assert result.task_hash == "a3f2b891"
+            assert result.format_version == "hash"
         # If implementation changes to reject this, that's also acceptable
         # The key is to document the behavior
 
@@ -119,10 +115,9 @@ class TestParseBranchName:
         """Should handle single character project names"""
         result = PRService.parse_branch_name("claude-step-x-a3f2b891")
         assert result is not None
-        project, identifier, format_version = result
-        assert project == "x"
-        assert identifier == "a3f2b891"
-        assert format_version == "hash"
+        assert result.project_name == "x"
+        assert result.task_hash == "a3f2b891"
+        assert result.format_version == "hash"
 
 
     def test_parse_whitespace_in_branch(self):
@@ -131,10 +126,9 @@ class TestParseBranchName:
         # While not recommended, this tests the actual behavior
         result = PRService.parse_branch_name("claude-step-my refactor-a3f2b891")
         assert result is not None
-        project, identifier, format_version = result
-        assert project == "my refactor"
-        assert identifier == "a3f2b891"
-        assert format_version == "hash"
+        assert result.project_name == "my refactor"
+        assert result.task_hash == "a3f2b891"
+        assert result.format_version == "hash"
 
     def test_parse_case_sensitivity(self):
         """Should handle case sensitivity in prefix (expects lowercase)"""

@@ -196,7 +196,7 @@ class GitHubPullRequest:
 
         parsed = PRService.parse_branch_name(self.head_ref_name)
         if parsed:
-            return parsed[0]
+            return parsed.project_name
         return None
 
     @property
@@ -225,9 +225,7 @@ class GitHubPullRequest:
 
         parsed = PRService.parse_branch_name(self.head_ref_name)
         if parsed:
-            project_name, task_identifier, format_version = parsed
-            if format_version == "hash":
-                return task_identifier
+            return parsed.task_hash
         return None
 
     @property

@@ -57,15 +57,14 @@ class ProjectService:
             print(f"PR branch: {branch_name}")
 
             # Extract project name from branch name using standard format
-            # Expected format: claude-step-{project}-{index|hash}
+            # Expected format: claude-step-{project}-{hash}
             result = PRService.parse_branch_name(branch_name)
 
             if result:
-                project_name, _, _ = result
-                print(f"✅ Detected project '{project_name}' from branch '{branch_name}'")
-                return project_name
+                print(f"✅ Detected project '{result.project_name}' from branch '{branch_name}'")
+                return result.project_name
             else:
-                print(f"Could not parse branch '{branch_name}' - not in expected format claude-step-{{project}}-{{index|hash}}")
+                print(f"Could not parse branch '{branch_name}' - not in expected format claude-step-{{project}}-{{hash}}")
                 return None
 
         except Exception as e:

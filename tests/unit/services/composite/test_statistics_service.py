@@ -649,21 +649,6 @@ This PR was generated using Claude Code with the following costs:
         assert "Cost" in slack_msg
 
 
-class TestCollectProjectCosts:
-    """Test project cost collection (temporarily disabled in Phase 4)"""
-
-    def test_collect_costs_returns_zero(self):
-        """Test that cost collection returns 0.0 (Phase 4)"""
-        # Create service and test
-        mock_repo = Mock()
-        mock_pr_service = Mock()
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
-        cost = service.collect_project_costs("test-project", "claudestep")
-
-        # Cost tracking temporarily dropped in Phase 4
-        assert cost == 0.0
-
-
 class TestCollectTeamMemberStats:
     """Test team member statistics collection from GitHub API"""
 

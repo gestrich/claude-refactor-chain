@@ -588,9 +588,75 @@ def cmd_statistics(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
 
 ### Convention: Content-Based Task Hashing
 
-ClaudeStep uses a **hash-based task identification** system where tasks are identified by content hash (8-character SHA-256 of description) rather than position in the spec file. This enables flexible task management - tasks can be freely reordered, inserted, or deleted in spec.md without breaking PR tracking.
+ClaudeStep uses a **hash-based task identification** system where tasks are identified by content hash rather than position in the spec file. This enables flexible task management without breaking PR tracking.
 
-For detailed information about hash generation, orphaned PR detection, and implementation details, see [Hash-Based Task Identification](hash-based-task-identification.md)
+### Why Hash-Based Identification?
+
+**Benefits**:
+1. **Flexible Task Management** - Insert, delete, or reorder tasks without breaking PR tracking
+2. **No Manual ID Management** - Hashes generated automatically from task descriptions
+3. **Self-Healing** - Orphaned PRs detected automatically, new PRs created when old ones closed
+4. **Stable Identifiers** - Task hash remains constant as long as description unchanged
+5. **Collision Resistant** - SHA-256 provides sufficient combinations for task lists
+
+**Trade-offs**:
+- Task hashes are not human-readable (but branch names include project for context)
+- Changing task description invalidates existing PRs (user must close and restart)
+- Need to handle orphaned PRs when descriptions change
+
+### Hash Algorithm
+
+**Implementation** (`src/claudestep/domain/spec_content.py`):
+```python
+def generate_task_hash(description: str) -> str:
+    """Generate stable 8-character hash from task description"""
+    # Normalize whitespace (strip and collapse)
+    normalized = " ".join(description.strip().split())
+
+    # SHA-256 hash
+    hash_object = hashlib.sha256(normalized.encode('utf-8'))
+
+    # Truncate to 8 hex characters (32 bits)
+    return hash_object.hexdigest()[:8]
+```
+
+**Examples**:
+- `generate_task_hash("Add user authentication")` → `"39b1209d"`
+- `generate_task_hash("  Add user   authentication  ")` → `"39b1209d"` (whitespace normalized)
+- `generate_task_hash("Add user authorization")` → `"f7c4d3e2"` (different description = different hash)
+
+### Orphaned PR Detection
+
+Orphaned PRs are pull requests whose task description has changed or been removed from spec.md.
+
+**Example Scenario**:
+```markdown
+<!-- Original spec.md -->
+- [ ] Add user authentication  ← PR created with hash 39b1209d
+
+<!-- User modifies task description -->
+- [ ] Add OAuth authentication  ← Hash changes to a8f3c2d1
+
+<!-- Now PR with hash 39b1209d is "orphaned" -->
+```
+
+**Detection Logic**:
+1. Extract all current task hashes from spec.md
+2. Get all open PRs for the project
+3. Find PRs with task_hash not in the current valid hashes
+4. Report orphaned PRs to user with guidance
+
+**User Guidance** (shown in console and GitHub Actions summary):
+```
+⚠️  Warning: Found 2 orphaned PR(s):
+  - PR #123 (claude-step-auth-39b1209d) - task hash 39b1209d no longer matches any task
+  - PR #125 (claude-step-auth-f7c4d3e2) - task hash f7c4d3e2 no longer matches any task
+
+To resolve:
+  1. Review these PRs and verify if they should be closed
+  2. Close any PRs for modified/removed tasks
+  3. ClaudeStep will automatically create new PRs for current tasks
+```
 
 ---
 
@@ -598,9 +664,79 @@ For detailed information about hash generation, orphaned PR detection, and imple
 
 ### Convention: Standardized Branch Format
 
-All ClaudeStep branches follow the format: `claude-step-{project}-{task-hash}` (e.g., `claude-step-my-refactor-a3f2b891`). This format combines the project name with the task hash to create stable, identifiable branch names for pull requests.
+ClaudeStep uses a standardized branch naming convention that identifies pull requests by project and task hash, enabling stable task tracking regardless of task position in the spec file.
 
-For detailed information about branch formatting, parsing logic, and implementation, see [Branch Naming](branch-naming.md)
+### Branch Format
+
+All ClaudeStep branches follow this format:
+
+```
+claude-step-{project_name}-{task_hash}
+```
+
+**Components:**
+- `claude-step`: Fixed prefix identifying ClaudeStep PRs
+- `{project_name}`: Name of the project folder (e.g., "my-refactor", "auth-migration")
+- `{task_hash}`: 8-character hexadecimal hash identifying the task (e.g., "a3f2b891")
+
+**Examples:**
+- `claude-step-my-refactor-a3f2b891`
+- `claude-step-auth-migration-f7c4d3e2`
+- `claude-step-swift-migration-39b1209d`
+
+### Implementation
+
+**Formatting Branch Names:**
+```python
+from claudestep.services.core.pr_service import PRService
+
+branch_name = PRService.format_branch_name("my-refactor", "a3f2b891")
+# Result: "claude-step-my-refactor-a3f2b891"
+```
+
+**Parsing Branch Names:**
+```python
+branch_info = PRService.parse_branch_name("claude-step-my-refactor-a3f2b891")
+# Returns: BranchInfo(project_name='my-refactor', task_hash='a3f2b891', format_version='hash')
+
+if branch_info:
+    print(branch_info.project_name)  # 'my-refactor'
+    print(branch_info.task_hash)     # 'a3f2b891'
+```
+
+The parser returns a `BranchInfo` domain model instance or `None` if the branch doesn't match the ClaudeStep pattern.
+
+You can also parse directly using the domain model:
+```python
+from claudestep.domain.models import BranchInfo
+
+branch_info = BranchInfo.from_branch_name("claude-step-my-refactor-a3f2b891")
+```
+
+### Format Detection
+
+Branch names are validated using the pattern `^claude-step-(.+)-([a-z0-9]+)$` where:
+- Task identifier must be exactly 8 lowercase hexadecimal characters
+- Project names can contain hyphens (greedy matching up to the last hyphen)
+
+### Integration with Task Hashing
+
+Branch names use the same hash generated by the task identification system (see [Hash-Based Task Identification](#hash-based-task-identification)):
+
+1. Task hash is generated from task description using SHA-256
+2. First 8 characters of hex digest are used as task identifier
+3. Branch name is created combining project name and task hash
+4. PRs are tracked by this stable identifier
+
+This creates a direct link: Task in spec.md → Task hash → Branch name → Pull request
+
+### Benefits
+
+1. **Stable Identification**: Task hash never changes even if task is reordered
+2. **Project Isolation**: Project name in branch prevents naming conflicts
+3. **Easy Filtering**: PRs can be filtered by project using branch name patterns
+4. **Human Readable**: Branch names clearly show project and task identifier
+5. **Parseable**: Structured format enables programmatic extraction of metadata
 
 ---
 
@@ -1095,7 +1231,7 @@ class ServiceName:
 
 5. **StatisticsService** - Statistics collection and aggregation
    - Constructor: `__init__(self, repo: str, metadata_service: MetadataService, base_branch: str = "main")`
-   - Instance methods: `collect_project_costs()`, `collect_team_member_stats()`, `collect_project_stats()`, `collect_all_statistics()`
+   - Instance methods: `collect_team_member_stats()`, `collect_project_stats()`, `collect_all_statistics()`
    - Static methods: `extract_cost_from_comment()`, `count_tasks()`
 
 6. **ArtifactService** - Artifact operations
