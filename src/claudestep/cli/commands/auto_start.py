@@ -11,6 +11,7 @@ from typing import List
 from claudestep.domain.auto_start import AutoStartProject
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 from claudestep.services.composite.auto_start_service import AutoStartService
+from claudestep.services.composite.workflow_service import WorkflowService
 from claudestep.services.core.pr_service import PRService
 
 
@@ -21,12 +22,20 @@ def cmd_auto_start(
     ref_before: str,
     ref_after: str
 ) -> int:
-    """Detect new projects and determine which should be auto-triggered.
+    """Detect new projects and trigger ClaudeStep workflows for them.
 
-    This command uses AutoStartService to orchestrate the auto-start workflow:
+    This command orchestrates the auto-start workflow:
     1. Detect changed spec.md files
     2. Determine which projects are new (no existing PRs)
     3. Make auto-trigger decisions based on business logic
+    4. Trigger ClaudeStep workflows for approved projects
+
+    GitHub Actions outputs:
+        triggered_projects: Space-separated list of successfully triggered projects
+        trigger_count: Number of successful triggers
+        failed_projects: Space-separated list of projects that failed to trigger
+        projects_to_trigger: (legacy) Space-separated list of projects identified for triggering
+        project_count: (legacy) Number of projects identified for triggering
 
     Args:
         gh: GitHub Actions helper instance
@@ -80,7 +89,7 @@ def cmd_auto_start(
         print(f"\nFound {len(new_projects)} new project(s) to trigger\n")
 
         # === Step 3: Make auto-trigger decisions ===
-        print("=== Step 3/3: Making auto-trigger decisions ===")
+        print("=== Step 3/4: Making auto-trigger decisions ===")
         projects_to_trigger: List[str] = []
 
         for project in new_projects:
@@ -94,20 +103,49 @@ def cmd_auto_start(
 
         print()
 
-        # === Write outputs ===
-        if projects_to_trigger:
-            # Format as space-separated list for GitHub Actions matrix
-            projects_output = " ".join(projects_to_trigger)
-            gh.write_output("projects_to_trigger", projects_output)
-            gh.write_output("project_count", str(len(projects_to_trigger)))
+        # === Step 4: Trigger workflows ===
+        triggered_projects: List[str] = []
+        failed_projects: List[str] = []
 
-            print(f"✅ Auto-start detection complete")
-            print(f"   Projects to trigger: {projects_output}")
-            print(f"   Total count: {len(projects_to_trigger)}")
+        if projects_to_trigger:
+            print("=== Step 4/4: Triggering workflows ===")
+            workflow_service = WorkflowService()
+            triggered_projects, failed_projects = workflow_service.batch_trigger_claudestep_workflows(
+                projects=projects_to_trigger,
+                base_branch=base_branch,
+                checkout_ref=ref_after
+            )
+            print()
+
+        # === Write outputs ===
+        # Write list of successfully triggered projects
+        triggered_output = " ".join(triggered_projects) if triggered_projects else ""
+        gh.write_output("triggered_projects", triggered_output)
+        gh.write_output("trigger_count", str(len(triggered_projects)))
+
+        # Write list of failed projects
+        failed_output = " ".join(failed_projects) if failed_projects else ""
+        gh.write_output("failed_projects", failed_output)
+
+        # Also write legacy projects_to_trigger for backward compatibility
+        projects_output = " ".join(projects_to_trigger) if projects_to_trigger else ""
+        gh.write_output("projects_to_trigger", projects_output)
+        gh.write_output("project_count", str(len(projects_to_trigger)))
+
+        # === Summary ===
+        if triggered_projects:
+            print(f"✅ Auto-start complete")
+            print(f"   Successfully triggered: {len(triggered_projects)} project(s)")
+            print(f"   Projects: {triggered_output}")
+            if failed_projects:
+                print(f"   ⚠️  Failed triggers: {len(failed_projects)} project(s)")
+                print(f"   Failed projects: {failed_output}")
+        elif projects_to_trigger:
+            # Some projects were identified but all triggers failed
+            print(f"❌ Auto-start failed - all triggers failed")
+            print(f"   Failed projects: {failed_output}")
         else:
-            gh.write_output("projects_to_trigger", "")
-            gh.write_output("project_count", "0")
-            print("✅ Auto-start detection complete (no projects to trigger)")
+            print("✅ Auto-start complete (no projects to trigger)")
 
         return 0
 

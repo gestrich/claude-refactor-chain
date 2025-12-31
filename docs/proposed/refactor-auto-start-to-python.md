@@ -196,7 +196,7 @@ Use infrastructure layer for `gh` command execution.
 - Build passes with 641 tests collecting correctly
 - Ready for Phase 7 integration with `cmd_auto_start()`
 
-- [ ] Phase 7: Add workflow triggering to auto-start command
+- [x] Phase 7: Add workflow triggering to auto-start command ✅
 
 Extend `cmd_auto_start()` to:
 - Use `WorkflowService` to trigger workflows for new projects
@@ -208,6 +208,25 @@ Update GitHub Actions outputs to include:
 - `triggered_projects` - Space-separated list
 - `failed_projects` - Space-separated list
 - `trigger_count` - Number of successful triggers
+
+**Technical Notes:**
+- Extended `cmd_auto_start()` in `src/claudestep/cli/commands/auto_start.py` to add workflow triggering as Step 4
+- Integrated `WorkflowService.batch_trigger_claudestep_workflows()` to trigger workflows for all approved projects
+- Added three new GitHub Actions outputs:
+  - `triggered_projects`: Space-separated list of successfully triggered projects
+  - `trigger_count`: Number of successful triggers
+  - `failed_projects`: Space-separated list of projects that failed to trigger
+- Maintained backward compatibility by keeping legacy outputs (`projects_to_trigger`, `project_count`)
+- Workflow triggering uses `ref_after` as the `checkout_ref` parameter
+- Batch triggering collects both successes and failures, continuing to process all projects even if some fail
+- Enhanced summary output to show:
+  - Successful triggers with count and project list
+  - Failed triggers with count and project list (if any)
+  - Appropriate status for different scenarios (all success, partial success, all failed, none to trigger)
+- Updated command progress indicators from "Step 3/3" to "Step 3/4" and added "Step 4/4: Triggering workflows"
+- Updated function docstring to document the new workflow triggering step and all GitHub Actions outputs
+- Build passes successfully with 641 tests collecting correctly
+- Module imports successfully with no syntax errors
 
 - [ ] Phase 8: Refactor YAML workflow to use Python command
 
