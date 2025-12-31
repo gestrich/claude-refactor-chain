@@ -46,12 +46,13 @@ Generate a summary of the changes.
 
             # Assertions
             assert exit_code == 0
-            gh.write_output.assert_called_once()
+            # Now writes 4 outputs: summary_prompt, main_cost, summary_cost, total_cost
+            assert gh.write_output.call_count == 4
 
-            # Verify output contains substituted values
-            call_args = gh.write_output.call_args
-            assert call_args[0][0] == "summary_prompt"
-            prompt = call_args[0][1]
+            # Verify output contains substituted values (first call is summary_prompt)
+            call_args_list = gh.write_output.call_args_list
+            assert call_args_list[0][0][0] == "summary_prompt"
+            prompt = call_args_list[0][0][1]
             assert "Add user authentication" in prompt
             assert "123" in prompt
             assert "https://github.com/owner/repo/actions/runs/456789" in prompt
@@ -59,6 +60,11 @@ Generate a summary of the changes.
             assert "{TASK_DESCRIPTION}" not in prompt
             assert "{PR_NUMBER}" not in prompt
             assert "{WORKFLOW_URL}" not in prompt
+
+            # Verify cost outputs
+            assert call_args_list[1][0][0] == "main_cost"
+            assert call_args_list[2][0][0] == "summary_cost"
+            assert call_args_list[3][0][0] == "total_cost"
 
     def test_prepare_summary_without_pr_number(self):
         """Test prepare_summary gracefully skips when no PR number"""
@@ -167,8 +173,9 @@ URL: {WORKFLOW_URL}
             exit_code = cmd_prepare_summary(args, gh)
 
             assert exit_code == 0
-            call_args = gh.write_output.call_args
-            prompt = call_args[0][1]
+            # Get the first call (summary_prompt)
+            call_args_list = gh.write_output.call_args_list
+            prompt = call_args_list[0][0][1]
 
             # Verify exact substitutions
             assert "Task: Fix critical bug" in prompt
@@ -195,10 +202,11 @@ URL: {WORKFLOW_URL}
             exit_code = cmd_prepare_summary(args, gh)
 
             assert exit_code == 0
-            # Verify write_output was called with correct key
-            assert gh.write_output.call_args[0][0] == "summary_prompt"
+            # Verify write_output was called with correct keys (4 outputs total)
+            call_args_list = gh.write_output.call_args_list
+            assert call_args_list[0][0][0] == "summary_prompt"
             # Verify prompt is a non-empty string
-            prompt = gh.write_output.call_args[0][1]
+            prompt = call_args_list[0][0][1]
             assert isinstance(prompt, str)
             assert len(prompt) > 0
 
@@ -222,7 +230,9 @@ URL: {WORKFLOW_URL}
             exit_code = cmd_prepare_summary(args, gh)
 
             assert exit_code == 0
-            prompt = gh.write_output.call_args[0][1]
+            # Get the first call (summary_prompt)
+            call_args_list = gh.write_output.call_args_list
+            prompt = call_args_list[0][0][1]
             assert prompt == "https://github.com/myorg/myrepo/actions/runs/987654321"
 
     def test_prepare_summary_handles_exception(self, tmp_path):

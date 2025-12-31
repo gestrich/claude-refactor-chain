@@ -175,6 +175,8 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_RUN_ID: ${{ github.run_id }}
         ACTION_PATH: ${{ github.action_path }}
+        MAIN_EXECUTION_FILE: ${{ steps.claude_code.outputs.execution_file }}
+        SUMMARY_EXECUTION_FILE: ${{ steps.pr_summary.outputs.execution_file }}
       run: |
         export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"
         python3 -m claudestep prepare-summary

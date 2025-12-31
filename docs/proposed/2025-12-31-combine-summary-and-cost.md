@@ -32,7 +32,7 @@ Expected outcome: Summary text is reliably generated and written to a file
 - Renamed step in `action.yml:182` from "Generate and post PR summary" to "Generate PR summary"
 - Build succeeds, changes are minimal and focused on Phase 1 requirements
 
-- [ ] Phase 2: Consolidate cost extraction into prepare-summary command
+- [x] Phase 2: Consolidate cost extraction into prepare-summary command
 
 **Current behavior:** Two separate steps extract costs:
 - `action.yml:124-136` - Extract cost from main task
@@ -59,6 +59,22 @@ Files to modify:
 **Architecture Note:** The command should read environment variables only in the entry point (following the [CLI Command Pattern](../architecture/python-code-style.md#cli-command-pattern)). All configuration flows explicitly through function parameters.
 
 Expected outcome: Single step handles both summary prompt AND cost extraction
+
+**Technical notes:**
+- Modified `src/claudestep/cli/commands/prepare_summary.py` to:
+  - Import `extract_cost_from_execution` from `extract_cost.py` and `json` module
+  - Read `MAIN_EXECUTION_FILE` and `SUMMARY_EXECUTION_FILE` environment variables
+  - Added `_extract_cost_from_file()` helper function that reuses the extraction logic
+  - Extract costs from both execution files and output via `gh.write_output()`
+  - Outputs: `main_cost`, `summary_cost`, `total_cost` (in addition to existing `summary_prompt`)
+- Updated `action.yml:164-180` to provide execution file paths as environment variables:
+  - Added `MAIN_EXECUTION_FILE: ${{ steps.claude_code.outputs.execution_file }}`
+  - Added `SUMMARY_EXECUTION_FILE: ${{ steps.pr_summary.outputs.execution_file }}`
+- Updated integration tests in `tests/integration/cli/commands/test_prepare_summary.py`:
+  - Modified assertions to expect 4 outputs instead of 1
+  - Updated all test cases to use `call_args_list` to access individual output calls
+  - All 9 tests pass successfully
+- Build succeeds, changes follow Python-First principle by consolidating cost extraction logic in Python
 
 - [ ] Phase 3: Create new unified comment posting command
 
