@@ -91,8 +91,9 @@ def check_project_ready(project_name: str, repo: str) -> bool:
         from claudestep.domain.spec_content import SpecContent
         spec = SpecContent(project, spec_content)
 
-        in_progress_indices = task_service.get_in_progress_task_indices(label, project_name)
-        next_task = task_service.find_next_available_task(spec, in_progress_indices)
+        # Get in-progress tasks (both index-based and hash-based)
+        in_progress_indices, in_progress_hashes = task_service.get_in_progress_tasks(label, project_name)
+        next_task = task_service.find_next_available_task(spec, in_progress_indices, in_progress_hashes)
 
         if not next_task:
             print(f"  ⏭️  No available tasks")

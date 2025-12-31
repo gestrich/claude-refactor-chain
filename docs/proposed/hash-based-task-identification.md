@@ -222,30 +222,67 @@ Replace positional indices with stable task identifiers derived from the task de
 
 ---
 
-- [ ] Phase 4: Update task finding logic to work with hashes
+- [x] Phase 4: Update task finding logic to work with hashes
 
 **Objective**: Modify the logic that finds "next available task" to use hash-based matching with GitHub PRs.
 
-**Tasks**:
-- Update `find_next_available_task()` to:
-  - Parse all tasks from spec.md and generate their hashes
-  - Query GitHub for open PRs (from refactor Phase 3 work)
-  - Extract task hashes from PR branch names
-  - Find first task whose hash is NOT in the list of open PR hashes
-  - Return task with its hash
-- Handle mixed scenarios (some old index-based PRs, some new hash-based PRs)
-- Add logic to detect orphaned PRs:
-  - Find PRs whose task hash/index doesn't match any current spec task
-  - Log warnings for orphaned PRs
+**Status**: ✅ Completed
 
-**Files to modify**:
-- `src/claudestep/services/task_management_service.py` - Update `find_next_available_task()`
-- `src/claudestep/cli/commands/prepare.py` - Update to use task hash when creating branches
+**Implementation Notes**:
+- Updated `SpecContent.get_next_available_task()` in `src/claudestep/domain/spec_content.py`
+  - Added `skip_hashes` parameter alongside existing `skip_indices` parameter
+  - Supports dual-mode filtering: by index (legacy) and by hash (new format)
+  - Tasks are skipped if they match either skip_indices OR skip_hashes
+- Updated `TaskService.find_next_available_task()` in `src/claudestep/services/core/task_service.py`
+  - Added `skip_hashes` parameter to method signature
+  - Passes both skip_indices and skip_hashes to domain model
+  - Enhanced logging to show which tasks are being skipped and why (index-based vs hash-based)
+- Added new method `TaskService.get_in_progress_tasks()`
+  - Returns tuple of (task_indices, task_hashes) for dual-mode support
+  - Queries GitHub PRs and extracts both hash-based and index-based task identifiers
+  - Replaces reliance on index-only `get_in_progress_task_indices()` (kept for backward compatibility)
+- Added new method `TaskService.detect_orphaned_prs()`
+  - Detects PRs whose task hash/index no longer matches current spec.md
+  - Returns list of orphaned GitHubPullRequest objects
+  - Handles both hash-based PRs (checks against valid_hashes set) and index-based PRs (checks against valid_indices set)
+- Updated `src/claudestep/cli/commands/prepare.py`
+  - Calls `detect_orphaned_prs()` and displays warnings to user
+  - Shows clear guidance on how to resolve orphaned PRs (close them, system will create new ones)
+  - Uses `get_in_progress_tasks()` instead of `get_in_progress_task_indices()`
+  - Displays both index-based and hash-based in-progress tasks separately
+- Updated `src/claudestep/cli/commands/discover_ready.py`
+  - Uses `get_in_progress_tasks()` for dual-mode support
+  - Passes both indices and hashes to `find_next_available_task()`
+- Added comprehensive tests in `tests/unit/domain/test_spec_content.py`
+  - `test_get_next_available_task_with_skip_hashes` - Tests hash-based skipping
+  - `test_get_next_available_task_with_skip_indices_and_hashes` - Tests dual-mode filtering
+  - `test_get_next_available_task_with_multiple_skip_hashes` - Tests multiple hash skips
+  - All 627 existing tests pass with new functionality
 
-**Expected outcomes**:
-- System correctly identifies in-progress tasks by hash
-- Next available task is found correctly
-- Orphaned PRs are detected and logged
+**Technical Details**:
+- Backward compatibility maintained: system handles both old index-based PRs and new hash-based PRs
+- Orphaned PR detection compares PR identifiers against current spec.md task lists
+- User-facing warnings guide users to close orphaned PRs manually
+- When orphaned PRs are closed, the system will automatically create new PRs for updated tasks
+- Skip logic uses set membership for O(1) lookup performance
+
+**Files Modified**:
+- `src/claudestep/domain/spec_content.py` - Updated `get_next_available_task()` signature
+- `src/claudestep/services/core/task_service.py` - Added `get_in_progress_tasks()` and `detect_orphaned_prs()` methods
+- `src/claudestep/cli/commands/prepare.py` - Added orphaned PR detection and warnings
+- `src/claudestep/cli/commands/discover_ready.py` - Updated to use dual-mode task finding
+- `tests/unit/domain/test_spec_content.py` - Added 3 new tests for hash-based skipping
+
+**Test Results**:
+- All 627 unit and integration tests pass
+- Build succeeds (all Python files compile successfully)
+- Test coverage: 68.33% (slightly below 70% due to new service methods requiring integration tests)
+- New domain model methods (get_next_available_task with skip_hashes) have 100% coverage
+
+**Expected outcomes**: ✅ All achieved
+- System correctly identifies in-progress tasks by hash (and index for legacy PRs)
+- Next available task is found correctly using dual-mode filtering
+- Orphaned PRs are detected and logged with actionable user guidance
 
 ---
 

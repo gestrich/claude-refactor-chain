@@ -615,6 +615,62 @@ class TestSpecContentGetNextAvailableTask:
         # Assert
         assert task is None
 
+    def test_get_next_available_task_with_skip_hashes(self):
+        """Should skip tasks by hash"""
+        # Arrange
+        project = Project("my-project")
+        content = "- [ ] First\n- [ ] Second\n- [ ] Third\n- [ ] Fourth"
+        spec = SpecContent(project, content)
+
+        # Get hash of first task to skip it
+        first_task_hash = spec.tasks[0].task_hash
+
+        # Act
+        task = spec.get_next_available_task(skip_hashes={first_task_hash})
+
+        # Assert
+        assert task is not None
+        assert task.description == "Second"
+        assert task.index == 2
+
+    def test_get_next_available_task_with_skip_indices_and_hashes(self):
+        """Should skip tasks by both indices and hashes"""
+        # Arrange
+        project = Project("my-project")
+        content = "- [ ] First\n- [ ] Second\n- [ ] Third\n- [ ] Fourth"
+        spec = SpecContent(project, content)
+
+        # Get hash of second task
+        second_task_hash = spec.tasks[1].task_hash
+
+        # Act - Skip first by index and second by hash
+        task = spec.get_next_available_task(skip_indices={1}, skip_hashes={second_task_hash})
+
+        # Assert
+        assert task is not None
+        assert task.description == "Third"
+        assert task.index == 3
+
+    def test_get_next_available_task_with_multiple_skip_hashes(self):
+        """Should skip multiple tasks by hash"""
+        # Arrange
+        project = Project("my-project")
+        content = "- [ ] First\n- [ ] Second\n- [ ] Third\n- [ ] Fourth"
+        spec = SpecContent(project, content)
+
+        # Get hashes to skip
+        first_hash = spec.tasks[0].task_hash
+        second_hash = spec.tasks[1].task_hash
+        third_hash = spec.tasks[2].task_hash
+
+        # Act
+        task = spec.get_next_available_task(skip_hashes={first_hash, second_hash, third_hash})
+
+        # Assert
+        assert task is not None
+        assert task.description == "Fourth"
+        assert task.index == 4
+
 
 class TestSpecContentGetPendingTaskIndices:
     """Test suite for SpecContent.get_pending_task_indices method"""

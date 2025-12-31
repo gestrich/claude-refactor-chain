@@ -166,20 +166,31 @@ class SpecContent:
         """
         return self.tasks[index - 1] if 0 < index <= len(self.tasks) else None
 
-    def get_next_available_task(self, skip_indices: Optional[set] = None) -> Optional[SpecTask]:
+    def get_next_available_task(self, skip_indices: Optional[set] = None, skip_hashes: Optional[set] = None) -> Optional[SpecTask]:
         """Find the next uncompleted task
 
         Args:
-            skip_indices: Optional set of task indices to skip (1-based)
+            skip_indices: Optional set of task indices to skip (1-based, legacy support)
+            skip_hashes: Optional set of task hashes to skip (hash-based matching)
 
         Returns:
             Next available SpecTask or None if all tasks completed
         """
         skip_indices = skip_indices or set()
+        skip_hashes = skip_hashes or set()
 
         for task in self.tasks:
-            if not task.is_completed and task.index not in skip_indices:
-                return task
+            # Skip if task is completed
+            if task.is_completed:
+                continue
+            # Skip if task index is in skip_indices (legacy support)
+            if task.index in skip_indices:
+                continue
+            # Skip if task hash is in skip_hashes (hash-based matching)
+            if task.task_hash in skip_hashes:
+                continue
+            # Found an available task
+            return task
 
         return None
 

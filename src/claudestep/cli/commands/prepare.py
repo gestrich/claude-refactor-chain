@@ -154,12 +154,30 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
         # === STEP 4: Find Next Task ===
         print("\n=== Step 4/6: Finding next task ===")
 
-        in_progress_indices = task_service.get_in_progress_task_indices(label, detected_project)
+        # Detect orphaned PRs (PRs for tasks that have been modified or removed)
+        orphaned_prs = task_service.detect_orphaned_prs(label, detected_project, spec)
+        if orphaned_prs:
+            print(f"\n⚠️  Warning: Found {len(orphaned_prs)} orphaned PR(s):")
+            for pr in orphaned_prs:
+                if pr.task_hash:
+                    print(f"  - PR #{pr.number} ({pr.head_ref_name}) - task hash {pr.task_hash} no longer matches any task")
+                elif pr.task_index:
+                    print(f"  - PR #{pr.number} ({pr.head_ref_name}) - task index {pr.task_index} no longer valid")
+            print("\nTo resolve:")
+            print("  1. Review these PRs and verify if they should be closed")
+            print("  2. Close any PRs for modified/removed tasks")
+            print("  3. ClaudeStep will automatically create new PRs for current tasks")
+            print()
+
+        # Get in-progress tasks (both index-based and hash-based)
+        in_progress_indices, in_progress_hashes = task_service.get_in_progress_tasks(label, detected_project)
 
         if in_progress_indices:
-            print(f"Found in-progress tasks: {sorted(in_progress_indices)}")
+            print(f"Found in-progress tasks (index-based): {sorted(in_progress_indices)}")
+        if in_progress_hashes:
+            print(f"Found in-progress tasks (hash-based): {sorted(in_progress_hashes)}")
 
-        result = task_service.find_next_available_task(spec, in_progress_indices)
+        result = task_service.find_next_available_task(spec, in_progress_indices, in_progress_hashes)
 
         if not result:
             gh.write_output("has_task", "false")
