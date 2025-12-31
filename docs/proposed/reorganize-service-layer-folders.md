@@ -20,6 +20,7 @@ This refactoring will organize services into two subdirectories that reflect the
 - Two levels: core and composite
 - Make the architecture visible in the folder structure
 - Keep naming simple and unambiguous
+- Simplify service names by removing unnecessary words like "management" and "operations"
 
 **Current Structure:**
 ```
@@ -39,19 +40,27 @@ src/claudestep/services/
 ├── __init__.py
 ├── core/                           # Foundational services
 │   ├── __init__.py
-│   ├── pr_operations_service.py
-│   ├── project_detection_service.py
-│   ├── reviewer_management_service.py
-│   └── task_management_service.py
+│   ├── pr_service.py
+│   ├── project_service.py
+│   ├── reviewer_service.py
+│   └── task_service.py
 └── composite/                      # Higher-level orchestration
     ├── __init__.py
-    ├── artifact_operations_service.py
+    ├── artifact_service.py
     └── statistics_service.py
 ```
 
+**Service Renames:**
+- `pr_operations_service.py` → `pr_service.py` (PRService)
+- `project_detection_service.py` → `project_service.py` (ProjectService)
+- `reviewer_management_service.py` → `reviewer_service.py` (ReviewerService)
+- `task_management_service.py` → `task_service.py` (TaskService)
+- `artifact_operations_service.py` → `artifact_service.py` (ArtifactService)
+- `statistics_service.py` → `statistics_service.py` (no change - already clean)
+
 ## Phases
 
-- [ ] Phase 1: Create new subdirectory structure
+- [x] Phase 1: Create new subdirectory structure
 
 **Tasks:**
 1. Create `src/claudestep/services/core/` directory
@@ -66,72 +75,89 @@ src/claudestep/services/
 - New folder structure exists alongside current files
 - No code changes yet, just scaffolding
 
+**Completion Notes:**
+- Successfully created both `core/` and `composite/` subdirectories
+- Created empty `__init__.py` files in both directories
+- All 517 unit tests pass
+- No breaking changes introduced
+
 ---
 
-- [ ] Phase 2: Move core services
+- [ ] Phase 2: Move and rename core services
 
 **Tasks:**
-1. Move `pr_operations_service.py` to `services/core/`
-2. Move `task_management_service.py` to `services/core/`
-3. Move `project_detection_service.py` to `services/core/`
-4. Move `reviewer_management_service.py` to `services/core/`
-5. Update `services/core/__init__.py` to export all four services
-6. Create compatibility shims in old locations
+1. Move and rename `pr_operations_service.py` → `services/core/pr_service.py`
+2. Move and rename `task_management_service.py` → `services/core/task_service.py`
+3. Move and rename `project_detection_service.py` → `services/core/project_service.py`
+4. Move and rename `reviewer_management_service.py` → `services/core/reviewer_service.py`
+5. Rename classes: `PROperationsService` → `PRService`, `TaskManagementService` → `TaskService`, etc.
+6. Update `services/core/__init__.py` to export all four services
+7. Create compatibility shims in old locations
 
 **Files to modify:**
-- Move: `src/claudestep/services/pr_operations_service.py` → `src/claudestep/services/core/pr_operations_service.py`
-- Move: `src/claudestep/services/task_management_service.py` → `src/claudestep/services/core/task_management_service.py`
-- Move: `src/claudestep/services/project_detection_service.py` → `src/claudestep/services/core/project_detection_service.py`
-- Move: `src/claudestep/services/reviewer_management_service.py` → `src/claudestep/services/core/reviewer_management_service.py`
+- Move & rename: `src/claudestep/services/pr_operations_service.py` → `src/claudestep/services/core/pr_service.py`
+  - Rename class: `PROperationsService` → `PRService`
+  - Update docstrings to reference new name
+- Move & rename: `src/claudestep/services/task_management_service.py` → `src/claudestep/services/core/task_service.py`
+  - Rename class: `TaskManagementService` → `TaskService`
+- Move & rename: `src/claudestep/services/project_detection_service.py` → `src/claudestep/services/core/project_service.py`
+  - Rename class: `ProjectDetectionService` → `ProjectService`
+- Move & rename: `src/claudestep/services/reviewer_management_service.py` → `src/claudestep/services/core/reviewer_service.py`
+  - Rename class: `ReviewerManagementService` → `ReviewerService`
 - Update: `src/claudestep/services/core/__init__.py`
   ```python
   """Core services - Foundational services providing basic operations."""
-  from claudestep.services.core.pr_operations_service import PROperationsService
-  from claudestep.services.core.task_management_service import TaskManagementService
-  from claudestep.services.core.project_detection_service import ProjectDetectionService
-  from claudestep.services.core.reviewer_management_service import ReviewerManagementService
+  from claudestep.services.core.pr_service import PRService
+  from claudestep.services.core.task_service import TaskService
+  from claudestep.services.core.project_service import ProjectService
+  from claudestep.services.core.reviewer_service import ReviewerService
 
   __all__ = [
-      "PROperationsService",
-      "TaskManagementService",
-      "ProjectDetectionService",
-      "ReviewerManagementService",
+      "PRService",
+      "TaskService",
+      "ProjectService",
+      "ReviewerService",
   ]
   ```
 - Create compatibility shims for each service in old locations (one per file)
   ```python
   """Deprecated: Import from claudestep.services.core instead."""
-  from claudestep.services.core.<service_name> import <ServiceClass>
+  from claudestep.services.core.pr_service import PRService as PROperationsService
 
-  __all__ = ["<ServiceClass>"]
+  __all__ = ["PROperationsService"]
   ```
 
 **Technical considerations:**
-- Keep compatibility shims to avoid breaking existing imports
-- Will remove shims in Phase 4 after updating all imports
+- Keep compatibility shims with old class names to avoid breaking existing imports
+- Shims import new classes with `as` to provide old names
+- Will remove shims in Phase 5 after updating all imports
 
 **Expected outcome:**
 - All core services available from both old and new paths
+- Old class names still work via shims
 - No breaking changes to existing code
 
 ---
 
-- [ ] Phase 3: Move composite services
+- [ ] Phase 3: Move and rename composite services
 
 **Tasks:**
-1. Move `statistics_service.py` to `services/composite/`
-2. Move `artifact_operations_service.py` to `services/composite/`
-3. Update `services/composite/__init__.py` to export both services
-4. Create compatibility shims in old locations
+1. Move and rename `statistics_service.py` → `services/composite/statistics_service.py` (no rename needed)
+2. Move and rename `artifact_operations_service.py` → `services/composite/artifact_service.py`
+3. Rename module functions and classes in artifact_service.py
+4. Update `services/composite/__init__.py` to export both services
+5. Create compatibility shims in old locations
 
 **Files to modify:**
-- Move: `src/claudestep/services/statistics_service.py` → `src/claudestep/services/composite/statistics_service.py`
-- Move: `src/claudestep/services/artifact_operations_service.py` → `src/claudestep/services/composite/artifact_operations_service.py`
+- Move (no rename): `src/claudestep/services/statistics_service.py` → `src/claudestep/services/composite/statistics_service.py`
+  - Class name already clean: `StatisticsService`
+- Move & rename: `src/claudestep/services/artifact_operations_service.py` → `src/claudestep/services/composite/artifact_service.py`
+  - No class rename needed (module functions)
 - Update: `src/claudestep/services/composite/__init__.py`
   ```python
   """Composite services - Higher-level orchestration services that use core services."""
   from claudestep.services.composite.statistics_service import StatisticsService
-  from claudestep.services.composite.artifact_operations_service import (
+  from claudestep.services.composite.artifact_service import (
       find_project_artifacts,
       get_artifact_metadata,
       find_in_progress_tasks,
@@ -151,6 +177,26 @@ src/claudestep/services/
   ]
   ```
 - Create compatibility shims for each service in old locations
+  ```python
+  """Deprecated: Import from claudestep.services.composite instead."""
+  from claudestep.services.composite.artifact_service import (
+      find_project_artifacts,
+      get_artifact_metadata,
+      find_in_progress_tasks,
+      get_reviewer_assignments,
+      ProjectArtifact,
+      TaskMetadata,
+  )
+
+  __all__ = [
+      "find_project_artifacts",
+      "get_artifact_metadata",
+      "find_in_progress_tasks",
+      "get_reviewer_assignments",
+      "ProjectArtifact",
+      "TaskMetadata",
+  ]
+  ```
 
 **Expected outcome:**
 - Composite services available from both old and new paths
@@ -175,10 +221,15 @@ src/claudestep/services/
 - Search for: `from claudestep.services.project_detection_service import`
 - Search for: `from claudestep.services.statistics_service import`
 - Search for: `from claudestep.services.artifact_operations_service import`
+- Search for: `PROperationsService` (class name)
+- Search for: `TaskManagementService` (class name)
+- Search for: `ReviewerManagementService` (class name)
+- Search for: `ProjectDetectionService` (class name)
 
 **Replace with new structure:**
-- `from claudestep.services.core import PROperationsService, TaskManagementService, ProjectDetectionService, ReviewerManagementService`
+- `from claudestep.services.core import PRService, TaskService, ProjectService, ReviewerService`
 - `from claudestep.services.composite import StatisticsService, find_project_artifacts, ...`
+- Replace all class name references: `PROperationsService` → `PRService`, etc.
 
 **Technical considerations:**
 - Use global search/replace to find all import statements
@@ -216,10 +267,10 @@ src/claudestep/services/
   """
   # Re-export all services for convenience
   from claudestep.services.core import (
-      PROperationsService,
-      TaskManagementService,
-      ProjectDetectionService,
-      ReviewerManagementService,
+      PRService,
+      TaskService,
+      ProjectService,
+      ReviewerService,
   )
   from claudestep.services.composite import (
       StatisticsService,
@@ -233,10 +284,10 @@ src/claudestep/services/
 
   __all__ = [
       # Core
-      "PROperationsService",
-      "TaskManagementService",
-      "ProjectDetectionService",
-      "ReviewerManagementService",
+      "PRService",
+      "TaskService",
+      "ProjectService",
+      "ReviewerService",
       # Composite
       "StatisticsService",
       "find_project_artifacts",
@@ -271,12 +322,12 @@ src/claudestep/services/
 
   **Core** (`services/core/`):
   - Foundational services providing basic operations
-  - Examples: PROperationsService, TaskManagementService, ReviewerManagementService, ProjectDetectionService
+  - Examples: PRService, TaskService, ReviewerService, ProjectService
   - These services can be used independently or composed together
 
   **Composite** (`services/composite/`):
   - Higher-level orchestration services
-  - Examples: StatisticsService, ArtifactOperationsService
+  - Examples: StatisticsService, ArtifactService
   - Depend on multiple core services
   - Coordinate complex multi-service operations
   ```
@@ -298,12 +349,12 @@ src/claudestep/services/
 **Files to reorganize:**
 - Create: `tests/unit/services/core/`
 - Create: `tests/unit/services/composite/`
-- Move: `tests/unit/services/test_pr_operations.py` → `tests/unit/services/core/test_pr_operations_service.py`
-- Move: `tests/unit/services/test_task_management.py` → `tests/unit/services/core/test_task_management_service.py`
-- Move: `tests/unit/services/test_reviewer_management.py` → `tests/unit/services/core/test_reviewer_management_service.py`
-- Move: `tests/unit/services/test_project_detection.py` → `tests/unit/services/core/test_project_detection_service.py`
+- Move: `tests/unit/services/test_pr_operations.py` → `tests/unit/services/core/test_pr_service.py`
+- Move: `tests/unit/services/test_task_management.py` → `tests/unit/services/core/test_task_service.py`
+- Move: `tests/unit/services/test_reviewer_management.py` → `tests/unit/services/core/test_reviewer_service.py`
+- Move: `tests/unit/services/test_project_detection.py` → `tests/unit/services/core/test_project_service.py`
 - Move: `tests/unit/services/test_statistics_service.py` → `tests/unit/services/composite/test_statistics_service.py`
-- Move: `tests/unit/services/test_artifact_operations.py` → `tests/unit/services/composite/test_artifact_operations_service.py`
+- Move: `tests/unit/services/test_artifact_operations.py` → `tests/unit/services/composite/test_artifact_service.py`
 
 **Technical considerations:**
 - pytest should auto-discover tests in new locations
@@ -324,8 +375,8 @@ src/claudestep/services/
 2. Run full integration test suite: `PYTHONPATH=src:scripts pytest tests/integration/ -v`
 3. Verify test coverage hasn't decreased: `PYTHONPATH=src:scripts pytest tests/unit/ tests/integration/ --cov=src/claudestep --cov-report=term-missing`
 4. Manual verification:
-   - Services can be imported from new paths: `from claudestep.services.base import PROperationsService`
-   - Services can be imported from convenience path: `from claudestep.services import PROperationsService`
+   - Services can be imported from new paths: `from claudestep.services.core import PRService`
+   - Services can be imported from convenience path: `from claudestep.services import PRService`
    - Test files match service file locations
 
 **Success criteria:**
@@ -345,9 +396,9 @@ PYTHONPATH=src:scripts pytest tests/unit/ tests/integration/ -v
 PYTHONPATH=src:scripts pytest tests/unit/ tests/integration/ --cov=src/claudestep --cov-report=term-missing --cov-fail-under=85
 
 # Verify import paths work
-python3 -c "from claudestep.services.core import PROperationsService, TaskManagementService; print('✅ Core imports work')"
+python3 -c "from claudestep.services.core import PRService, TaskService; print('✅ Core imports work')"
 python3 -c "from claudestep.services.composite import StatisticsService; print('✅ Composite imports work')"
-python3 -c "from claudestep.services import PROperationsService, TaskManagementService, StatisticsService; print('✅ Convenience imports work')"
+python3 -c "from claudestep.services import PRService, TaskService, StatisticsService; print('✅ Convenience imports work')"
 ```
 
 **Expected outcome:**
