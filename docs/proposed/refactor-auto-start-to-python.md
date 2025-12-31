@@ -387,15 +387,35 @@ Follow patterns from `tests/unit/services/composite/test_statistics_service.py` 
 - All 26 tests pass successfully with 100% coverage of `AutoStartService` class
 - Build passes with overall test suite at 660 passing tests
 
-- [ ] Phase 12: Add integration tests for auto-start command
+- [x] Phase 12: Add integration tests for auto-start command ✅
 
-Create test file `tests/integration/cli/test_auto_start.py`:
+Create test file `tests/integration/cli/commands/test_auto_start.py`:
 - Test `cmd_auto_start()` with mocked services
 - Test GitHub Actions output writing
 - Test error handling for failed workflow triggers
 - Verify correct service instantiation
 
-Follow patterns from `tests/integration/cli/test_prepare.py`.
+Follow patterns from `tests/integration/cli/commands/test_statistics.py`.
+
+**Technical Notes:**
+- Created comprehensive integration test suite with 18 tests covering both `cmd_auto_start()` and `cmd_auto_start_summary()`
+- Test coverage breakdown:
+  - `TestCmdAutoStart`: 10 tests covering detection, triggering, error handling, configuration, and service instantiation
+  - `TestCmdAutoStartSummary`: 8 tests covering all summary scenarios (all succeeded, partial success, all failed, no projects, exceptions)
+- All tests use mocking via `unittest.mock` to isolate CLI command from service dependencies
+- Mocked services: `AutoStartService`, `WorkflowService`, `PRService`, `GitHubActionsHelper`
+- Tests validate:
+  - Correct service instantiation with dependency injection
+  - GitHub Actions output writing for all scenarios
+  - Console progress information display
+  - Error handling and exit codes
+  - Auto-start disabled configuration
+  - Partial and complete workflow trigger failures
+  - Summary generation for all scenarios
+- All 18 tests pass successfully with 100% coverage of both CLI commands
+- Follows patterns from `tests/integration/cli/commands/test_statistics.py` for consistent test structure
+- Tests verify both successful and error paths
+- Build passes with test suite at 678 total passing tests (660 + 18 new integration tests)
 
 - [ ] Phase 13: Update architecture documentation
 
