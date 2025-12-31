@@ -7,6 +7,10 @@ on:
     paths:
       - 'claude-step/*/spec.md'
 
+concurrency:
+  group: claudestep-auto-start-${{ github.ref }}
+  cancel-in-progress: false  # Let both run, they'll detect existing PRs
+
 jobs:
   auto-start:
     runs-on: ubuntu-latest
@@ -19,16 +23,26 @@ jobs:
       - name: Detect changed spec files
         id: detect
         run: |
-          # Find spec.md files that changed in this push
-          CHANGED_SPECS=$(git diff --name-only HEAD^ HEAD | grep 'claude-step/.*/spec.md' || true)
+          # Find spec.md files that were added or modified (not deleted)
+          CHANGED_SPECS=$(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep 'claude-step/.*/spec.md' || true)
+          DELETED_SPECS=$(git diff --name-only --diff-filter=D HEAD^ HEAD | grep 'claude-step/.*/spec.md' || true)
+
+          # Log deleted specs for visibility
+          if [ -n "$DELETED_SPECS" ]; then
+            echo "Deleted specs (will be ignored):"
+            for spec_path in $DELETED_SPECS; do
+              project=$(echo "$spec_path" | sed 's|claude-step/\([^/]*\)/spec.md|\1|')
+              echo "  - $project"
+            done
+          fi
 
           if [ -z "$CHANGED_SPECS" ]; then
-            echo "No spec.md files changed"
+            echo "No spec.md files added or modified"
             echo "projects=" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # Extract project names
+          # Extract project names from added/modified specs
           PROJECTS=""
           for spec_path in $CHANGED_SPECS; do
             # Extract project name from path: claude-step/<project>/spec.md
@@ -50,13 +64,17 @@ jobs:
           for project in $PROJECTS; do
             echo "Checking if project '$project' is new..."
 
-            # Query for ClaudeStep PRs for this project
+            # Query for ClaudeStep PRs for this project with error handling
             # Note: This requires PRs to have project in branch name or label
-            PR_COUNT=$(gh pr list \
+            if ! PR_COUNT=$(gh pr list \
               --label claudestep \
               --state all \
               --json headRefName \
-              --jq "[.[] | select(.headRefName | startswith(\"claude-step-$project-\"))] | length")
+              --jq "[.[] | select(.headRefName | startswith(\"claude-step-$project-\"))] | length" 2>&1); then
+              echo "  ⚠️  Error querying GitHub API for project '$project': $PR_COUNT"
+              echo "  → Skipping this project to avoid duplicate triggers"
+              continue
+            fi
 
             if [ "$PR_COUNT" -eq 0 ]; then
               echo "  → New project (no PRs found)"
@@ -74,13 +92,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          FAILED_PROJECTS=""
           for project in ${{ steps.check_new.outputs.new_projects }}; do
             echo "Triggering ClaudeStep for project: $project"
-            gh workflow run claudestep.yml \
+            if ! gh workflow run claudestep.yml \
               -f project_name="$project" \
               -f base_branch="main" \
-              -f checkout_ref="main"
+              -f checkout_ref="main" 2>&1; then
+              echo "  ⚠️  Failed to trigger workflow for project: $project"
+              FAILED_PROJECTS="$FAILED_PROJECTS $project"
+            else
+              echo "  ✅ Successfully triggered workflow for project: $project"
+            fi
           done
+
+          if [ -n "$FAILED_PROJECTS" ]; then
+            echo "⚠️  Warning: Failed to trigger workflows for projects:$FAILED_PROJECTS"
+            echo "Please manually trigger these projects or check workflow permissions."
+          fi
 
       - name: Generate summary
         if: always()

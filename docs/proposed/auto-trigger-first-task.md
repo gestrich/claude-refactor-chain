@@ -334,7 +334,7 @@ jobs:
 
 ---
 
-- [ ] Phase 6: Handle edge cases and error scenarios
+- [x] Phase 6: Handle edge cases and error scenarios
 
 **Objective**: Ensure the auto-start workflow handles unusual situations gracefully.
 
@@ -372,6 +372,29 @@ concurrency:
 - All edge cases handled without crashes
 - Clear logging for unusual scenarios
 - No race conditions from concurrent workflow runs
+
+**Status**: ✅ Completed
+- Added concurrency control at workflow level to prevent race conditions from concurrent pushes
+  - Uses `group: claudestep-auto-start-${{ github.ref }}` to group concurrent runs by branch
+  - Set `cancel-in-progress: false` to allow both runs to execute (they'll detect existing PRs and skip appropriately)
+- Enhanced spec detection to handle deletions:
+  - Uses `--diff-filter=AM` to only process added/modified specs (not deleted)
+  - Uses `--diff-filter=D` to detect deleted specs and log them for visibility
+  - Deleted projects are explicitly ignored and logged with clear messaging
+- Added comprehensive error handling for GitHub API failures:
+  - PR list queries wrapped in error handling to catch API failures or rate limits
+  - Failed queries skip the project to avoid duplicate triggers (safer default)
+  - Workflow trigger failures are caught and logged with clear warning messages
+  - Failed projects are tracked and reported in workflow output
+- All edge cases handled gracefully:
+  - **Case 1 (Spec deleted)**: Detected via `--diff-filter=D`, logged and skipped ✅
+  - **Case 2 (Multiple projects)**: Already handled by iteration in earlier phases ✅
+  - **Case 3 (Existing projects)**: Already handled by new/existing check in Phase 3 ✅
+  - **Case 4 (Invalid spec)**: Delegated to ClaudeStep action validation ✅
+  - **Case 5 (Missing config)**: Delegated to ClaudeStep action validation ✅
+  - **Case 6 (API failures)**: Error handling added, projects skipped on failure ✅
+  - **Case 7 (Concurrent pushes)**: Concurrency group prevents race conditions ✅
+- YAML syntax validated successfully
 
 ---
 
