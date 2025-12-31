@@ -546,35 +546,7 @@ class TestSpecContentGetNextAvailableTask:
         assert task.description == "Third"
         assert task.index == 3
 
-    def test_get_next_available_task_with_skip_indices(self):
-        """Should skip specified indices"""
-        # Arrange
-        project = Project("my-project")
-        content = "- [ ] First\n- [ ] Second\n- [ ] Third\n- [ ] Fourth"
-        spec = SpecContent(project, content)
 
-        # Act
-        task = spec.get_next_available_task(skip_indices={1, 2})
-
-        # Assert
-        assert task is not None
-        assert task.description == "Third"
-        assert task.index == 3
-
-    def test_get_next_available_task_with_skip_indices_and_completed(self):
-        """Should skip both completed and specified indices"""
-        # Arrange
-        project = Project("my-project")
-        content = "- [x] First\n- [ ] Second\n- [ ] Third\n- [ ] Fourth"
-        spec = SpecContent(project, content)
-
-        # Act
-        task = spec.get_next_available_task(skip_indices={2})
-
-        # Assert
-        assert task is not None
-        assert task.description == "Third"
-        assert task.index == 3
 
     def test_get_next_available_task_returns_none_when_all_completed(self):
         """Should return None when all tasks completed"""
@@ -589,18 +561,6 @@ class TestSpecContentGetNextAvailableTask:
         # Assert
         assert task is None
 
-    def test_get_next_available_task_returns_none_when_all_skipped(self):
-        """Should return None when all tasks are skipped"""
-        # Arrange
-        project = Project("my-project")
-        content = "- [ ] First\n- [ ] Second"
-        spec = SpecContent(project, content)
-
-        # Act
-        task = spec.get_next_available_task(skip_indices={1, 2})
-
-        # Assert
-        assert task is None
 
     def test_get_next_available_task_with_empty_spec(self):
         """Should return None for empty spec"""
@@ -633,23 +593,6 @@ class TestSpecContentGetNextAvailableTask:
         assert task.description == "Second"
         assert task.index == 2
 
-    def test_get_next_available_task_with_skip_indices_and_hashes(self):
-        """Should skip tasks by both indices and hashes"""
-        # Arrange
-        project = Project("my-project")
-        content = "- [ ] First\n- [ ] Second\n- [ ] Third\n- [ ] Fourth"
-        spec = SpecContent(project, content)
-
-        # Get hash of second task
-        second_task_hash = spec.tasks[1].task_hash
-
-        # Act - Skip first by index and second by hash
-        task = spec.get_next_available_task(skip_indices={1}, skip_hashes={second_task_hash})
-
-        # Assert
-        assert task is not None
-        assert task.description == "Third"
-        assert task.index == 3
 
     def test_get_next_available_task_with_multiple_skip_hashes(self):
         """Should skip multiple tasks by hash"""
@@ -688,18 +631,6 @@ class TestSpecContentGetPendingTaskIndices:
         # Assert
         assert indices == [1, 3, 4]
 
-    def test_get_pending_task_indices_with_skip_indices(self):
-        """Should exclude skip indices from results"""
-        # Arrange
-        project = Project("my-project")
-        content = "- [ ] First\n- [ ] Second\n- [ ] Third\n- [ ] Fourth"
-        spec = SpecContent(project, content)
-
-        # Act
-        indices = spec.get_pending_task_indices(skip_indices={1, 3})
-
-        # Assert
-        assert indices == [2, 4]
 
     def test_get_pending_task_indices_with_all_completed(self):
         """Should return empty list when all completed"""
@@ -815,8 +746,10 @@ Remember to update documentation.
         assert next_task.description == "Implement authentication"
 
         # Act & Assert - Get pending indices
-        pending_indices = spec.get_pending_task_indices(skip_indices={3})
-        assert pending_indices == [4, 5, 6, 7]
+        pending_indices = spec.get_pending_task_indices()
+        assert 3 in pending_indices
+        assert 4 in pending_indices
+        assert 5 in pending_indices
 
     def test_updating_task_completion_status(self):
         """Should be able to modify task completion and regenerate markdown"""

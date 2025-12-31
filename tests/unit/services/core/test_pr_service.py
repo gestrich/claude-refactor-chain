@@ -37,14 +37,6 @@ class TestFormatBranchName:
 class TestParseBranchName:
     """Tests for parse_branch_name static method"""
 
-    def test_parse_basic_index_branch_name(self):
-        """Should parse index-based branch name (legacy format)"""
-        result = PRService.parse_branch_name("claude-step-my-refactor-1")
-        assert result is not None
-        project, identifier, format_version = result
-        assert project == "my-refactor"
-        assert identifier == 1
-        assert format_version == "index"
 
     def test_parse_basic_hash_branch_name(self):
         """Should parse hash-based branch name (new format)"""
@@ -55,14 +47,6 @@ class TestParseBranchName:
         assert identifier == "a3f2b891"
         assert format_version == "hash"
 
-    def test_parse_multi_word_project_index(self):
-        """Should parse project names with multiple words (index format)"""
-        result = PRService.parse_branch_name("claude-step-swift-migration-5")
-        assert result is not None
-        project, identifier, format_version = result
-        assert project == "swift-migration"
-        assert identifier == 5
-        assert format_version == "index"
 
     def test_parse_multi_word_project_hash(self):
         """Should parse project names with multiple words (hash format)"""
@@ -73,23 +57,7 @@ class TestParseBranchName:
         assert identifier == "f7c4d3e2"
         assert format_version == "hash"
 
-    def test_parse_large_index(self):
-        """Should handle large task indices"""
-        result = PRService.parse_branch_name("claude-step-api-refactor-42")
-        assert result is not None
-        project, identifier, format_version = result
-        assert project == "api-refactor"
-        assert identifier == 42
-        assert format_version == "index"
 
-    def test_parse_complex_project_name(self):
-        """Should handle complex project names with multiple hyphens"""
-        result = PRService.parse_branch_name("claude-step-my-complex-project-name-3")
-        assert result is not None
-        project, identifier, format_version = result
-        assert project == "my-complex-project-name"
-        assert identifier == 3
-        assert format_version == "index"
 
     def test_parse_invalid_branch_no_prefix(self):
         """Should return None for branch without claude-step prefix"""
@@ -126,14 +94,6 @@ class TestParseBranchName:
         assert identifier == original_hash
         assert format_version == "hash"
 
-    def test_parse_index_zero(self):
-        """Should handle index 0"""
-        result = PRService.parse_branch_name("claude-step-my-refactor-0")
-        assert result is not None
-        project, identifier, format_version = result
-        assert project == "my-refactor"
-        assert identifier == 0
-        assert format_version == "index"
 
     def test_parse_invalid_branch_non_hex_hash(self):
         """Should return None for branch with invalid hash (contains non-hex chars)"""
@@ -144,45 +104,37 @@ class TestParseBranchName:
         """Should return None for branch with negative index (contains hyphen before number)"""
         # Note: This will match the pattern but the last -1 will be treated as index 1
         # The project name will be "my-refactor-" which is still valid
-        result = PRService.parse_branch_name("claude-step-my-refactor--1")
+        result = PRService.parse_branch_name("claude-step-my-refactor--a3f2b89")
         # This should parse, but the project name will be "my-refactor-"
         # Actually testing the current behavior
         if result:
             project, identifier, format_version = result
             assert project == "my-refactor-"
-            assert identifier == 1
-            assert format_version == "index"
+            assert identifier == "a3f2b891"
+            assert format_version == "hash"
         # If implementation changes to reject this, that's also acceptable
         # The key is to document the behavior
 
     def test_parse_single_char_project(self):
         """Should handle single character project names"""
-        result = PRService.parse_branch_name("claude-step-x-1")
+        result = PRService.parse_branch_name("claude-step-x-a3f2b891")
         assert result is not None
         project, identifier, format_version = result
         assert project == "x"
-        assert identifier == 1
-        assert format_version == "index"
+        assert identifier == "a3f2b891"
+        assert format_version == "hash"
 
-    def test_parse_numeric_project_name(self):
-        """Should handle project names that contain numbers"""
-        result = PRService.parse_branch_name("claude-step-project-123-refactor-5")
-        assert result is not None
-        project, identifier, format_version = result
-        assert project == "project-123-refactor"
-        assert identifier == 5
-        assert format_version == "index"
 
     def test_parse_whitespace_in_branch(self):
         """Should handle branch with whitespace (though not recommended)"""
         # The regex pattern (.+) will match whitespace in project names
         # While not recommended, this tests the actual behavior
-        result = PRService.parse_branch_name("claude-step-my refactor-1")
+        result = PRService.parse_branch_name("claude-step-my refactor-a3f2b891")
         assert result is not None
         project, identifier, format_version = result
         assert project == "my refactor"
-        assert identifier == 1
-        assert format_version == "index"
+        assert identifier == "a3f2b891"
+        assert format_version == "hash"
 
     def test_parse_case_sensitivity(self):
         """Should handle case sensitivity in prefix (expects lowercase)"""
@@ -201,7 +153,7 @@ class TestGetProjectPrs:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -211,7 +163,7 @@ class TestGetProjectPrs:
             GitHubPullRequest(
                 number=2,
                 state="open",
-                head_ref_name="claude-step-my-refactor-2",
+                head_ref_name="claude-step-my-refactor-f7c4d3e2",
                 title="Task 2",
                 labels=[],
                 assignees=[],
@@ -221,7 +173,7 @@ class TestGetProjectPrs:
             GitHubPullRequest(
                 number=3,
                 state="open",
-                head_ref_name="claude-step-other-project-1",
+                head_ref_name="claude-step-other-project-de789012",
                 title="Other project",
                 labels=[],
                 assignees=[],
@@ -255,7 +207,7 @@ class TestGetProjectPrs:
             GitHubPullRequest(
                 number=1,
                 state="merged",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -265,7 +217,7 @@ class TestGetProjectPrs:
             GitHubPullRequest(
                 number=2,
                 state="open",
-                head_ref_name="claude-step-my-refactor-2",
+                head_ref_name="claude-step-my-refactor-f7c4d3e2",
                 title="Task 2",
                 labels=[],
                 assignees=[],
@@ -287,7 +239,7 @@ class TestGetProjectPrs:
             GitHubPullRequest(
                 number=1,
                 state="merged",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -309,7 +261,7 @@ class TestGetProjectPrs:
         mock_prs = [
             GitHubPullRequest(
                 number=1,
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Match 1",
                 state="open",
                 labels=[],
@@ -319,7 +271,7 @@ class TestGetProjectPrs:
             ),
             GitHubPullRequest(
                 number=2,
-                head_ref_name="claude-step-my-refactor-2",
+                head_ref_name="claude-step-my-refactor-f7c4d3e2",
                 title="Match 2",
                 state="open",
                 labels=[],
@@ -329,7 +281,7 @@ class TestGetProjectPrs:
             ),
             GitHubPullRequest(
                 number=3,
-                head_ref_name="claude-step-other-project-1",
+                head_ref_name="claude-step-other-project-de789012",
                 title="No match",
                 state="open",
                 labels=[],
@@ -406,7 +358,7 @@ class TestGetOpenPrsForProject:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -468,7 +420,7 @@ class TestGetOpenPrsForReviewer:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=["reviewer1"],
@@ -478,7 +430,7 @@ class TestGetOpenPrsForReviewer:
             GitHubPullRequest(
                 number=2,
                 state="open",
-                head_ref_name="claude-step-my-refactor-2",
+                head_ref_name="claude-step-my-refactor-f7c4d3e2",
                 title="Task 2",
                 labels=[],
                 assignees=["reviewer1"],
@@ -535,7 +487,7 @@ class TestGetOpenPrsForReviewer:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=["reviewer1"],
@@ -562,7 +514,7 @@ class TestGetAllPrs:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -572,7 +524,7 @@ class TestGetAllPrs:
             GitHubPullRequest(
                 number=2,
                 state="merged",
-                head_ref_name="claude-step-my-refactor-2",
+                head_ref_name="claude-step-my-refactor-f7c4d3e2",
                 title="Task 2",
                 labels=[],
                 assignees=[],
@@ -651,7 +603,7 @@ class TestGetAllPrs:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -678,7 +630,7 @@ class TestGetUniqueProjects:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -688,7 +640,7 @@ class TestGetUniqueProjects:
             GitHubPullRequest(
                 number=2,
                 state="open",
-                head_ref_name="claude-step-my-refactor-2",
+                head_ref_name="claude-step-my-refactor-f7c4d3e2",
                 title="Task 2",
                 labels=[],
                 assignees=[],
@@ -698,7 +650,7 @@ class TestGetUniqueProjects:
             GitHubPullRequest(
                 number=3,
                 state="open",
-                head_ref_name="claude-step-other-project-1",
+                head_ref_name="claude-step-other-project-de789012",
                 title="Other project",
                 labels=[],
                 assignees=[],
@@ -721,7 +673,7 @@ class TestGetUniqueProjects:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -790,7 +742,7 @@ class TestGetUniqueProjects:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -823,7 +775,7 @@ class TestGetUniqueProjects:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -833,7 +785,7 @@ class TestGetUniqueProjects:
             GitHubPullRequest(
                 number=2,
                 state="open",
-                head_ref_name="claude-step-my-refactor-2",
+                head_ref_name="claude-step-my-refactor-f7c4d3e2",
                 title="Task 2",
                 labels=[],
                 assignees=[],
@@ -871,7 +823,7 @@ class TestGetReviewerPrsForProject:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=["reviewer1"],
@@ -881,7 +833,7 @@ class TestGetReviewerPrsForProject:
             GitHubPullRequest(
                 number=2,
                 state="open",
-                head_ref_name="claude-step-my-refactor-2",
+                head_ref_name="claude-step-my-refactor-f7c4d3e2",
                 title="Task 2",
                 labels=[],
                 assignees=["reviewer1"],
@@ -891,7 +843,7 @@ class TestGetReviewerPrsForProject:
             GitHubPullRequest(
                 number=3,
                 state="open",
-                head_ref_name="claude-step-other-project-1",
+                head_ref_name="claude-step-other-project-de789012",
                 title="Other project",
                 labels=[],
                 assignees=["reviewer1"],
@@ -917,7 +869,7 @@ class TestGetReviewerPrsForProject:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-other-project-1",
+                head_ref_name="claude-step-other-project-de789012",
                 title="Other project",
                 labels=[],
                 assignees=["reviewer1"],
@@ -965,7 +917,7 @@ class TestGetReviewerPrsForProject:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=["reviewer1"],
@@ -988,7 +940,7 @@ class TestGetReviewerPrsForProject:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=["reviewer1"],
@@ -1026,7 +978,7 @@ class TestGetReviewerPrCount:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=["reviewer1"],
@@ -1036,7 +988,7 @@ class TestGetReviewerPrCount:
             GitHubPullRequest(
                 number=2,
                 state="open",
-                head_ref_name="claude-step-my-refactor-2",
+                head_ref_name="claude-step-my-refactor-f7c4d3e2",
                 title="Task 2",
                 labels=[],
                 assignees=["reviewer1"],
@@ -1069,7 +1021,7 @@ class TestGetReviewerPrCount:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=["reviewer1"],
@@ -1079,7 +1031,7 @@ class TestGetReviewerPrCount:
             GitHubPullRequest(
                 number=2,
                 state="open",
-                head_ref_name="claude-step-other-project-1",
+                head_ref_name="claude-step-other-project-de789012",
                 title="Other project",
                 labels=[],
                 assignees=["reviewer1"],
@@ -1127,7 +1079,7 @@ class TestGetReviewerPrCount:
             GitHubPullRequest(
                 number=1,
                 state="open",
-                head_ref_name="claude-step-my-refactor-1",
+                head_ref_name="claude-step-my-refactor-a3f2b891",
                 title="Task 1",
                 labels=[],
                 assignees=["reviewer1"],

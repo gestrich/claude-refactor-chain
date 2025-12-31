@@ -22,7 +22,7 @@ class TestDetectProjectFromPR:
         # Arrange
         pr_number = "123"
         repo = "owner/repo"
-        branch_name = "claude-step-my-project-5"
+        branch_name = "claude-step-my-project-a3f2b891"
         pr_data = {"headRefName": branch_name}
         mock_run_gh_command.return_value = json.dumps(pr_data)
         service = ProjectService(repo)
@@ -43,7 +43,7 @@ class TestDetectProjectFromPR:
         # Arrange
         pr_number = "456"
         repo = "owner/repo"
-        branch_name = "claude-step-my-complex-project-name-42"
+        branch_name = "claude-step-my-complex-project-name-f7c4d3e2"
         pr_data = {"headRefName": branch_name}
         mock_run_gh_command.return_value = json.dumps(pr_data)
         service = ProjectService(repo)
@@ -149,7 +149,7 @@ class TestDetectProjectFromPR:
         # Arrange
         pr_number = "555"
         repo = "owner/repo"
-        branch_name = "claude-step-x-1"
+        branch_name = "claude-step-x-a3f2b891"
         pr_data = {"headRefName": branch_name}
         mock_run_gh_command.return_value = json.dumps(pr_data)
         service = ProjectService(repo)
@@ -165,7 +165,7 @@ class TestDetectProjectFromPR:
         # Arrange
         pr_number = "666"
         repo = "owner/repo"
-        branch_name = "claude-step-project-123-test-99"
+        branch_name = "claude-step-project-123-test-a3f2b891"
         pr_data = {"headRefName": branch_name}
         mock_run_gh_command.return_value = json.dumps(pr_data)
         service = ProjectService(repo)

@@ -650,7 +650,7 @@ class TestGitHubPullRequestPropertyEnhancements:
             created_at=datetime.now(timezone.utc),
             merged_at=None,
             assignees=[],
-            head_ref_name="claude-step-my-refactor-1"
+            head_ref_name="claude-step-my-refactor-a3f2b891"
         )
 
         # Act & Assert
@@ -666,7 +666,7 @@ class TestGitHubPullRequestPropertyEnhancements:
             created_at=datetime.now(timezone.utc),
             merged_at=None,
             assignees=[],
-            head_ref_name="claude-step-my-complex-refactor-project-5"
+            head_ref_name="claude-step-my-complex-refactor-project-f7c4d3e2"
         )
 
         # Act & Assert
@@ -719,86 +719,6 @@ class TestGitHubPullRequestPropertyEnhancements:
 
         # Act & Assert
         assert pr.project_name is None
-
-    def test_task_index_with_valid_claudestep_branch(self):
-        """Should extract task index from valid ClaudeStep branch"""
-        # Arrange
-        pr = GitHubPullRequest(
-            number=1,
-            title="Test",
-            state="open",
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-            assignees=[],
-            head_ref_name="claude-step-my-refactor-5"
-        )
-
-        # Act & Assert
-        assert pr.task_index == 5
-
-    def test_task_index_with_single_digit(self):
-        """Should handle single-digit task indices"""
-        # Arrange
-        pr = GitHubPullRequest(
-            number=1,
-            title="Test",
-            state="open",
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-            assignees=[],
-            head_ref_name="claude-step-project-1"
-        )
-
-        # Act & Assert
-        assert pr.task_index == 1
-
-    def test_task_index_with_large_number(self):
-        """Should handle large task indices"""
-        # Arrange
-        pr = GitHubPullRequest(
-            number=1,
-            title="Test",
-            state="open",
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-            assignees=[],
-            head_ref_name="claude-step-project-999"
-        )
-
-        # Act & Assert
-        assert pr.task_index == 999
-
-    def test_task_index_with_invalid_branch_name(self):
-        """Should return None for non-ClaudeStep branch names"""
-        # Arrange
-        pr = GitHubPullRequest(
-            number=1,
-            title="Test",
-            state="open",
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-            assignees=[],
-            head_ref_name="feature/new-feature"
-        )
-
-        # Act & Assert
-        assert pr.task_index is None
-
-    def test_task_index_with_no_branch_name(self):
-        """Should return None when head_ref_name is None"""
-        # Arrange
-        pr = GitHubPullRequest(
-            number=1,
-            title="Test",
-            state="open",
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-            assignees=[],
-            head_ref_name=None
-        )
-
-        # Act & Assert
-        assert pr.task_index is None
 
     def test_task_description_strips_claudestep_prefix(self):
         """Should strip 'ClaudeStep: ' prefix from title"""
@@ -885,7 +805,7 @@ class TestGitHubPullRequestPropertyEnhancements:
             created_at=datetime.now(timezone.utc),
             merged_at=None,
             assignees=[],
-            head_ref_name="claude-step-my-refactor-1"
+            head_ref_name="claude-step-my-refactor-a3f2b891"
         )
 
         # Act & Assert

@@ -27,10 +27,10 @@ def config_dict_to_project_configuration(config_dict):
     return ProjectConfiguration.from_yaml_string(project, yaml_content)
 
 
-def create_github_pr(pr_number, assignee_username, task_index, project="myproject", task_desc=None):
+def create_github_pr(pr_number, assignee_username, task_hash, project="myproject", task_desc=None):
     """Helper to create a GitHubPullRequest for testing"""
     if task_desc is None:
-        task_desc = f"Task {task_index}"
+        task_desc = f"Task {task_hash[:8]}"
 
     return GitHubPullRequest(
         number=pr_number,
@@ -40,7 +40,7 @@ def create_github_pr(pr_number, assignee_username, task_index, project="myprojec
         merged_at=None,
         assignees=[GitHubUser(login=assignee_username)],
         labels=["claudestep"],
-        head_ref_name=f"claude-step-{project}-{task_index}"
+        head_ref_name=f"claude-step-{project}-{task_hash}"
     )
 
 
@@ -110,8 +110,8 @@ class TestFindAvailableReviewer:
         def mock_get_reviewer_prs(username, project, label):
             if username == "alice":
                 return [
-                    create_github_pr(101, "alice", 1),
-                    create_github_pr(102, "alice", 2)
+                    create_github_pr(101, "alice", "00000001"),
+                    create_github_pr(102, "alice", "00000002")
                 ]
             return []
 
@@ -146,17 +146,17 @@ class TestFindAvailableReviewer:
         def mock_get_reviewer_prs(username, project, label):
             if username == "alice":
                 return [
-                    create_github_pr(101, "alice", 1),
-                    create_github_pr(102, "alice", 2)
+                    create_github_pr(101, "alice", "00000001"),
+                    create_github_pr(102, "alice", "00000002")
                 ]
             elif username == "bob":
                 return [
-                    create_github_pr(103, "bob", 3),
-                    create_github_pr(104, "bob", 4),
-                    create_github_pr(105, "bob", 5)
+                    create_github_pr(103, "bob", "00000003"),
+                    create_github_pr(104, "bob", "00000004"),
+                    create_github_pr(105, "bob", "00000005")
                 ]
             elif username == "charlie":
-                return [create_github_pr(106, "charlie", 6)]
+                return [create_github_pr(106, "charlie", "00000006")]
             return []
 
         mock_pr_service.get_reviewer_prs_for_project.side_effect = mock_get_reviewer_prs
@@ -182,9 +182,9 @@ class TestFindAvailableReviewer:
         """Should correctly identify reviewer as over capacity"""
         # Arrange - reviewer has 3 PRs but maxOpenPRs is 2
         mock_pr_service.get_reviewer_prs_for_project.return_value = [
-            create_github_pr(101, "alice", 1),
-            create_github_pr(102, "alice", 2),
-            create_github_pr(103, "alice", 3)
+            create_github_pr(101, "alice", "00000001"),
+            create_github_pr(102, "alice", "00000002"),
+            create_github_pr(103, "alice", "00000003")
         ]
 
         # Act
@@ -230,7 +230,7 @@ class TestFindAvailableReviewer:
         # so we return only the PRs for the requested project
         def mock_get_reviewer_prs(username, project, label):
             if username == "alice" and project == "myproject":
-                return [create_github_pr(101, "alice", 1, project="myproject")]
+                return [create_github_pr(101, "alice", "00000001", project="myproject")]
             return []
 
         mock_pr_service.get_reviewer_prs_for_project.side_effect = mock_get_reviewer_prs
@@ -252,7 +252,7 @@ class TestFindAvailableReviewer:
         """Should store PR number, task index, and description in result"""
         # Arrange
         mock_pr_service.get_reviewer_prs_for_project.return_value = [
-            create_github_pr(201, "alice", 5, task_desc="Update authentication flow")
+            create_github_pr(201, "alice", "00000005", task_desc="Update authentication flow")
         ]
 
         # Act
@@ -265,7 +265,7 @@ class TestFindAvailableReviewer:
         assert len(alice_status["open_prs"]) == 1
         pr_info = alice_status["open_prs"][0]
         assert pr_info["pr_number"] == 201
-        assert pr_info["task_index"] == 5
+        assert pr_info["task_hash"] is not None
         assert pr_info["task_description"] == "Update authentication flow"
 
     def test_find_reviewer_with_empty_reviewers_list(self, reviewer_service, mock_pr_service):
@@ -350,8 +350,8 @@ class TestFindAvailableReviewer:
         """Should correctly identify when reviewer is exactly at capacity"""
         # Arrange - exactly 2 PRs for maxOpenPRs of 2
         mock_pr_service.get_reviewer_prs_for_project.return_value = [
-            create_github_pr(101, "alice", 1),
-            create_github_pr(102, "alice", 2)
+            create_github_pr(101, "alice", "00000001"),
+            create_github_pr(102, "alice", "00000002")
         ]
 
         # Act
@@ -372,7 +372,7 @@ class TestFindAvailableReviewer:
         """Should correctly identify when reviewer is just under capacity"""
         # Arrange - 1 PR for maxOpenPRs of 2
         mock_pr_service.get_reviewer_prs_for_project.return_value = [
-            create_github_pr(101, "alice", 1)
+            create_github_pr(101, "alice", "00000001")
         ]
 
         # Act
@@ -423,15 +423,15 @@ class TestFindAvailableReviewer:
         def mock_get_reviewer_prs(username, project, label):
             if username == "alice":
                 return [
-                    create_github_pr(101, "alice", 1),
-                    create_github_pr(102, "alice", 2)
+                    create_github_pr(101, "alice", "00000001"),
+                    create_github_pr(102, "alice", "00000002")
                 ]
             elif username == "bob":
-                return [create_github_pr(103, "bob", 3)]
+                return [create_github_pr(103, "bob", "00000003")]
             elif username == "charlie":
                 return [
-                    create_github_pr(104, "charlie", 4),
-                    create_github_pr(105, "charlie", 5)
+                    create_github_pr(104, "charlie", "00000004"),
+                    create_github_pr(105, "charlie", "00000005")
                 ]
             return []
 

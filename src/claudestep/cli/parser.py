@@ -77,17 +77,5 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["slack", "json"],
         help="Output format (default: slack)"
     )
-    parser_migrate = subparsers.add_parser(
-        "migrate-to-hashes",
-        help="Migration helper for transitioning from index-based to hash-based PRs"
-    )
-    parser_migrate.add_argument(
-        "--project",
-        help="Project name (will be auto-detected if not specified)"
-    )
-    parser_migrate.add_argument(
-        "--label",
-        help="GitHub label to filter PRs (default: claudestep)"
-    )
 
     return parser

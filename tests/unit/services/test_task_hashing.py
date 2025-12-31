@@ -246,49 +246,6 @@ class TestOrphanedPRDetection:
         assert orphaned_prs[0].number == 1
         assert orphaned_prs[0].task_hash == orphaned_hash
 
-    def test_detect_orphaned_prs_with_index_out_of_range(self):
-        """Should detect index-based PRs whose index is out of range"""
-        # Setup spec with 2 tasks
-        project = Project("my-project")
-        content = "- [ ] Task 1\n- [ ] Task 2"
-        spec = SpecContent(project, content)
-
-        # Create PR with index 5 (out of range - only 2 tasks exist)
-        orphaned_pr = GitHubPullRequest(
-            number=1,
-            state="open",
-            head_ref_name="claude-step-my-project-5",
-            title="Orphaned task",
-            labels=[],
-            assignees=[],
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-        )
-
-        # Create valid PR with index 1 (in range)
-        valid_pr = GitHubPullRequest(
-            number=2,
-            state="open",
-            head_ref_name="claude-step-my-project-1",
-            title="Valid task",
-            labels=[],
-            assignees=[],
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-        )
-
-        # Mock PR service
-        mock_pr_service = MagicMock()
-        mock_pr_service.get_open_prs_for_project.return_value = [orphaned_pr, valid_pr]
-
-        # Create service and detect orphaned PRs
-        service = TaskService("owner/repo", mock_pr_service)
-        orphaned_prs = service.detect_orphaned_prs("claudestep", "my-project", spec)
-
-        # Should detect the out-of-range PR
-        assert len(orphaned_prs) == 1
-        assert orphaned_prs[0].number == 1
-        assert orphaned_prs[0].task_index == 5
 
     def test_detect_orphaned_prs_with_no_orphans(self):
         """Should return empty list when all PRs are valid"""
@@ -320,80 +277,6 @@ class TestOrphanedPRDetection:
 
         # Should find no orphaned PRs
         assert len(orphaned_prs) == 0
-
-    def test_detect_orphaned_prs_mixed_hash_and_index(self):
-        """Should handle mix of hash-based and index-based PRs"""
-        # Setup spec
-        project = Project("my-project")
-        content = "- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3"
-        spec = SpecContent(project, content)
-
-        # Valid hash-based PR
-        valid_hash = spec.tasks[0].task_hash
-        valid_hash_pr = GitHubPullRequest(
-            number=1,
-            state="open",
-            head_ref_name=f"claude-step-my-project-{valid_hash}",
-            title="Valid hash PR",
-            labels=[],
-            assignees=[],
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-        )
-
-        # Orphaned hash-based PR
-        orphaned_hash_pr = GitHubPullRequest(
-            number=2,
-            state="open",
-            head_ref_name="claude-step-my-project-deadbeef",
-            title="Orphaned hash PR",
-            labels=[],
-            assignees=[],
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-        )
-
-        # Valid index-based PR
-        valid_index_pr = GitHubPullRequest(
-            number=3,
-            state="open",
-            head_ref_name="claude-step-my-project-2",
-            title="Valid index PR",
-            labels=[],
-            assignees=[],
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-        )
-
-        # Orphaned index-based PR (index out of range)
-        orphaned_index_pr = GitHubPullRequest(
-            number=4,
-            state="open",
-            head_ref_name="claude-step-my-project-10",
-            title="Orphaned index PR",
-            labels=[],
-            assignees=[],
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-        )
-
-        # Mock PR service
-        mock_pr_service = MagicMock()
-        mock_pr_service.get_open_prs_for_project.return_value = [
-            valid_hash_pr,
-            orphaned_hash_pr,
-            valid_index_pr,
-            orphaned_index_pr,
-        ]
-
-        # Create service and detect orphaned PRs
-        service = TaskService("owner/repo", mock_pr_service)
-        orphaned_prs = service.detect_orphaned_prs("claudestep", "my-project", spec)
-
-        # Should detect both orphaned PRs
-        assert len(orphaned_prs) == 2
-        orphaned_numbers = {pr.number for pr in orphaned_prs}
-        assert orphaned_numbers == {2, 4}
 
 
 class TestGetInProgressTasks:
@@ -438,94 +321,9 @@ class TestGetInProgressTasks:
 
         # Create service and get in-progress tasks
         service = TaskService("owner/repo", mock_pr_service)
-        indices, hashes = service.get_in_progress_tasks("claudestep", "my-project")
+        hashes = service.get_in_progress_tasks("claudestep", "my-project")
 
-        # Should return empty indices and both hashes
-        assert indices == set()
+        # Should return both hashes
         assert hashes == {hash_1, hash_2}
 
-    def test_get_in_progress_tasks_with_index_based_prs(self):
-        """Should extract task indices from index-based PRs"""
-        # Setup spec
-        project = Project("my-project")
-        content = "- [ ] Task 1\n- [ ] Task 2"
-        spec = SpecContent(project, content)
 
-        # Create index-based PRs
-        pr1 = GitHubPullRequest(
-            number=1,
-            state="open",
-            head_ref_name="claude-step-my-project-1",
-            title="Task 1",
-            labels=[],
-            assignees=[],
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-        )
-
-        pr2 = GitHubPullRequest(
-            number=2,
-            state="open",
-            head_ref_name="claude-step-my-project-2",
-            title="Task 2",
-            labels=[],
-            assignees=[],
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-        )
-
-        # Mock PR service
-        mock_pr_service = MagicMock()
-        mock_pr_service.get_open_prs_for_project.return_value = [pr1, pr2]
-
-        # Create service and get in-progress tasks
-        service = TaskService("owner/repo", mock_pr_service)
-        indices, hashes = service.get_in_progress_tasks("claudestep", "my-project")
-
-        # Should return both indices and empty hashes
-        assert indices == {1, 2}
-        assert hashes == set()
-
-    def test_get_in_progress_tasks_with_mixed_prs(self):
-        """Should handle mix of hash-based and index-based PRs"""
-        # Setup spec
-        project = Project("my-project")
-        content = "- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3"
-        spec = SpecContent(project, content)
-
-        hash_1 = spec.tasks[0].task_hash
-
-        # Create mix of PRs
-        hash_pr = GitHubPullRequest(
-            number=1,
-            state="open",
-            head_ref_name=f"claude-step-my-project-{hash_1}",
-            title="Hash-based",
-            labels=[],
-            assignees=[],
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-        )
-
-        index_pr = GitHubPullRequest(
-            number=2,
-            state="open",
-            head_ref_name="claude-step-my-project-2",
-            title="Index-based",
-            labels=[],
-            assignees=[],
-            created_at=datetime.now(timezone.utc),
-            merged_at=None,
-        )
-
-        # Mock PR service
-        mock_pr_service = MagicMock()
-        mock_pr_service.get_open_prs_for_project.return_value = [hash_pr, index_pr]
-
-        # Create service and get in-progress tasks
-        service = TaskService("owner/repo", mock_pr_service)
-        indices, hashes = service.get_in_progress_tasks("claudestep", "my-project")
-
-        # Should return both formats
-        assert indices == {2}
-        assert hashes == {hash_1}

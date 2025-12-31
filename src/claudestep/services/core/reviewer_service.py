@@ -61,7 +61,7 @@ class ReviewerService:
             for pr in prs:
                 pr_info = {
                     "pr_number": pr.number,
-                    "task_index": pr.task_index,
+                    "task_hash": pr.task_hash,
                     "task_description": pr.task_description
                 }
                 reviewer_prs[username].append(pr_info)

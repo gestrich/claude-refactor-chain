@@ -200,57 +200,19 @@ class GitHubPullRequest:
         return None
 
     @property
-    def task_index(self) -> Optional[int]:
-        """Extract task index from branch name (legacy index-based branches only).
-
-        Parses the branch name using ClaudeStep branch naming convention
-        and returns the task index. For hash-based branches, returns None.
-
-        Returns:
-            Task index (1-based) if branch follows old index-based pattern, None otherwise
-
-        Examples:
-            >>> pr = GitHubPullRequest(head_ref_name="claude-step-my-refactor-5", ...)
-            >>> pr.task_index
-            5
-            >>> pr = GitHubPullRequest(head_ref_name="claude-step-my-refactor-a3f2b891", ...)
-            >>> pr.task_index
-            None
-            >>> pr = GitHubPullRequest(head_ref_name="main", ...)
-            >>> pr.task_index
-            None
-        """
-        if not self.head_ref_name:
-            return None
-
-        # Import here to avoid circular dependency
-        from claudestep.services.core.pr_service import PRService
-
-        parsed = PRService.parse_branch_name(self.head_ref_name)
-        if parsed:
-            project_name, task_identifier, format_version = parsed
-            # Only return index for old index-based branches
-            if format_version == "index":
-                return task_identifier
-        return None
-
-    @property
     def task_hash(self) -> Optional[str]:
-        """Extract task hash from branch name (hash-based branches only).
+        """Extract task hash from branch name.
 
         Parses the branch name using ClaudeStep branch naming convention
-        and returns the task hash. For index-based branches, returns None.
+        and returns the task hash.
 
         Returns:
-            Task hash (8-char hex string) if branch follows hash-based pattern, None otherwise
+            Task hash (8-char hex string) if branch follows pattern, None otherwise
 
         Examples:
             >>> pr = GitHubPullRequest(head_ref_name="claude-step-my-refactor-a3f2b891", ...)
             >>> pr.task_hash
             'a3f2b891'
-            >>> pr = GitHubPullRequest(head_ref_name="claude-step-my-refactor-5", ...)
-            >>> pr.task_hash
-            None
             >>> pr = GitHubPullRequest(head_ref_name="main", ...)
             >>> pr.task_hash
             None
@@ -264,7 +226,6 @@ class GitHubPullRequest:
         parsed = PRService.parse_branch_name(self.head_ref_name)
         if parsed:
             project_name, task_identifier, format_version = parsed
-            # Only return hash for new hash-based branches
             if format_version == "hash":
                 return task_identifier
         return None

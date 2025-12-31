@@ -194,28 +194,13 @@ Please merge your spec files to the '{base_branch}' branch before running Claude
                 summary += "3. ClaudeStep will automatically create new PRs for current tasks\n"
                 gh.write_step_summary(summary)
 
-        # Get in-progress tasks (both index-based and hash-based)
-        in_progress_indices, in_progress_hashes = task_service.get_in_progress_tasks(label, detected_project)
+        # Get in-progress tasks
+        in_progress_hashes = task_service.get_in_progress_tasks(label, detected_project)
 
-        if in_progress_indices:
-            print(f"Found in-progress tasks (index-based): {sorted(in_progress_indices)}")
-            print(f"⚠️  WARNING: Index-based branch format is DEPRECATED and will be removed in a future version.")
-            print(f"   Please close these PRs and let ClaudeStep create new hash-based PRs.")
-            print(f"   See docs/user-guides/modifying-tasks.md for migration guidance.")
-
-            # Add GitHub Actions warning
-            deprecation_summary = "\n## ⚠️ Deprecation Warning: Index-Based Branches\n\n"
-            deprecation_summary += f"Found {len(in_progress_indices)} PR(s) using the **deprecated index-based branch format**.\n\n"
-            deprecation_summary += "**Action Required:**\n"
-            deprecation_summary += "- Index-based branches will be removed in a future version (target: 6 months)\n"
-            deprecation_summary += "- Please close these PRs and let ClaudeStep create new hash-based PRs\n"
-            deprecation_summary += "- See [Migration Guide](docs/user-guides/modifying-tasks.md) for details\n\n"
-            deprecation_summary += f"**Affected tasks (indices):** {sorted(in_progress_indices)}\n"
-            gh.write_step_summary(deprecation_summary)
         if in_progress_hashes:
-            print(f"Found in-progress tasks (hash-based): {sorted(in_progress_hashes)}")
+            print(f"Found in-progress tasks: {sorted(in_progress_hashes)}")
 
-        result = task_service.find_next_available_task(spec, in_progress_indices, in_progress_hashes)
+        result = task_service.find_next_available_task(spec, in_progress_hashes)
 
         if not result:
             gh.write_output("has_task", "false")

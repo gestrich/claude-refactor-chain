@@ -42,7 +42,7 @@ This plan addresses several improvements to the ClaudeStep project:
 
 **Expected outcome**: Branch naming details in separate doc, main doc just states the format
 
-- [ ] Phase 3: Remove all backward compatibility code from codebase
+- [x] Phase 3: Remove all backward compatibility code from codebase
 
 **Details**:
 - Delete `src/claudestep/cli/commands/migrate_to_hashes.py`
@@ -61,6 +61,15 @@ This plan addresses several improvements to the ClaudeStep project:
 - Remove from `src/claudestep/services/composite/statistics_service.py`:
   - Index-based PR handling logic (lines 264-265)
 - Update all related tests to remove index-based test cases
+
+**Completed**: All backward compatibility code successfully removed. Key changes:
+- Deleted `migrate_to_hashes.py` CLI command and removed from parser
+- Removed `task_index` property from `GitHubPullRequest` model
+- Simplified `parse_branch_name()` to only support hash-based format (8-char hex)
+- Updated `find_next_available_task()` to only accept `skip_hashes` parameter
+- Updated `get_in_progress_tasks()` to return only hashes (not tuple)
+- Removed all index-based test cases and updated test helpers
+- 523 unit tests pass (1 pre-existing circular import issue unrelated to changes)
 
 **Expected outcome**: All index-based/backward compatibility code removed, only hash-based identification remains
 
