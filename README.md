@@ -171,6 +171,18 @@ Future PRs will trigger automatically on merge.
 
 Review the generated PR, verify it follows your spec, and make any needed fixes. When satisfied, merge it. The workflow will automatically create the next PR.
 
+## Modifying Tasks
+
+You can freely insert, delete, and reorder tasks in your spec.md file. Each task is identified by a hash of its description, not its position.
+
+**Important:** If you change a task description while a PR is open for that task:
+1. The open PR becomes "orphaned" (references the old description)
+2. ClaudeStep will detect and warn you about orphaned PRs
+3. Close the orphaned PR manually
+4. The workflow will automatically create a new PR with the updated task description
+
+**Tip:** To avoid orphaned PRs, modify task descriptions only when no PR is open for that task, or be prepared to close and recreate the PR.
+
 ### Scaling Up
 
 **PR Assignment:** PRs are assigned per reviewer. Multiple reviewers enable parallel progress, and each reviewer gets a new PR when they merge theirs.
@@ -305,7 +317,7 @@ reviewers:
     maxOpenPRs: 2
 ```
 
-**Branch Naming:** All ClaudeStep PRs use the format `claude-step-{project_name}-{index}` (e.g., `claude-step-my-refactor-1`).
+**Branch Naming:** All ClaudeStep PRs use the format `claude-step-{project_name}-{task-hash}` (e.g., `claude-step-my-refactor-a3f2b891`). Each task is identified by a hash of its description, allowing you to freely reorder, insert, or delete tasks in spec.md without breaking PR tracking.
 
 ### spec.md Format
 
