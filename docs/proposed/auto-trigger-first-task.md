@@ -93,7 +93,7 @@ jobs:
 
 ---
 
-- [ ] Phase 2: Detect which projects had spec changes
+- [x] Phase 2: Detect which projects had spec changes
 
 **Objective**: Identify which ClaudeStep project(s) had their spec.md modified in the push.
 
@@ -134,6 +134,14 @@ jobs:
 - Correctly identifies all projects with spec.md changes
 - Handles edge cases: multiple projects, no changes, renamed files
 - Outputs project names for use in later steps
+
+**Status**: ✅ Completed
+- Added detection step to `.github/workflows/claudestep-auto-start.yml`
+- Implements git diff to find changed spec.md files between HEAD^ and HEAD
+- Extracts project names using sed pattern matching
+- Handles empty results gracefully by outputting empty projects list
+- Stores project names in GITHUB_OUTPUT for use in subsequent workflow steps
+- Provides clear logging of detected projects
 
 ---
 
