@@ -6,18 +6,16 @@ Encapsulates business logic for PR-related operations.
 """
 
 import re
-from typing import TYPE_CHECKING, List, Literal, Optional, Set, Tuple, Union
+from typing import List, Literal, Optional, Set, Tuple, Union
 
 from claudestep.domain.exceptions import GitHubAPIError
 from claudestep.domain.github_models import GitHubPullRequest
+from claudestep.domain.models import BranchInfo
 from claudestep.infrastructure.github.operations import (
     list_pull_requests,
     list_open_pull_requests,
 )
 from claudestep.domain.project import Project
-
-if TYPE_CHECKING:
-    from claudestep.domain.models import BranchInfo
 
 # Re-export for external use and test mocking compatibility
 __all__ = ["PRService", "list_pull_requests", "list_open_pull_requests"]
@@ -307,7 +305,7 @@ class PRService:
         return f"claude-step-{project_name}-{task_hash}"
 
     @staticmethod
-    def parse_branch_name(branch: str) -> Optional["BranchInfo"]:
+    def parse_branch_name(branch: str) -> Optional[BranchInfo]:
         """Parse branch name for hash-based format.
 
         Expected format: claude-step-{project_name}-{hash}
@@ -327,5 +325,4 @@ class PRService:
             >>> PRService.parse_branch_name("invalid-branch")
             None
         """
-        from claudestep.domain.models import BranchInfo
         return BranchInfo.from_branch_name(branch)

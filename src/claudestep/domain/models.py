@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
-from claudestep.services.formatters.table_formatter import TableFormatter
+from claudestep.domain.formatters.table_formatter import TableFormatter
 
 
 @dataclass(frozen=True)
