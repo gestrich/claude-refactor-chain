@@ -201,8 +201,7 @@ class StatisticsService:
         )
         print(f"  Pending: {stats.pending_tasks}")
 
-        # Cost tracking temporarily dropped (Phase 4)
-        # TODO: Re-implement cost tracking via PR comments if needed
+        # Cost tracking is handled via PR comments (see add_cost_comment command)
         stats.total_cost_usd = 0.0
 
         return stats
@@ -288,17 +287,20 @@ class StatisticsService:
     def collect_project_costs(
         self, project_name: str, label: str = DEFAULT_PR_LABEL
     ) -> float:
-        """Collect total costs for a project (temporarily disabled in Phase 4)
+        """Collect total costs for a project
+
+        Note: Cost tracking is now handled via PR comments posted by the
+        add_cost_comment command. This method is retained for backward
+        compatibility but always returns 0.0.
 
         Args:
             project_name: Name of the project to collect costs for
             label: GitHub label to filter PRs (unused)
 
         Returns:
-            Total cost in USD (always 0.0 in Phase 4)
+            Total cost in USD (always 0.0 - costs are tracked in PR comments)
         """
-        # Cost tracking temporarily dropped (Phase 4)
-        # TODO: Re-implement cost tracking via PR comments if needed
+        # Cost tracking is now handled via PR comments (see add_cost_comment command)
         return 0.0
 
     # Private helper methods

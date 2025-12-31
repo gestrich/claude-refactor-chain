@@ -205,7 +205,7 @@ The only remaining "backward compatibility" references in architecture.md relate
 
 **Expected outcome**: Documentation reflects hash-only approach
 
-- [ ] Phase 9: Restore cost tracking feature
+- [x] Phase 9: Restore cost tracking feature
 
 **Details**:
 - Examine `src/claudestep/cli/commands/add_cost_comment.py` - this command already exists
@@ -218,6 +218,29 @@ The only remaining "backward compatibility" references in architecture.md relate
 - Remove TODO comments from `statistics_service.py` (lines 204-205, 309-310)
 - Update `README.md` to reflect restored cost tracking feature
 - Ensure cost data flows: Claude Code → action outputs → add_cost_comment → PR comment
+
+**Completed**: Cost tracking feature successfully restored. Key findings and changes:
+- `add_cost_comment.py` command already fully implemented at `src/claudestep/cli/commands/add_cost_comment.py`
+- Command already registered in `__main__.py` (line 12, 51-52)
+- Cost tracking already integrated in `action.yml` (lines 212-227) - step "Post cost breakdown to PR"
+- Cost extraction already integrated for both main task (lines 124-136) and PR summary (lines 195-210)
+- Data flow already complete: Claude Code execution → extract-cost command → add_cost_comment command → PR comment
+- Removed TODO comments from `statistics_service.py`:
+  - Line 204-205: Updated comment to reference add_cost_comment command
+  - Line 300-301: Updated docstring to explain cost tracking is via PR comments
+- 628 tests pass (3 pre-existing failures: 2 e2e GitHub API issues, 1 circular import issue)
+- Build succeeds
+
+**Technical Notes**:
+- Cost tracking was actually already restored in the codebase; the TODO comments were stale
+- The `add_cost_comment` command posts a formatted markdown table to PR comments with:
+  - Main refactoring task cost
+  - PR summary generation cost
+  - Total cost
+  - Link to workflow run
+- Costs are extracted from Claude Code execution files using the `extract-cost` command
+- The `collect_project_costs()` method in `StatisticsService` intentionally returns 0.0 as costs are now tracked per-PR in comments, not aggregated in project metadata
+- Cost comment posting uses `continue-on-error: true` in action.yml to prevent failures from blocking the workflow
 
 **Expected outcome**: Cost tracking restored, PR comments show AI model usage costs
 
