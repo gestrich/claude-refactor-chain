@@ -244,7 +244,7 @@ The only remaining "backward compatibility" references in architecture.md relate
 
 **Expected outcome**: Cost tracking restored, PR comments show AI model usage costs
 
-- [ ] Phase 10: Update tests for removed backward compatibility
+- [x] Phase 10: Update tests for removed backward compatibility
 
 **Details**:
 - Remove tests for index-based branch names from `tests/unit/services/core/test_pr_service.py`
@@ -253,6 +253,22 @@ The only remaining "backward compatibility" references in architecture.md relate
 - Update test builders in `tests/builders/` to remove task_index fields
 - Run full test suite to ensure no broken tests
 - Update any integration tests that rely on index-based identification
+
+**Completed**: All backward compatibility tests successfully removed or updated. Key changes:
+- Removed `Project.get_branch_name()` method that generated index-based branch names (format: `claude-step-{project}-{index}`)
+- Updated `Project.from_branch_name()` to only parse hash-based branch names (format: `claude-step-{project}-{8-char-hex}`)
+- Removed `TestProjectBranchName` test class (3 tests for index-based branch generation)
+- Updated `TestProjectFromBranchName` tests to validate hash-based format (8-character hex) instead of numeric indices
+- Added comprehensive test cases for hash validation (lowercase hex, exactly 8 chars, rejects uppercase/invalid chars)
+- 571 tests pass (excluding pre-existing circular import issue in test_statistics_service.py)
+- Build succeeds
+
+**Technical Notes**:
+- `task_index` field retained in `TaskMetadata` and artifact builders - this is intentional as it's used for historical artifact data, not for PR identification
+- Artifact names still use index-based format (`task-metadata-{project}-{index}.json`) for backward compatibility with existing artifacts
+- `parse_task_index_from_name()` function retained for parsing artifact names, not branch names
+- The change ensures branch naming is exclusively hash-based while preserving ability to read historical artifact metadata
+- Test builders in `tests/builders/` correctly use `task_index` for artifact contexts, not branch contexts
 
 **Expected outcome**: All tests pass with backward compatibility code removed
 

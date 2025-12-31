@@ -38,17 +38,6 @@ class Project:
         """Path to metadata JSON file in claudestep-metadata branch"""
         return f"{self.name}.json"
 
-    def get_branch_name(self, task_index: int) -> str:
-        """Generate branch name for a task
-
-        Args:
-            task_index: Task index (1-based)
-
-        Returns:
-            Branch name in format: claude-step-{project}-{index}
-        """
-        return f"claude-step-{self.name}-{task_index}"
-
     @classmethod
     def from_config_path(cls, config_path: str) -> 'Project':
         """Factory: Extract project from config path
@@ -67,12 +56,14 @@ class Project:
         """Factory: Parse project from branch name
 
         Args:
-            branch_name: Branch name like 'claude-step-{project}-{index}'
+            branch_name: Branch name like 'claude-step-{project}-{hash}'
+                        where hash is 8-character hex string
 
         Returns:
             Project instance or None if branch name doesn't match pattern
         """
-        pattern = r"^claude-step-(.+)-(\d+)$"
+        # Match hash-based format: claude-step-{project}-{8-char-hex}
+        pattern = r"^claude-step-(.+)-([0-9a-f]{8})$"
         match = re.match(pattern, branch_name)
         if match:
             return cls(match.group(1))

@@ -89,43 +89,6 @@ class TestProjectPathProperties:
         assert project.metadata_file_path == "my-project.json"
 
 
-class TestProjectBranchName:
-    """Test suite for Project branch name generation"""
-
-    def test_get_branch_name_with_single_digit_index(self):
-        """Should generate correct branch name for single digit task index"""
-        # Arrange
-        project = Project("my-project")
-
-        # Act
-        branch_name = project.get_branch_name(1)
-
-        # Assert
-        assert branch_name == "claude-step-my-project-1"
-
-    def test_get_branch_name_with_multi_digit_index(self):
-        """Should generate correct branch name for multi-digit task index"""
-        # Arrange
-        project = Project("my-project")
-
-        # Act
-        branch_name = project.get_branch_name(42)
-
-        # Assert
-        assert branch_name == "claude-step-my-project-42"
-
-    def test_get_branch_name_with_hyphenated_project_name(self):
-        """Should handle project names with hyphens"""
-        # Arrange
-        project = Project("my-complex-project-name")
-
-        # Act
-        branch_name = project.get_branch_name(5)
-
-        # Assert
-        assert branch_name == "claude-step-my-complex-project-name-5"
-
-
 class TestProjectFromConfigPath:
     """Test suite for Project.from_config_path factory method"""
 
@@ -169,10 +132,10 @@ class TestProjectFromConfigPath:
 class TestProjectFromBranchName:
     """Test suite for Project.from_branch_name factory method"""
 
-    def test_from_branch_name_valid_branch(self):
-        """Should extract project from valid branch name"""
+    def test_from_branch_name_valid_hash_based_branch(self):
+        """Should extract project from valid hash-based branch name"""
         # Arrange
-        branch_name = "claude-step-my-project-5"
+        branch_name = "claude-step-my-project-a1b2c3d4"
 
         # Act
         project = Project.from_branch_name(branch_name)
@@ -183,9 +146,9 @@ class TestProjectFromBranchName:
         assert project.base_path == "claude-step/my-project"
 
     def test_from_branch_name_with_hyphenated_project_name(self):
-        """Should extract project with hyphens from branch name"""
+        """Should extract project with hyphens from hash-based branch name"""
         # Arrange
-        branch_name = "claude-step-my-complex-project-name-10"
+        branch_name = "claude-step-my-complex-project-name-12345678"
 
         # Act
         project = Project.from_branch_name(branch_name)
@@ -199,11 +162,16 @@ class TestProjectFromBranchName:
         # Arrange
         invalid_branches = [
             "invalid-branch-name",
-            "claude-step-project",  # Missing index
-            "claude-step-5",  # Missing project name
+            "claude-step-project",  # Missing hash
+            "claude-step-abc",  # Missing project name
             "main",
             "feature/something",
-            "claude-step-project-abc",  # Non-numeric index
+            "claude-step-project-5",  # Index instead of hash
+            "claude-step-project-123",  # Index instead of hash
+            "claude-step-project-abcdefg",  # Hash too short (7 chars)
+            "claude-step-project-abcdefghi",  # Hash too long (9 chars)
+            "claude-step-project-ABCDEF12",  # Uppercase not allowed
+            "claude-step-project-xyz12345",  # Invalid hex chars (x, y, z)
         ]
 
         # Act & Assert
@@ -211,17 +179,21 @@ class TestProjectFromBranchName:
             project = Project.from_branch_name(branch_name)
             assert project is None, f"Should return None for: {branch_name}"
 
-    def test_from_branch_name_multi_digit_index(self):
-        """Should extract project from branch with multi-digit task index"""
-        # Arrange
-        branch_name = "claude-step-my-project-123"
+    def test_from_branch_name_various_hex_hashes(self):
+        """Should extract project from branch with various valid hex hashes"""
+        # Arrange - Test multiple valid 8-char hex hashes
+        test_cases = [
+            ("claude-step-my-project-00000000", "my-project"),
+            ("claude-step-my-project-ffffffff", "my-project"),
+            ("claude-step-my-project-12abcdef", "my-project"),
+            ("claude-step-other-proj-a1b2c3d4", "other-proj"),
+        ]
 
-        # Act
-        project = Project.from_branch_name(branch_name)
-
-        # Assert
-        assert project is not None
-        assert project.name == "my-project"
+        # Act & Assert
+        for branch_name, expected_name in test_cases:
+            project = Project.from_branch_name(branch_name)
+            assert project is not None, f"Should parse: {branch_name}"
+            assert project.name == expected_name
 
 
 class TestProjectFindAll:
