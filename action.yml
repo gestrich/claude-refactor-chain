@@ -14,9 +14,23 @@ inputs:
     description: 'GitHub token for PR creation and API access'
     required: true
     default: ${{ github.token }}
+
+  # Event context inputs (for simplified workflow)
+  github_event:
+    description: 'GitHub event payload JSON (pass ${{ toJson(github.event) }}). Used for automatic event handling.'
+    required: false
+  event_name:
+    description: 'GitHub event name (pass ${{ github.event_name }}). Used with github_event for automatic handling.'
+    required: false
+
+  # Project configuration
   project_name:
-    description: 'Project folder name under /claude-step directory'
-    required: true
+    description: 'Project folder name under /claude-step directory. Required if github_event is not provided.'
+    required: false
+  default_base_branch:
+    description: 'Default base branch if not specified in project config or event context'
+    required: false
+    default: 'main'
   merged_pr_number:
     description: 'PR number that was just merged (for auto-detecting project from labels)'
     required: false
@@ -50,12 +64,31 @@ inputs:
     default: 'claudestep'
 
 outputs:
+  # Execution status outputs (for simplified workflow)
+  skipped:
+    description: 'Whether execution was skipped (true/false). Check skip_reason for details.'
+    value: ${{ steps.parse.outputs.skip }}
+  skip_reason:
+    description: 'Reason for skipping if skipped (e.g., "No claudestep label", "PR not merged")'
+    value: ${{ steps.parse.outputs.skip_reason }}
+
+  # Resolved configuration outputs
+  project_name:
+    description: 'Detected/resolved project name'
+    value: ${{ steps.parse.outputs.project_name || steps.prepare.outputs.project_name }}
+  base_branch:
+    description: 'Resolved base branch'
+    value: ${{ steps.parse.outputs.base_branch || inputs.base_branch }}
+
+  # PR outputs
   pr_number:
     description: 'Number of created PR (empty if none created)'
     value: ${{ steps.finalize.outputs.pr_number }}
   pr_url:
     description: 'URL of created PR (empty if none created)'
     value: ${{ steps.finalize.outputs.pr_url }}
+
+  # Reviewer and task outputs
   reviewer:
     description: 'Assigned reviewer username (empty if none assigned)'
     value: ${{ steps.prepare.outputs.reviewer }}

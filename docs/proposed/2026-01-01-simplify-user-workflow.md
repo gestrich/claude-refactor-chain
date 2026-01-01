@@ -57,7 +57,7 @@ jobs:
 
 ## Phases
 
-- [ ] Phase 1: Design new action.yml inputs
+- [x] Phase 1: Design new action.yml inputs
 
 Design the new input schema for `action.yml` that accepts event context:
 
@@ -107,6 +107,13 @@ outputs:
   pr_url:
     description: 'Created PR URL if any'
 ```
+
+**Completed:** Updated `action.yml` with:
+- New inputs: `github_event`, `event_name`, `default_base_branch` (all optional for backward compatibility)
+- New outputs: `skipped`, `skip_reason`, `project_name`, `base_branch`
+- Made `project_name` optional (required only if `github_event` is not provided)
+- The outputs reference `steps.parse` which will be added in Phase 3
+- All 736 tests pass
 
 - [ ] Phase 2: Create event parsing module
 
