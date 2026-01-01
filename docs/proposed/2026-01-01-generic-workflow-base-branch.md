@@ -39,7 +39,7 @@ This architectural principle makes the base branch detection even more critical 
 
 ## Phases
 
-- [ ] Phase 1: Analyze current base branch usage
+- [x] Phase 1: Analyze current base branch usage
 
 **Goal**: Understand where and how base branches are currently used in workflows.
 
@@ -64,6 +64,193 @@ This architectural principle makes the base branch detection even more critical 
    - Where base branch affects PR creation, spec reading, etc.
 
 **Expected outcome**: Clear understanding of all base branch touchpoints and dependencies.
+
+---
+
+### Phase 1 Analysis Results
+
+#### 1. Current Base Branch Usage in `claudestep-auto-start.yml`
+
+**Trigger Conditions:**
+- Lines 6-11: Hardcoded to trigger only on `main` and `main-e2e` branches
+- This limits the workflow to these two specific branches
+
+**Base Branch Environment Variable:**
+- Line 39: `BASE_BRANCH: ${{ github.ref_name }}`
+- Already uses dynamic inference from push event
+- Will be `main` or `main-e2e` depending on which branch received the push
+
+**How BASE_BRANCH is used:**
+- Passed to `auto-start` command via environment variable
+- Used by auto-start command to trigger subsequent ClaudeStep workflows
+
+#### 2. Current Base Branch Usage in `claudestep.yml`
+
+**Workflow Inputs:**
+- Lines 15-18: `base_branch` input with default value `'main'`
+- Lines 19-22: `checkout_ref` input with default value `'main'`
+- Hardcoded defaults limit flexibility
+
+**Base Branch Determination:**
+- Lines 38-64: Logic determines base_branch based on event type:
+  - **workflow_dispatch**: Uses `inputs.base_branch || 'main'` (line 44)
+  - **pull_request**: Uses `github.base_ref` (line 57) - already correctly derives from PR merge event
+- PR merge path already implements correct inference pattern
+- Manual dispatch falls back to hardcoded `'main'`
+
+**How base_branch is passed:**
+- Line 79: Passed to ClaudeStep action via `base_branch` input
+- Flows through to all downstream commands
+
+#### 3. Base Branch Usage in `auto_start.py`
+
+**Function Signature:**
+- Lines 18-25: `cmd_auto_start()` accepts `base_branch: str` parameter
+- Line 91: Gets from CLI args or `os.environ.get("BASE_BRANCH", "main")` with fallback to `"main"`
+
+**How auto_start uses base_branch:**
+- Lines 54-56: Logs the base branch for debugging
+- Lines 115-119: Passes base_branch to `WorkflowService.batch_trigger_claudestep_workflows()`
+  - This triggers the main ClaudeStep workflow for each detected project
+  - Sets the base_branch that will be used for spec file fetching and PR targeting
+
+**Impact:**
+- Auto-start determines which branch subsequent PRs will target
+- Critical for the workflow chain to work correctly
+
+#### 4. Base Branch Usage in `prepare.py`
+
+**How base_branch is obtained:**
+- Line 83: `base_branch = os.environ.get("BASE_BRANCH", "main")`
+- Falls back to hardcoded `"main"` if not provided
+
+**Where base_branch is used:**
+
+1. **Spec file validation** (lines 84-105):
+   - Line 87: `file_exists_in_branch(repo, base_branch, project.spec_path)`
+   - Line 88: `file_exists_in_branch(repo, base_branch, project.config_path)`
+   - Validates that spec files exist in the base branch before proceeding
+
+2. **Configuration loading** (line 111):
+   - `project_repository.load_configuration(project, base_branch)`
+   - Fetches `configuration.yml` from base branch via GitHub API
+
+3. **Spec loading** (line 126):
+   - `project_repository.load_spec(project, base_branch)`
+   - Fetches `spec.md` from base branch via GitHub API
+
+**Critical architectural point:**
+- Per `docs/general-architecture/github-actions.md`, spec files are **always fetched from base branch via GitHub API**
+- Base branch determines the source of truth for which tasks to execute
+- Wrong base branch = reading wrong spec files = incorrect task execution
+
+#### 5. Base Branch Usage in Other Components
+
+**`action.yml` (main ClaudeStep action):**
+- Lines 31-34: Defines `base_branch` input with default `'main'`
+- Line 93: Passes to prepare step via `BASE_BRANCH` env var
+- Line 142: Passes to finalize step via `BASE_BRANCH` env var
+
+**`WorkflowService` (`src/claudestep/services/composite/workflow_service.py`):**
+- Lines 32-66: `trigger_claudestep_workflow()` method
+- Line 60: Passes `base_branch` as workflow input parameter: `-f base_branch={base_branch}`
+- This is how auto-start propagates the base branch to the triggered workflow
+
+**`ProjectRepository` (`src/claudestep/infrastructure/repositories/project_repository.py`):**
+- Lines 21-43: `load_configuration()` method accepts `base_branch` parameter
+- Lines 45-66: `load_spec()` method accepts `base_branch` parameter
+- Both methods call `get_file_from_branch(repo, base_branch, file_path)`
+- This is where the base branch determines which spec files are read
+
+#### 6. Complete Flow: Base Branch from Workflow → CLI → Services
+
+**Scenario A: Auto-Start Workflow (spec pushed to branch)**
+
+```
+1. Push to branch triggers claudestep-auto-start.yml
+2. Workflow: BASE_BRANCH = github.ref_name (e.g., "main-e2e")
+3. CLI (__main__.py line 91): Passes to cmd_auto_start(base_branch=BASE_BRANCH)
+4. Service (auto_start.py line 117): Calls workflow_service.batch_trigger_claudestep_workflows(base_branch)
+5. Infrastructure (workflow_service.py line 60): Triggers claudestep.yml with -f base_branch={base_branch}
+6. claudestep.yml receives base_branch input and uses it for all operations
+```
+
+**Scenario B: ClaudeStep Workflow (PR merged)**
+
+```
+1. PR merge triggers claudestep.yml
+2. Workflow (line 57): BASE_BRANCH = github.base_ref (the branch PR merged INTO)
+3. Workflow (line 79): Passes to action via base_branch input
+4. Action (action.yml line 93): Sets BASE_BRANCH env var
+5. CLI (prepare.py line 83): Reads from os.environ.get("BASE_BRANCH")
+6. Services (project_repository.py): Uses base_branch to fetch spec files from GitHub API
+```
+
+**Scenario C: Manual Workflow Dispatch**
+
+```
+1. User triggers workflow manually
+2. Workflow (line 44): BASE_BRANCH = inputs.base_branch || 'main' (hardcoded fallback)
+3. Same flow as Scenario B from step 3 onwards
+```
+
+#### 7. Impact of Incorrect Base Branch
+
+**If base branch is wrong:**
+
+1. **Spec files fetched from wrong branch:**
+   - `ProjectRepository.load_configuration()` reads wrong config
+   - `ProjectRepository.load_spec()` reads wrong task list
+   - Tasks executed may not match intended work
+
+2. **PRs target wrong branch:**
+   - PRs would be created against incorrect base branch
+   - Merging would put changes in wrong branch
+   - Breaks the workflow chain
+
+3. **Validation failures:**
+   - If spec files don't exist in wrong base branch, preparation fails (prepare.py lines 90-103)
+   - Clear error message guides user to correct issue
+
+#### 8. Where Base Branch Affects Operations
+
+**Critical touchpoints:**
+
+1. **Spec file reading** (always via GitHub API):
+   - `get_file_from_branch(repo, base_branch, spec_path)`
+   - Source of truth for tasks to execute
+
+2. **PR creation** (finalize.py, though not shown in detail):
+   - PRs must target the correct base branch
+   - Base branch determines where merged changes will land
+
+3. **Workflow triggering** (auto-start):
+   - Auto-start must pass correct base_branch to downstream workflows
+   - Creates the chain: spec push → auto-start → claudestep → PR → merge → next task
+
+4. **Task detection**:
+   - In-progress tasks detected by querying PRs with specific labels
+   - PRs must be against correct base branch to be counted
+
+#### 9. Key Findings Summary
+
+**Current State:**
+- ✅ **Auto-start workflow**: Already uses dynamic `github.ref_name` for BASE_BRANCH
+- ✅ **PR merge path**: Already uses dynamic `github.base_ref` for base_branch
+- ❌ **Hardcoded trigger branches**: Auto-start only triggers on `main` and `main-e2e`
+- ❌ **Hardcoded defaults**: Multiple places default to `'main'` when not specified
+- ❌ **Manual dispatch**: Falls back to hardcoded `'main'`
+
+**What needs to change for generic workflows:**
+1. Remove hardcoded branch triggers (`on.push.branches`) in auto-start workflow
+2. Remove hardcoded `'main'` defaults in workflow inputs
+3. Ensure base_branch is inferred from event context in all scenarios
+4. Add validation to fail fast with clear errors if base_branch cannot be determined
+
+**Architectural insight confirmed:**
+- Base branch is **not just for PR targeting** - it's the **source of truth for spec files**
+- Every ClaudeStep operation starts by fetching spec files from base branch via GitHub API
+- Correct base branch is essential for workflow correctness
 
 ---
 
