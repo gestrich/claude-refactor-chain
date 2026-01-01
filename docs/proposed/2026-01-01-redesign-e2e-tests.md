@@ -324,14 +324,14 @@ This redesign will create a more realistic E2E test suite that:
 
 ---
 
-- [ ] Phase 9: Update main claudestep workflow to support main-e2e
+- [x] Phase 9: Update main claudestep workflow to support main-e2e
 
 **Goal**: Update the main ClaudeStep workflow to work with both `main` and `main-e2e` branches.
 
 **Tasks**:
-1. Review [claudestep.yml](../.github/workflows/claudestep.yml) to understand the existing workflow structure
+1. ✅ Review [claudestep.yml](../.github/workflows/claudestep.yml) to understand the existing workflow structure
 
-2. Update the workflow_dispatch defaults:
+2. ✅ Update the workflow_dispatch defaults:
    ```yaml
    on:
      workflow_dispatch:
@@ -346,15 +346,25 @@ This redesign will create a more realistic E2E test suite that:
            default: 'main'  # Changed from 'e2e-test' to 'main'
    ```
 
-3. The `pull_request.types: [closed]` trigger already works for any branch, including `main-e2e`, so no changes needed there
+3. ✅ The `pull_request.types: [closed]` trigger already works for any branch, including `main-e2e`, so no changes needed there
 
-4. Verify the workflow correctly uses `github.base_ref` for PR merge events:
+4. ✅ Verify the workflow correctly uses `github.base_ref` for PR merge events:
    - When a PR targeting `main-e2e` is merged, `github.base_ref` will be `main-e2e`
    - The workflow should use this value for the base branch
 
-5. Add a comment explaining that this workflow supports both production (`main`) and E2E (`main-e2e`) branches
+5. ✅ Add a comment explaining that this workflow supports both production (`main`) and E2E (`main-e2e`) branches
 
 **Expected outcome**: When PRs targeting `main-e2e` are merged, the ClaudeStep workflow triggers and creates PRs with the correct base branch (`main-e2e`).
+
+**Technical notes**:
+- Updated [claudestep.yml](../.github/workflows/claudestep.yml) to change workflow_dispatch default values from `'e2e-test'` to `'main'`:
+  - `base_branch` default changed to `'main'` (lines 13, 18)
+  - `checkout_ref` default changed to `'main'` (lines 17, 22)
+  - Fallback values in the "Determine project and checkout ref" step changed from `'e2e-test'` to `'main'` (lines 44-45)
+- Added header comment explaining dual-branch support for production (`main`) and E2E testing (`main-e2e`) branches
+- The workflow already correctly uses `github.base_ref` for PR merge events (line 52), which will be `main-e2e` when E2E test PRs are merged
+- The `pull_request.types: [closed]` trigger works for any branch (line 19-20), so E2E test PR merges on `main-e2e` will automatically trigger the workflow
+- All 592 unit tests pass successfully
 
 ---
 

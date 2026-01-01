@@ -1,3 +1,8 @@
+# ClaudeStep workflow - supports both production (main) and E2E (main-e2e) branches
+# - For production: Creates PRs targeting 'main' branch
+# - For E2E tests: Creates PRs targeting 'main-e2e' branch
+# Triggered by: workflow_dispatch (manual) or pull_request close events
+
 name: ClaudeStep
 
 on:
@@ -36,8 +41,8 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # Use manual inputs
             PROJECT="${{ github.event.inputs.project_name }}"
-            BASE_BRANCH="${{ github.event.inputs.base_branch || 'e2e-test' }}"
-            CHECKOUT_REF="${{ github.event.inputs.checkout_ref || 'e2e-test' }}"
+            BASE_BRANCH="${{ github.event.inputs.base_branch || 'main' }}"
+            CHECKOUT_REF="${{ github.event.inputs.checkout_ref || 'main' }}"
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
             # Only run for PRs with claudestep label
             if [[ "${{ contains(github.event.pull_request.labels.*.name, 'claudestep') }}" != "true" ]]; then
