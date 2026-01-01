@@ -657,7 +657,7 @@ class TestCollectTeamMemberStats:
         from datetime import datetime, timezone, timedelta
         from claudestep.domain.github_models import GitHubPullRequest
 
-        # Create mock GitHub PRs
+        # Create mock GitHub PRs with valid 8-char hex hashes
         pr1 = GitHubPullRequest(
             number=1,
             title="Fix bug",
@@ -666,7 +666,7 @@ class TestCollectTeamMemberStats:
             merged_at=datetime.now(timezone.utc) - timedelta(days=4),
             assignees=["alice"],
             labels=["claudestep"],
-            head_ref_name="claude-step-test-project-1"
+            head_ref_name="claude-step-test-project-a3f2b891"
         )
 
         pr2 = GitHubPullRequest(
@@ -677,7 +677,7 @@ class TestCollectTeamMemberStats:
             merged_at=datetime.now(timezone.utc) - timedelta(days=2),
             assignees=["bob"],
             labels=["claudestep"],
-            head_ref_name="claude-step-test-project-2"
+            head_ref_name="claude-step-test-project-f7c4d3e2"
         )
 
         pr3 = GitHubPullRequest(
@@ -688,7 +688,7 @@ class TestCollectTeamMemberStats:
             merged_at=None,
             assignees=["alice"],
             labels=["claudestep"],
-            head_ref_name="claude-step-test-project-3"
+            head_ref_name="claude-step-test-project-1a2b3c4d"
         )
 
         # Mock PROperationsService
@@ -762,7 +762,7 @@ class TestCollectProjectStats:
             merged_at=None,
             assignees=["alice"],
             labels=["claudestep"],
-            head_ref_name="claude-step-test-project-3"
+            head_ref_name="claude-step-test-project-1a2b3c4d"
         )
 
         # Mock PROperationsService

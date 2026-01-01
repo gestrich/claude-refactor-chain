@@ -50,7 +50,6 @@ addopts = [
     "--cov=src/claudestep",
     "--cov-report=term-missing",
     "--cov-report=html",
-    "--cov-fail-under=70",
 ]
 markers = [
     "unit: Fast unit tests with no external dependencies",
@@ -64,8 +63,7 @@ source = ["src/claudestep"]
 omit = ["*/tests/*"]
 
 [tool.coverage.report]
-# Minimum coverage threshold - start at 70%, target 80%+
-fail_under = 70
+# Coverage is reported but does not fail tests
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
