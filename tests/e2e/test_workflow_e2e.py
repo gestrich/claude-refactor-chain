@@ -21,9 +21,13 @@ TESTS IN THIS MODULE:
    - What: Verifies reviewer maxOpenPRs capacity enforcement across multiple runs
    - Why E2E: Tests integration between reviewer management and PR creation
 
-3. test_merge_triggered_workflow (SKIPPED)
-   - What: Would verify merge triggers next PR creation
-   - Why E2E: Would test GitHub Actions trigger-on-merge integration
+3. test_auto_start_workflow
+   - What: Verifies pushing spec to main-e2e triggers auto-start workflow and PR creation
+   - Why E2E: Tests real user flow of auto-start and automatic PR generation
+
+4. test_merge_triggered_workflow
+   - What: Verifies merging a PR triggers creation of the next PR
+   - Why E2E: Tests GitHub Actions trigger-on-merge integration
 """
 
 import pytest
@@ -339,30 +343,121 @@ def test_auto_start_workflow(
 
 def test_merge_triggered_workflow(
     gh: GitHubHelper,
-    test_project: str
+    setup_test_project: str
 ) -> None:
     """Test that merging a PR triggers creation of the next PR.
 
-    This test verifies the workflow is triggered when a PR is merged,
-    creating a PR for the next task in the spec.
+    This test verifies that when a ClaudeStep PR is merged, the workflow
+    automatically triggers and creates a PR for the next task in the spec.
 
-    Note: This test is more complex as it requires actually merging a PR,
-    which may require specific repository permissions. This is a placeholder
-    implementation that documents the expected behavior.
+    The test verifies:
+    1. Auto-start workflow creates first PR (reuses test_auto_start_workflow setup)
+    2. Merging the first PR triggers claudestep.yml workflow via PR close event
+    3. Workflow creates a second PR for the next task
+    4. Second PR has "claudestep" label
+    5. Second PR targets main-e2e branch
 
     Cleanup happens at test START (not end) to allow manual inspection.
 
     Args:
         gh: GitHub helper fixture
-        test_project: Test project name from fixture (e2e-test-project)
+        setup_test_project: Test project created and pushed to main-e2e (has 3 tasks)
     """
-    pytest.skip("Merge-triggered workflow test requires PR merge permissions")
+    from claudestep.domain.constants import DEFAULT_PR_LABEL
+    from ..constants import E2E_TEST_BRANCH
 
-    # TODO: Implement this test when we have the ability to merge PRs
-    # The test should:
-    # 1. Use the permanent e2e-test-project from main branch
-    # 2. Trigger workflow to create first PR
-    # 3. Merge the first PR
-    # 4. Verify workflow is triggered on merge
-    # 5. Verify second PR is created
-    # 6. Clean up
+    test_project = setup_test_project
+
+    # Wait for auto-start workflow to complete (from test setup)
+    gh.wait_for_workflow_to_start(
+        workflow_name="claudestep-auto-start.yml",
+        timeout=60,
+        branch=E2E_TEST_BRANCH
+    )
+
+    auto_start_run = gh.wait_for_workflow_completion(
+        workflow_name="claudestep-auto-start.yml",
+        timeout=300,  # 5 minutes
+        branch=E2E_TEST_BRANCH
+    )
+
+    assert auto_start_run.conclusion == "success", \
+        f"Auto-start workflow should complete successfully. Run URL: {auto_start_run.url}"
+
+    # Wait for main workflow to complete (creates first PR)
+    gh.wait_for_workflow_to_start(
+        workflow_name="claudestep.yml",
+        timeout=60,
+        branch=E2E_TEST_BRANCH
+    )
+
+    first_workflow_run = gh.wait_for_workflow_completion(
+        workflow_name="claudestep.yml",
+        timeout=900,  # 15 minutes
+        branch=E2E_TEST_BRANCH
+    )
+
+    assert first_workflow_run.conclusion == "success", \
+        f"First workflow run should complete successfully. Run URL: {first_workflow_run.url}"
+
+    # Get the first PR that was created
+    project_prs = gh.get_pull_requests_for_project(test_project)
+    assert len(project_prs) > 0, \
+        f"At least one PR should be created for project '{test_project}'. Workflow run: {first_workflow_run.url}"
+
+    first_pr = project_prs[0]
+    first_pr_url = f"https://github.com/gestrich/claude-step/pull/{first_pr.number}"
+
+    # Verify first PR is open
+    assert first_pr.state == "open", \
+        f"First PR #{first_pr.number} should be open. PR URL: {first_pr_url}"
+
+    # Merge the first PR (this should trigger the workflow via PR close event)
+    gh.merge_pull_request(first_pr.number)
+
+    # Wait for the workflow to be triggered by the PR merge
+    gh.wait_for_workflow_to_start(
+        workflow_name="claudestep.yml",
+        timeout=60,
+        branch=E2E_TEST_BRANCH
+    )
+
+    # Wait for the second workflow run to complete (creates second PR)
+    second_workflow_run = gh.wait_for_workflow_completion(
+        workflow_name="claudestep.yml",
+        timeout=900,  # 15 minutes
+        branch=E2E_TEST_BRANCH
+    )
+
+    assert second_workflow_run.conclusion == "success", \
+        f"Second workflow run should complete successfully. Run URL: {second_workflow_run.url}"
+
+    # Get all PRs for this project again
+    project_prs = gh.get_pull_requests_for_project(test_project)
+
+    # We should now have 2 PRs: first one (merged) and second one (open)
+    assert len(project_prs) >= 2, \
+        f"At least 2 PRs should exist for project '{test_project}' after merge. " \
+        f"Found {len(project_prs)} PR(s). Second workflow run: {second_workflow_run.url}"
+
+    # Find the second PR (should be open, not the merged one)
+    open_prs = [pr for pr in project_prs if pr.state == "open"]
+    assert len(open_prs) > 0, \
+        f"At least one open PR should exist after merging first PR. " \
+        f"Found {len(open_prs)} open PR(s). Second workflow run: {second_workflow_run.url}"
+
+    second_pr = open_prs[0]
+    second_pr_url = f"https://github.com/gestrich/claude-step/pull/{second_pr.number}"
+
+    # Verify second PR has claudestep label
+    assert DEFAULT_PR_LABEL in [label.lower() for label in second_pr.labels], \
+        f"Second PR #{second_pr.number} should have '{DEFAULT_PR_LABEL}' label. PR URL: {second_pr_url}"
+
+    # Verify second PR targets main-e2e branch
+    assert second_pr.base_ref_name == E2E_TEST_BRANCH, \
+        f"Second PR #{second_pr.number} should target '{E2E_TEST_BRANCH}' branch but targets '{second_pr.base_ref_name}'. " \
+        f"PR URL: {second_pr_url}"
+
+    # Verify second PR is different from first PR
+    assert second_pr.number != first_pr.number, \
+        f"Second PR should be different from first PR. Both have number {first_pr.number}"

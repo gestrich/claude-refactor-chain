@@ -182,12 +182,12 @@ This redesign will create a more realistic E2E test suite that:
 
 ---
 
-- [ ] Phase 5: Test PR merge auto-trigger workflow
+- [x] Phase 5: Test PR merge auto-trigger workflow
 
 **Goal**: Create test that validates merging a PR triggers the next PR creation.
 
 **Tasks**:
-1. Replace the skipped `test_merge_triggered_workflow` in [test_workflow_e2e.py](tests/e2e/test_workflow_e2e.py:259-287) with real implementation:
+1. ✅ Replace the skipped `test_merge_triggered_workflow` in [test_workflow_e2e.py](tests/e2e/test_workflow_e2e.py:340-459) with real implementation:
    - Use `setup_test_project` fixture to create project with 3+ tasks
    - Wait for auto-start to create first PR
    - Merge the first PR using GitHub API
@@ -196,11 +196,24 @@ This redesign will create a more realistic E2E test suite that:
    - Verify second PR has "claudestep" label
    - Verify second PR targets `main-e2e` branch
 
-2. Add `merge_pull_request()` method to [GitHubHelper](tests/e2e/helpers/github_helper.py) to merge PRs via API
+2. ✅ Add `merge_pull_request()` method to [GitHubHelper](tests/e2e/helpers/github_helper.py:367-381) to merge PRs via API
 
-3. Update workflow waiting logic to filter by branch `main-e2e` instead of `e2e-test`
+3. ✅ Update workflow waiting logic to filter by branch `main-e2e` instead of `e2e-test`
 
 **Expected outcome**: Test validates that merging a ClaudeStep PR automatically triggers the next PR.
+
+**Technical notes**:
+- Added `merge_pull_request()` function to [operations.py](src/claudestep/infrastructure/github/operations.py:635-660) that uses `gh pr merge` command with configurable merge method (merge, squash, or rebase)
+- Added wrapper method `merge_pull_request()` to [GitHubHelper](tests/e2e/helpers/github_helper.py:367-381) with logging and error handling
+- Implemented `test_merge_triggered_workflow` that:
+  - Reuses the `setup_test_project` fixture which creates a project with 3 tasks
+  - Waits for auto-start workflow to complete and first PR to be created
+  - Merges the first PR using the new `merge_pull_request()` method
+  - Waits for the PR merge to trigger the `claudestep.yml` workflow via PR close event
+  - Verifies that a second PR is created for the next task with proper label and base branch
+  - Validates that the second PR is different from the first PR
+- Updated test file header to include `test_auto_start_workflow` and remove "SKIPPED" notation from `test_merge_triggered_workflow`
+- All unit tests pass successfully
 
 ---
 

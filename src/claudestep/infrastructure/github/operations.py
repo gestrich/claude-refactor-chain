@@ -632,6 +632,34 @@ def close_pull_request(repo: str, pr_number: int) -> None:
     run_gh_command(args)
 
 
+def merge_pull_request(repo: str, pr_number: int, merge_method: str = "merge") -> None:
+    """Merge a pull request
+
+    Args:
+        repo: GitHub repository (owner/name)
+        pr_number: Pull request number to merge
+        merge_method: Merge method to use (merge, squash, or rebase). Default: merge
+
+    Raises:
+        GitHubAPIError: If gh command fails
+
+    Example:
+        >>> # Merge a PR
+        >>> merge_pull_request("owner/repo", 123)
+        >>> # Squash merge a PR
+        >>> merge_pull_request("owner/repo", 123, merge_method="squash")
+    """
+    # Build gh pr merge command
+    args = [
+        "pr", "merge", str(pr_number),
+        "--repo", repo,
+        f"--{merge_method}"
+    ]
+
+    # Execute command
+    run_gh_command(args)
+
+
 # ============================================================================
 # Branch operations
 # ============================================================================

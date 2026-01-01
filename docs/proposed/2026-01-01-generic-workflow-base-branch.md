@@ -114,12 +114,12 @@ This architectural principle makes the base branch detection even more critical 
    on:
      push:
        branches:
-         - main
-         - main-e2e
-         # Could even be '**' to support any branch
+         - '**'  # Trigger on ANY branch
        paths:
          - 'claude-step/*/spec.md'
    ```
+
+   **Why `'**'`?** Makes the workflow truly generic - works on main, main-e2e, feature branches, or any branch users want to use for ClaudeStep projects.
 
 2. Update environment variable to use event context:
 
@@ -133,15 +133,25 @@ This architectural principle makes the base branch detection even more critical 
 
    ```yaml
    - name: Log derived base branch
-     run: echo "Base branch derived from push event: ${{ github.ref_name }}"
+     run: |
+       echo "Auto-start triggered on branch: ${{ github.ref_name }}"
+       echo "PRs will target base branch: ${{ github.ref_name }}"
    ```
 
 4. Remove any hardcoded branch references in the workflow
 
-5. Test scenarios:
+5. Add comment to workflow explaining the generic behavior:
+   ```yaml
+   # This workflow is branch-agnostic and works on ANY branch.
+   # When a spec is pushed to any branch, that branch becomes the base branch.
+   # PRs will automatically target the same branch where the spec was pushed.
+   ```
+
+6. Test scenarios:
    - Push spec to `main` → derives `main`
    - Push spec to `main-e2e` → derives `main-e2e`
    - Push spec to `feature/test` → derives `feature/test`
+   - Push spec to `user/experiment` → derives `user/experiment`
 
 **Expected outcome**: Auto-start workflow works on any branch without configuration changes.
 

@@ -20,6 +20,7 @@ from claudestep.infrastructure.github.operations import (
     get_pull_request_by_branch as _get_pull_request_by_branch,
     get_pull_request_comments as _get_pull_request_comments,
     close_pull_request as _close_pull_request,
+    merge_pull_request as _merge_pull_request,
     delete_branch as _delete_branch,
     list_branches as _list_branches,
 )
@@ -362,6 +363,22 @@ class GitHubHelper:
         except GitHubAPIError as e:
             logger.warning(f"Failed to close PR #{pr_number}: {e}")
             raise RuntimeError(f"Failed to close PR #{pr_number}: {e}")
+
+    def merge_pull_request(self, pr_number: int, merge_method: str = "merge") -> None:
+        """Merge a pull request.
+
+        Args:
+            pr_number: PR number to merge
+            merge_method: Merge method to use (merge, squash, or rebase). Default: merge
+        """
+        logger.info(f"Merging PR #{pr_number} using method '{merge_method}'")
+
+        try:
+            _merge_pull_request(repo=self.repo, pr_number=pr_number, merge_method=merge_method)
+            logger.info(f"Successfully merged PR #{pr_number}")
+        except GitHubAPIError as e:
+            logger.warning(f"Failed to merge PR #{pr_number}: {e}")
+            raise RuntimeError(f"Failed to merge PR #{pr_number}: {e}")
 
     def delete_branch(self, branch: str) -> None:
         """Delete a remote branch.
