@@ -17,6 +17,7 @@ from claudestep.infrastructure.github.operations import (
     list_pull_requests as _list_pull_requests,
     trigger_workflow as _trigger_workflow,
     list_workflow_runs as _list_workflow_runs,
+    get_workflow_run_logs as _get_workflow_run_logs,
     get_pull_request_by_branch as _get_pull_request_by_branch,
     get_pull_request_comments as _get_pull_request_comments,
     close_pull_request as _close_pull_request,
@@ -272,6 +273,24 @@ class GitHubHelper:
             )
         else:
             raise TimeoutError(f"Workflow did not complete within {timeout} seconds (no run found)")
+
+    def get_workflow_run_logs(self, run_id: int) -> str:
+        """Get the full logs for a workflow run.
+
+        Args:
+            run_id: Workflow run database ID
+
+        Returns:
+            Complete workflow run logs as a string
+        """
+        logger.info(f"Fetching logs for workflow run {run_id}")
+        try:
+            logs = _get_workflow_run_logs(self.repo, run_id)
+            logger.debug(f"Successfully fetched logs for run {run_id} ({len(logs)} bytes)")
+            return logs
+        except GitHubAPIError as e:
+            logger.error(f"Failed to fetch logs for run {run_id}: {e}")
+            raise
 
     def get_pull_request(self, branch: str) -> Optional[GitHubPullRequest]:
         """Get PR for a given branch.

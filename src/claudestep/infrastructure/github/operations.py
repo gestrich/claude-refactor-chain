@@ -468,6 +468,45 @@ def list_workflow_runs(
     return runs
 
 
+def get_workflow_run_logs(
+    repo: str,
+    run_id: int
+) -> str:
+    """Get the full logs for a workflow run.
+
+    Fetches the complete logs for all jobs in a workflow run.
+    Useful for debugging workflow failures or validating workflow output.
+
+    Args:
+        repo: GitHub repository (owner/name)
+        run_id: Workflow run database ID
+
+    Returns:
+        Complete workflow run logs as a string
+
+    Raises:
+        GitHubAPIError: If gh command fails
+
+    Example:
+        >>> # Get logs for a specific run
+        >>> logs = get_workflow_run_logs("owner/repo", 12345)
+        >>> if "error" in logs.lower():
+        ...     print("Found error in logs!")
+    """
+    # Build gh run view command
+    args = [
+        "run", "view", str(run_id),
+        "--repo", repo,
+        "--log"
+    ]
+
+    # Execute command
+    try:
+        return run_gh_command(args)
+    except Exception as e:
+        raise GitHubAPIError(f"Failed to get workflow run logs: {str(e)}")
+
+
 def trigger_workflow(
     repo: str,
     workflow_name: str,
