@@ -44,6 +44,11 @@ class TestBranchManager:
 
     def create_fresh_branch(self) -> None:
         """Create fresh test branch from current main."""
+        # Fetch main branch (needed for GitHub Actions where only trigger branch is cloned)
+        subprocess.run(
+            ["git", "fetch", "origin", "main:main"],
+            cwd=self.repo_root, check=True
+        )
         # Ensure we're on main and up to date
         subprocess.run(["git", "checkout", "main"], cwd=self.repo_root, check=True)
         subprocess.run(["git", "pull", "origin", "main"], cwd=self.repo_root, check=True)
@@ -101,6 +106,11 @@ Test projects are created here during test runs and cleaned up afterwards.
 
     def cleanup_test_branch(self) -> None:
         """Delete the test branch after tests complete."""
+        # Fetch main branch (needed for GitHub Actions where only trigger branch is cloned)
+        subprocess.run(
+            ["git", "fetch", "origin", "main:main"],
+            cwd=self.repo_root, capture_output=True
+        )
         subprocess.run(["git", "checkout", "main"], cwd=self.repo_root, check=True)
         self.delete_remote_branch()
         subprocess.run(
