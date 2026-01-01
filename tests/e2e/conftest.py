@@ -71,6 +71,7 @@ def test_config_content() -> str:
     return """reviewers:
   - username: gestrich
     maxOpenPRs: 5
+baseBranch: main-e2e
 """
 
 

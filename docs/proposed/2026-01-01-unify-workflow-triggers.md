@@ -139,7 +139,7 @@ Fix the bug where completed projects (only closed PRs) don't auto-trigger when n
 
 **Completed:** Updated auto-start logic to check for open PRs only (not all PRs). This allows completed projects (with only closed PRs) to auto-trigger when new tasks are added. Added 4 new unit tests and updated existing tests to reflect the new behavior. All 603 unit tests pass.
 
-- [ ] Phase 4: Update E2E tests
+- [x] Phase 4: Update E2E tests
 
 Update E2E test fixtures to use `baseBranch` configuration.
 
@@ -154,6 +154,8 @@ baseBranch: main-e2e
 ```
 
 This ensures E2E tests explicitly specify their base branch, which is the expected pattern for any non-main branch usage.
+
+**Completed:** Updated `test_config_content` fixture in `tests/e2e/conftest.py` to include `baseBranch: main-e2e`. All 603 unit tests and 133 integration tests pass.
 
 - [ ] Phase 5: Validation
 
