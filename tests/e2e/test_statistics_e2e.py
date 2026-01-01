@@ -66,8 +66,8 @@ def test_z_statistics_end_to_end(gh: GitHubHelper) -> None:
     )
 
     assert workflow_run is not None, "Workflow run should be found"
-    assert workflow_run["conclusion"] == "success", \
-        f"Workflow should complete successfully, got: {workflow_run['conclusion']}"
+    assert workflow_run.conclusion == "success", \
+        f"Workflow should complete successfully, got: {workflow_run.conclusion}"
 
     # Note: We validate the workflow completes successfully, which means:
     # 1. It successfully queries for ClaudeStep PRs

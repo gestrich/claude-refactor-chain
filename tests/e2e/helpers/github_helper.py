@@ -112,7 +112,7 @@ class GitHubHelper:
         # Get current latest run ID to detect new runs
         existing_run = self.get_latest_workflow_run(workflow_name, branch=branch)
         if existing_run:
-            initial_run_id = existing_run.get("databaseId")
+            initial_run_id = existing_run.database_id
             logger.debug(f"Current latest run ID: {initial_run_id}")
 
         while time.time() - start_time < timeout:
@@ -121,10 +121,10 @@ class GitHubHelper:
 
             run = self.get_latest_workflow_run(workflow_name, branch=branch)
             if run:
-                run_id = run.get("databaseId")
+                run_id = run.database_id
                 # If we have a new run (different from initial), workflow has started
                 if initial_run_id is None or run_id != initial_run_id:
-                    run_url = run.get("url", f"https://github.com/{self.repo}/actions/runs/{run_id}")
+                    run_url = run.url
                     logger.info(f"Workflow started after {elapsed:.1f}s - Run ID: {run_id}")
                     logger.info(f"Workflow URL: {run_url}")
                     return run
