@@ -9,6 +9,7 @@ import logging
 from typing import Optional, Dict, Any, List, Callable
 
 from claudestep.domain.constants import DEFAULT_PR_LABEL
+from ..constants import E2E_TEST_BRANCH
 from claudestep.domain.exceptions import GitHubAPIError
 from claudestep.domain.github_models import WorkflowRun, GitHubPullRequest, PRComment
 from claudestep.infrastructure.github.operations import (
@@ -85,7 +86,7 @@ class GitHubHelper:
         workflow_name: str,
         timeout: int = 30,
         poll_interval: float = 2.0,
-        branch: str = "e2e-test"
+        branch: str = E2E_TEST_BRANCH
     ) -> Dict[str, Any]:
         """Wait for a workflow run to appear after triggering.
 
@@ -140,7 +141,7 @@ class GitHubHelper:
         self,
         workflow_name: str,
         inputs: Dict[str, str],
-        ref: str = "e2e-test"
+        ref: str = E2E_TEST_BRANCH
     ) -> None:
         """Trigger a GitHub workflow manually.
 
@@ -169,7 +170,7 @@ class GitHubHelper:
     def get_latest_workflow_run(
         self,
         workflow_name: str,
-        branch: str = "e2e-test"
+        branch: str = E2E_TEST_BRANCH
     ) -> Optional[WorkflowRun]:
         """Get the latest workflow run for a given workflow.
 
@@ -205,7 +206,7 @@ class GitHubHelper:
         workflow_name: str,
         timeout: int = 600,
         poll_interval: int = 10,
-        branch: str = "e2e-test"
+        branch: str = E2E_TEST_BRANCH
     ) -> WorkflowRun:
         """Wait for a workflow to complete.
 
@@ -213,7 +214,7 @@ class GitHubHelper:
             workflow_name: Name of the workflow file
             timeout: Maximum time to wait in seconds
             poll_interval: Time between status checks in seconds
-            branch: Branch to filter runs by (defaults to "e2e-test")
+            branch: Branch to filter runs by
 
         Returns:
             WorkflowRun domain model for the completed workflow

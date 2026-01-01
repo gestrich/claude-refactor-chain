@@ -43,7 +43,7 @@ This redesign will create a more realistic E2E test suite that:
 
 ---
 
-- [ ] Phase 2: Replace e2e-test branch with main-e2e
+- [x] Phase 2: Replace e2e-test branch with main-e2e
 
 **Goal**: Update `TestBranchManager` to create ephemeral `main-e2e` branch instead of `e2e-test`, and define the branch name as a shared constant.
 
@@ -72,6 +72,12 @@ This redesign will create a more realistic E2E test suite that:
 8. Update [e2e-test.yml](../.github/workflows/e2e-test.yml:97) workflow to reference `main-e2e` in failure message
 
 **Expected outcome**: Tests create/destroy ephemeral `main-e2e` branch, with the branch name defined once as a shared constant to prevent inconsistencies.
+
+**Technical notes**:
+- Created new `tests/e2e/constants.py` module to hold `E2E_TEST_BRANCH` constant to avoid circular import issues (conftest.py imports helpers, helpers would import from conftest)
+- Updated all default parameter values in `github_helper.py` methods (`wait_for_workflow_to_start`, `trigger_workflow`, `get_latest_workflow_run`, `wait_for_workflow_completion`) to use `E2E_TEST_BRANCH` instead of hardcoded `"e2e-test"`
+- Removed both `create_test_workflows()` and `_get_claudestep_test_workflow()` methods from `test_branch_manager.py` - tests will now use the real `claudestep.yml` workflow from the main branch
+- Updated fixture docstrings and workflow failure messages to reference `main-e2e`
 
 ---
 

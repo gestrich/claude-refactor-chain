@@ -4,6 +4,8 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
+from ..constants import E2E_TEST_BRANCH
+
 
 class TestBranchManager:
     """Manages creation and cleanup of ephemeral test branch."""
@@ -16,10 +18,10 @@ class TestBranchManager:
             )
             repo_root = Path(result.stdout.strip())
         self.repo_root = repo_root
-        self.test_branch = "e2e-test"
+        self.test_branch = E2E_TEST_BRANCH
 
     def delete_remote_branch(self) -> None:
-        """Delete e2e-test branch from remote if it exists."""
+        """Delete test branch from remote if it exists."""
         # Check if branch exists on remote
         result = subprocess.run(
             ["git", "ls-remote", "--heads", "origin", self.test_branch],
@@ -34,7 +36,7 @@ class TestBranchManager:
             )
 
     def create_fresh_branch(self) -> None:
-        """Create fresh e2e-test branch from current main."""
+        """Create fresh test branch from current main."""
         # Ensure we're on main and up to date
         subprocess.run(["git", "checkout", "main"], cwd=self.repo_root, check=True)
         subprocess.run(["git", "pull", "origin", "main"], cwd=self.repo_root, check=True)
@@ -48,24 +50,6 @@ class TestBranchManager:
         # Create new branch
         subprocess.run(
             ["git", "checkout", "-b", self.test_branch],
-            cwd=self.repo_root, check=True
-        )
-
-    def create_test_workflows(self) -> None:
-        """Write test-specific workflows to the test branch."""
-        workflows_dir = self.repo_root / ".github" / "workflows"
-
-        # Create claudestep-test.yml
-        claudestep_test = workflows_dir / "claudestep-test.yml"
-        claudestep_test.write_text(self._get_claudestep_test_workflow())
-
-        # Commit the workflows
-        subprocess.run(
-            ["git", "add", ".github/workflows/"],
-            cwd=self.repo_root, check=True
-        )
-        subprocess.run(
-            ["git", "commit", "-m", "Add test-specific workflows for E2E testing"],
             cwd=self.repo_root, check=True
         )
 
@@ -117,37 +101,3 @@ Test projects are created here during test runs and cleaned up afterwards.
             cwd=self.repo_root, capture_output=True
         )
         print(f"✓ Cleaned up test branch '{self.test_branch}'")
-
-    def _get_claudestep_test_workflow(self) -> str:
-        """Return claudestep-test.yml workflow content."""
-        return """name: ClaudeStep Test
-
-on:
-  workflow_dispatch:
-    inputs:
-      project_name:
-        description: 'Project name in claude-step directory'
-        required: true
-      base_branch:
-        description: 'Base branch for pull requests'
-        required: false
-        default: 'e2e-test'
-
-jobs:
-  run-claudestep:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: e2e-test
-
-      - name: Run ClaudeStep action
-        uses: ./
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          project_name: ${{ github.event.inputs.project_name }}
-          base_branch: ${{ github.event.inputs.base_branch || 'e2e-test' }}
-          claude_model: 'claude-3-haiku-20240307'
-"""

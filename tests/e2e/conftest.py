@@ -12,6 +12,7 @@ from typing import Generator, List
 from .helpers.github_helper import GitHubHelper
 from .helpers.project_manager import TestProjectManager
 from .helpers.test_branch_manager import TestBranchManager
+from .constants import E2E_TEST_BRANCH
 
 
 @pytest.fixture
@@ -67,9 +68,12 @@ def test_project() -> str:
 def test_branch():
     """Ensure test branch exists before running tests.
 
-    This fixture validates that the e2e-test branch has been set up
+    This fixture validates that the main-e2e branch has been set up
     by the E2E test workflow before tests run. The branch should already
     be created and configured by the workflow.
+
+    The branch name is defined by the E2E_TEST_BRANCH constant to ensure
+    consistency across all E2E test helpers and fixtures.
 
     Yields:
         None - Just ensures branch validation happens
