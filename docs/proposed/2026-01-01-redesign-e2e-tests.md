@@ -155,12 +155,12 @@ This redesign will create a more realistic E2E test suite that:
 
 ---
 
-- [ ] Phase 4: Test auto-start workflow
+- [x] Phase 4: Test auto-start workflow
 
 **Goal**: Create test that validates auto-start workflow triggers when spec is pushed to `main-e2e`.
 
 **Tasks**:
-1. Create new test `test_auto_start_workflow` in [test_workflow_e2e.py](tests/e2e/test_workflow_e2e.py):
+1. ✅ Create new test `test_auto_start_workflow` in [test_workflow_e2e.py](tests/e2e/test_workflow_e2e.py):
    - Use `setup_test_project` fixture to push spec to `main-e2e`
    - Wait for `claudestep-auto-start.yml` workflow to complete on `main-e2e` branch
    - Wait for subsequent `claudestep.yml` workflow to complete (triggered by auto-start)
@@ -169,9 +169,16 @@ This redesign will create a more realistic E2E test suite that:
    - Verify PR targets `main-e2e` branch
    - Verify PR has AI summary comment with cost breakdown
 
-2. Update [GitHubHelper](tests/e2e/helpers/github_helper.py) if needed to support waiting for auto-start workflow
+2. ✅ Update [GitHubHelper](tests/e2e/helpers/github_helper.py) if needed to support waiting for auto-start workflow
 
 **Expected outcome**: Test validates that pushing spec to `main-e2e` automatically triggers first PR creation.
+
+**Technical notes**:
+- Created `test_auto_start_workflow` test function that uses `setup_test_project` fixture to dynamically create and push test project to `main-e2e`
+- The test waits for two sequential workflows: `claudestep-auto-start.yml` (5 min timeout) followed by `claudestep.yml` (15 min timeout)
+- Verifies PR creation with proper label (`claudestep`), base branch (`main-e2e`), state (open), and combined AI summary + cost breakdown comment
+- No updates to GitHubHelper were needed - existing methods (`wait_for_workflow_to_start`, `wait_for_workflow_completion`, `get_pull_requests_for_project`, `get_pr_comments`) already support all required functionality
+- The test properly imports constants from `claudestep.domain.constants` (DEFAULT_PR_LABEL) and `tests.e2e.constants` (E2E_TEST_BRANCH)
 
 ---
 

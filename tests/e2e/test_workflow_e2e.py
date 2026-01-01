@@ -229,6 +229,114 @@ def test_reviewer_capacity_limits(
         raise e
 
 
+def test_auto_start_workflow(
+    gh: GitHubHelper,
+    setup_test_project: str
+) -> None:
+    """Test that auto-start workflow triggers when spec is pushed to main-e2e.
+
+    This test validates the real user flow where pushing a spec to main-e2e
+    automatically triggers PR creation via the auto-start workflow.
+
+    The test verifies:
+    1. Pushing spec to main-e2e triggers claudestep-auto-start.yml workflow
+    2. Auto-start workflow completes successfully
+    3. Auto-start triggers the main claudestep.yml workflow
+    4. Main workflow creates a PR for the first task
+    5. PR has "claudestep" label
+    6. PR targets main-e2e branch
+    7. PR has AI summary comment with cost breakdown
+
+    Cleanup happens at test START (not end) to allow manual inspection.
+
+    Args:
+        gh: GitHub helper fixture
+        setup_test_project: Test project created and pushed to main-e2e
+    """
+    from claudestep.domain.constants import DEFAULT_PR_LABEL
+    from ..constants import E2E_TEST_BRANCH
+
+    test_project = setup_test_project
+
+    # Wait for auto-start workflow to start
+    gh.wait_for_workflow_to_start(
+        workflow_name="claudestep-auto-start.yml",
+        timeout=60,
+        branch=E2E_TEST_BRANCH
+    )
+
+    # Wait for auto-start workflow to complete
+    auto_start_run = gh.wait_for_workflow_completion(
+        workflow_name="claudestep-auto-start.yml",
+        timeout=300,  # 5 minutes
+        branch=E2E_TEST_BRANCH
+    )
+
+    assert auto_start_run.conclusion == "success", \
+        f"Auto-start workflow should complete successfully. Run URL: {auto_start_run.url}"
+
+    # Wait for main claudestep workflow to start (triggered by auto-start)
+    gh.wait_for_workflow_to_start(
+        workflow_name="claudestep.yml",
+        timeout=60,
+        branch=E2E_TEST_BRANCH
+    )
+
+    # Wait for main workflow to complete
+    main_run = gh.wait_for_workflow_completion(
+        workflow_name="claudestep.yml",
+        timeout=900,  # 15 minutes
+        branch=E2E_TEST_BRANCH
+    )
+
+    assert main_run.conclusion == "success", \
+        f"Main workflow should complete successfully. Run URL: {main_run.url}"
+
+    # Get all PRs for this project
+    project_prs = gh.get_pull_requests_for_project(test_project)
+
+    assert len(project_prs) > 0, \
+        f"At least one PR should be created for project '{test_project}'. Workflow run: {main_run.url}"
+
+    # Get the first (most recent) PR
+    pr = project_prs[0]
+    pr_url = f"https://github.com/gestrich/claude-step/pull/{pr.number}"
+
+    # Verify PR is open
+    assert pr.state == "open", \
+        f"PR #{pr.number} should be open but is {pr.state}. PR URL: {pr_url}"
+
+    # Verify PR has claudestep label
+    assert DEFAULT_PR_LABEL in [label.lower() for label in pr.labels], \
+        f"PR #{pr.number} should have '{DEFAULT_PR_LABEL}' label. PR URL: {pr_url}"
+
+    # Verify PR targets main-e2e branch
+    assert pr.base_ref_name == E2E_TEST_BRANCH, \
+        f"PR #{pr.number} should target '{E2E_TEST_BRANCH}' branch but targets '{pr.base_ref_name}'. PR URL: {pr_url}"
+
+    # Verify PR has a title
+    assert pr.title, f"PR #{pr.number} should have a title. PR URL: {pr_url}"
+
+    # Get PR comments for summary and cost verification
+    comments = gh.get_pr_comments(pr.number)
+
+    # Verify there's at least one comment
+    assert len(comments) > 0, \
+        f"PR #{pr.number} should have at least one comment. PR URL: {pr_url}"
+
+    # Extract comment bodies for analysis
+    comment_bodies = [c.body for c in comments]
+
+    # Verify PR has a combined comment with both summary and cost breakdown
+    has_combined_comment = any(
+        "## AI-Generated Summary" in body and "## 💰 Cost Breakdown" in body
+        for body in comment_bodies
+    )
+    assert has_combined_comment, \
+        f"PR #{pr.number} should have a combined comment with both '## AI-Generated Summary' and '## 💰 Cost Breakdown' headers. " \
+        f"Found {len(comments)} comment(s). PR URL: {pr_url}"
+
+
 def test_merge_triggered_workflow(
     gh: GitHubHelper,
     test_project: str
