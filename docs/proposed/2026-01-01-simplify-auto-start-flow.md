@@ -130,12 +130,19 @@ Update the checkout step to handle both cases:
   - push: uses `github.sha` (the commit that was pushed)
 - All 721 unit/integration tests pass
 
-- [ ] Phase 5: Update workflow header comments and cleanup
+- [x] Phase 5: Update workflow header comments and cleanup
 
 - Update the workflow header comments to reflect the new design
 - Remove references to "programmatic workflow dispatch"
 - Remove the `checkout_ref` requirement messaging for workflow_dispatch (it's still needed for manual triggers)
 - Clean up any obsolete summary generation that references "triggered" vs "failed" triggers
+
+**Completed:** 2026-01-01
+- Updated `claudestep-auto-start.yml` header comments to describe the new detection-only flow
+- Updated `claudestep-auto-start.yml` summary generation step to use `projects_to_trigger` and `project_count` outputs (removed `triggered_projects` and `failed_projects` references)
+- Updated `claudestep.yml` header comments to remove "Auto-start trigger" reference and clarify trigger modes
+- Updated `docs/general-architecture/github-actions.md` Auto-Start Workflow section to reflect the new design
+- All 721 unit/integration tests pass
 
 - [ ] Phase 6: Validation
 

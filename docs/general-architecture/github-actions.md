@@ -454,7 +454,7 @@ Please merge your spec files to the 'main' branch before running ClaudeStep.
 
 ### Overview
 
-The ClaudeStep Auto-Start workflow (`.github/workflows/claudestep-auto-start.yml`) automatically triggers the first task when a new project's spec.md is merged to the main branch. This eliminates the manual workflow trigger step and provides seamless onboarding.
+The ClaudeStep Auto-Start workflow (`.github/workflows/claudestep-auto-start.yml`) detects new projects when spec.md files are pushed and outputs the project list for processing. The workflow does not trigger other workflows directly - instead, it passes project information that the run-claudestep job consumes to process projects sequentially. This eliminates the need for PAT tokens or GitHub App authentication.
 
 ### Workflow Trigger
 
@@ -491,12 +491,12 @@ steps:
   - name: Install ClaudeStep
     run: pip install -e .
 
-  - name: Detect and trigger auto-start
+  - name: Detect projects
     id: auto_start
     run: python3 -m claudestep auto-start
     env:
       GITHUB_REPOSITORY: ${{ github.repository }}
-      BASE_BRANCH: main
+      BASE_BRANCH: ${{ github.ref_name }}
       REF_BEFORE: ${{ github.event.before }}
       REF_AFTER: ${{ github.sha }}
       GH_TOKEN: ${{ github.token }}
@@ -504,11 +504,14 @@ steps:
 
   - name: Generate summary
     if: always()
-    run: python3 -m claudestep auto-start-summary
-    env:
-      TRIGGERED_PROJECTS: ${{ steps.auto_start.outputs.triggered_projects }}
-      FAILED_PROJECTS: ${{ steps.auto_start.outputs.failed_projects }}
+    run: |
+      # Summary uses projects_to_trigger and project_count outputs
+      # The run-claudestep job processes these projects sequentially
 ```
+
+**Outputs:**
+- `projects_to_trigger`: Space-separated list of project names to process
+- `project_count`: Number of projects detected
 
 ### Disabling Auto-Start
 

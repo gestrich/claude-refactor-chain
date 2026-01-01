@@ -2,16 +2,17 @@
 #
 # This workflow is branch-agnostic and adapts to any branch without configuration.
 #
+# Trigger modes:
+# - workflow_dispatch: Manual trigger with project_name input
+# - pull_request close: Continues processing after PR merge (requires 'claudestep' label)
+#
 # Base branch inference:
 # - PR merge event: Uses github.base_ref (the branch the PR was merged INTO)
 # - workflow_dispatch: Uses base_branch input if provided, otherwise uses checkout_ref
-# - Auto-start trigger: Auto-start workflow provides explicit base_branch
 #
 # When a spec is pushed to 'main', PRs target 'main'.
 # When a spec is pushed to 'main-e2e', PRs target 'main-e2e'.
 # Works on any branch: feature branches, test branches, etc.
-#
-# Triggered by: workflow_dispatch (manual/auto-start) or pull_request close events
 #
 # Security considerations:
 # - PR merge trigger: Only runs for PRs with 'claudestep' label (requires write access to add)

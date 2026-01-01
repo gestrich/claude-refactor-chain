@@ -1,10 +1,21 @@
 name: ClaudeStep Auto-Start
 
-# This workflow is generic and works on ANY branch.
-# The base branch is automatically derived from the push event (github.ref_name).
-# When a spec is pushed to 'main', PRs target 'main'.
-# When a spec is pushed to 'main-e2e', PRs target 'main-e2e'.
-# When a spec is pushed to any other branch, PRs target that branch.
+# Automatic project detection workflow for ClaudeStep.
+#
+# This workflow detects new projects when spec.md files are pushed and outputs
+# the project list for the run-claudestep job to process. It does NOT trigger
+# workflows directly - instead, it passes project information via job outputs.
+#
+# Flow:
+# 1. Push event triggers this workflow when spec.md files change
+# 2. Python command detects which projects are new (no existing PRs)
+# 3. Project list is output for downstream consumption
+# 4. The run-claudestep job (in claudestep.yml) processes projects sequentially
+#
+# This workflow is branch-agnostic:
+# - When a spec is pushed to 'main', PRs target 'main'
+# - When a spec is pushed to 'main-e2e', PRs target 'main-e2e'
+# - Works on any branch
 #
 # Security considerations:
 # - Only triggers on push events (requires write access to push)
@@ -63,38 +74,23 @@ jobs:
           echo "# ClaudeStep Auto-Start Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          TRIGGERED="${{ steps.auto_start.outputs.triggered_projects }}"
-          FAILED="${{ steps.auto_start.outputs.failed_projects }}"
-          ALL_PROJECTS="${{ steps.auto_start.outputs.projects_to_trigger }}"
+          PROJECTS="${{ steps.auto_start.outputs.projects_to_trigger }}"
+          COUNT="${{ steps.auto_start.outputs.project_count }}"
 
-          if [ -z "$ALL_PROJECTS" ]; then
-            echo "No spec.md files were changed in this push." >> $GITHUB_STEP_SUMMARY
+          if [ -z "$PROJECTS" ] || [ "$COUNT" = "0" ]; then
+            echo "No new projects detected that need processing." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "This can happen when:" >> $GITHUB_STEP_SUMMARY
+            echo "- No spec.md files were changed in this push" >> $GITHUB_STEP_SUMMARY
+            echo "- Changed projects already have existing PRs" >> $GITHUB_STEP_SUMMARY
+            echo "- Auto-start is disabled via CLAUDESTEP_AUTO_START_ENABLED variable" >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
 
-          echo "## Projects with spec.md changes:" >> $GITHUB_STEP_SUMMARY
-          for project in $ALL_PROJECTS; do
-            echo "- $project" >> $GITHUB_STEP_SUMMARY
+          echo "## Projects to process ($COUNT):" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for project in $PROJECTS; do
+            echo "- \`$project\`" >> $GITHUB_STEP_SUMMARY
           done
           echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ -n "$TRIGGERED" ]; then
-            echo "## Auto-triggered for new projects:" >> $GITHUB_STEP_SUMMARY
-            for project in $TRIGGERED; do
-              echo "- ✅ $project (first task will be started)" >> $GITHUB_STEP_SUMMARY
-            done
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ -n "$FAILED" ]; then
-            echo "## ⚠️ Failed to trigger:" >> $GITHUB_STEP_SUMMARY
-            for project in $FAILED; do
-              echo "- ❌ $project" >> $GITHUB_STEP_SUMMARY
-            done
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Please manually trigger these projects or check workflow permissions." >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ -z "$TRIGGERED" ] && [ -z "$FAILED" ]; then
-            echo "No new projects detected. Existing projects rely on PR merge triggers." >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "The run-claudestep job will process these projects sequentially." >> $GITHUB_STEP_SUMMARY
