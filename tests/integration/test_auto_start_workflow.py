@@ -234,3 +234,97 @@ class TestAutoStartEdgeCases:
             match = re.search(pattern, path)
             assert match is not None, f"Should match project name: {name}"
             assert match.group(1) == name, f"Should extract exact name: {name}"
+
+
+@pytest.mark.integration
+class TestClaudeStepBranchNameEdgeCases:
+    """Tests for branch name edge cases in ClaudeStep workflow.
+
+    The claudestep.yml workflow extracts project names from PR branch names
+    using the pattern: claude-step-{project}-{8-char-hex-hash}
+    """
+
+    def test_branch_name_extraction_with_hyphenated_projects(self):
+        """Verify project extraction works with hyphenated project names."""
+        # Pattern matches: claude-step-{project}-{8-char-hex}
+        # Project names can contain hyphens, only the final 8-char hex is special
+        pattern = r'^claude-step-(.+)-([0-9a-f]{8})$'
+
+        test_cases = [
+            # (branch_name, expected_project)
+            ("claude-step-my-project-a1b2c3d4", "my-project"),
+            ("claude-step-test-project-12345678", "test-project"),
+            ("claude-step-my-complex-project-name-deadbeef", "my-complex-project-name"),
+            ("claude-step-api-v2-refactor-abcd1234", "api-v2-refactor"),
+            ("claude-step-2024-q1-auth-00000000", "2024-q1-auth"),
+        ]
+
+        for branch, expected_project in test_cases:
+            match = re.match(pattern, branch)
+            assert match is not None, f"Pattern should match branch: {branch}"
+            assert match.group(1) == expected_project, \
+                f"Expected '{expected_project}', got '{match.group(1)}' for branch '{branch}'"
+            assert len(match.group(2)) == 8, "Hash should be exactly 8 characters"
+
+    def test_branch_name_extraction_rejects_invalid_patterns(self):
+        """Verify pattern rejects invalid branch names."""
+        pattern = r'^claude-step-(.+)-([0-9a-f]{8})$'
+
+        invalid_branches = [
+            "claude-step-project-123",      # Hash too short (3 chars)
+            "claude-step-project-1234567",  # Hash too short (7 chars)
+            "claude-step-project-123456789", # Hash too long (9 chars)
+            "claude-step-project-ABCD1234", # Uppercase not valid hex
+            "claude-step-project-xyz12345", # Invalid hex chars
+            "claude-step-project",          # Missing hash entirely
+            "feature/my-branch",            # Not a ClaudeStep branch
+            "main",                         # Not a ClaudeStep branch
+            "claude-step--a1b2c3d4",        # Empty project name
+        ]
+
+        for branch in invalid_branches:
+            match = re.match(pattern, branch)
+            assert match is None, f"Pattern should NOT match invalid branch: {branch}"
+
+    def test_branch_name_with_long_project_names(self):
+        """Verify very long project names are handled correctly."""
+        pattern = r'^claude-step-(.+)-([0-9a-f]{8})$'
+
+        # Very long project name (but still reasonable)
+        long_project = "this-is-a-very-long-project-name-with-many-hyphens-2024"
+        branch = f"claude-step-{long_project}-abcdef12"
+
+        match = re.match(pattern, branch)
+        assert match is not None, f"Should match long project name"
+        assert match.group(1) == long_project, "Should extract full long project name"
+
+    def test_branch_name_with_numeric_project_names(self):
+        """Verify project names with numbers are handled correctly."""
+        pattern = r'^claude-step-(.+)-([0-9a-f]{8})$'
+
+        test_cases = [
+            ("claude-step-v2-api-12345678", "v2-api"),
+            ("claude-step-2024-refactor-abcdef00", "2024-refactor"),
+            ("claude-step-project-123-update-11111111", "project-123-update"),
+        ]
+
+        for branch, expected_project in test_cases:
+            match = re.match(pattern, branch)
+            assert match is not None, f"Pattern should match branch: {branch}"
+            assert match.group(1) == expected_project, \
+                f"Expected '{expected_project}', got '{match.group(1)}'"
+
+    def test_branch_name_edge_case_all_hex_project_name(self):
+        """Verify project names that look like hex are handled correctly.
+
+        Edge case: project name 'deadbeef' with hash '12345678'
+        Branch: 'claude-step-deadbeef-12345678'
+        Should extract project='deadbeef', hash='12345678'
+        """
+        pattern = r'^claude-step-(.+)-([0-9a-f]{8})$'
+
+        branch = "claude-step-deadbeef-12345678"
+        match = re.match(pattern, branch)
+        assert match is not None, "Should match hex-like project name"
+        assert match.group(1) == "deadbeef", "Should extract 'deadbeef' as project"
+        assert match.group(2) == "12345678", "Should extract '12345678' as hash"

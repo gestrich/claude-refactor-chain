@@ -5,6 +5,13 @@ name: ClaudeStep Auto-Start
 # When a spec is pushed to 'main', PRs target 'main'.
 # When a spec is pushed to 'main-e2e', PRs target 'main-e2e'.
 # When a spec is pushed to any other branch, PRs target that branch.
+#
+# Security considerations:
+# - Only triggers on push events (requires write access to push)
+# - Path filter limits to spec.md files in claude-step/ directory
+# - Cannot be triggered by PRs (PR branches don't trigger push events on protected branches)
+# - AUTO_START_ENABLED variable allows repository admins to disable if needed
+# - Branch names with special characters are handled safely (no shell injection)
 on:
   push:
     branches:

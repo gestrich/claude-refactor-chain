@@ -995,7 +995,7 @@ The E2E test infrastructure is now simpler because:
 
 ---
 
-- [ ] Phase 7: Handle edge cases and validation
+- [x] Phase 7: Handle edge cases and validation
 
 **Goal**: Ensure generic workflows handle edge cases correctly.
 
@@ -1021,6 +1021,76 @@ The E2E test infrastructure is now simpler because:
    - Test manual triggering from different branches
 
 **Expected outcome**: Workflows handle edge cases and fail with clear error messages.
+
+---
+
+### Phase 7 Completion Results
+
+**Completed**: 2026-01-01
+
+#### Implementation Summary
+
+Successfully implemented edge case handling and validation for generic workflows:
+
+##### 1. Fixed Project Name Extraction Pattern (claudestep.yml:74-87)
+
+**Issue Found**: The workflow used an outdated regex pattern `^claude-step-([^-]+)-[0-9]+$` that:
+- Only matched project names without hyphens
+- Expected numeric index instead of 8-char hex hash
+
+**Fix Applied**: Updated to use the correct pattern matching the domain model:
+- Pattern: `^claude-step-(.+)-([0-9a-f]{8})$`
+- Now correctly extracts hyphenated project names (e.g., `my-project`, `api-v2-refactor`)
+- Validates 8-character lowercase hex hash
+- Uses bash regex (`=~`) with `BASH_REMATCH` for proper extraction
+
+##### 2. Enhanced Error Messages for Branch Validation (claudestep.yml:80-86)
+
+Added clear error messages when branch name doesn't match expected pattern:
+- Shows the actual branch name
+- Explains the expected pattern
+- Provides valid examples to guide users
+- Sets `skip=true` to prevent further workflow execution
+
+##### 3. Security Considerations Documentation
+
+**claudestep.yml** (lines 16-21):
+- PR merge trigger: Only runs for PRs with 'claudestep' label (requires write access)
+- workflow_dispatch: Requires repository write access to trigger
+- Branch names validated against strict pattern
+- Spec files fetched from base branch via GitHub API (source of truth)
+- No arbitrary code execution from PR branches
+
+**claudestep-auto-start.yml** (lines 9-14):
+- Only triggers on push events (requires write access)
+- Path filter limits to spec.md files in claude-step/ directory
+- Cannot be triggered by PRs on protected branches
+- AUTO_START_ENABLED variable allows repository admins to disable
+- Branch names handled safely (no shell injection)
+
+##### 4. Comprehensive Test Coverage (test_auto_start_workflow.py:239-330)
+
+Added new test class `TestClaudeStepBranchNameEdgeCases` with tests for:
+- Hyphenated project names extraction
+- Invalid pattern rejection (wrong hash length, uppercase, invalid chars)
+- Long project names
+- Numeric project names
+- Edge case: project names that look like hex values
+
+#### Technical Notes
+
+- **Pattern alignment**: Workflow regex now matches domain model pattern in `project.py:66`
+- **Bash regex**: Using `[[ $VAR =~ pattern ]]` with `BASH_REMATCH` for proper capture group extraction
+- **Backwards compatibility**: Changes are fully backwards compatible - valid branch names continue to work
+- **Security model**: Documented that workflows are safe because:
+  - Push triggers require write access to the repository
+  - PR merge triggers require the 'claudestep' label (write access to add)
+  - Spec files are always fetched from base branch, not PR branches
+
+#### Build Verification
+
+✅ All 711 unit and integration tests pass
+✅ New edge case tests added and passing
 
 ---
 

@@ -12,6 +12,13 @@
 # Works on any branch: feature branches, test branches, etc.
 #
 # Triggered by: workflow_dispatch (manual/auto-start) or pull_request close events
+#
+# Security considerations:
+# - PR merge trigger: Only runs for PRs with 'claudestep' label (requires write access to add)
+# - workflow_dispatch: Requires repository write access to trigger
+# - Branch names validated against strict pattern (claude-step-{project}-{hex})
+# - Spec files fetched from base branch via GitHub API (source of truth)
+# - No arbitrary code execution from PR branches - only spec.md content drives tasks
 
 name: ClaudeStep
 
@@ -71,9 +78,20 @@ jobs:
               echo "skip=true" >> $GITHUB_OUTPUT
               exit 0
             fi
-            # Extract from branch name: claude-step-{project}-{index}
+            # Extract from branch name: claude-step-{project}-{8-char-hex-hash}
+            # Project names can contain hyphens, so we match everything before the final 8-char hex
             BRANCH="${{ github.head_ref }}"
-            PROJECT=$(echo "$BRANCH" | sed -E 's/^claude-step-([^-]+)-[0-9]+$/\1/')
+            if [[ "$BRANCH" =~ ^claude-step-(.+)-([0-9a-f]{8})$ ]]; then
+              PROJECT="${BASH_REMATCH[1]}"
+              echo "Extracted project '$PROJECT' from branch '$BRANCH'"
+            else
+              echo "❌ ERROR: Branch name does not match expected pattern"
+              echo "Branch: $BRANCH"
+              echo "Expected pattern: claude-step-{project-name}-{8-char-hex-hash}"
+              echo "Examples: claude-step-my-project-a1b2c3d4, claude-step-test-12abcdef"
+              echo "skip=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
             # Use the base branch from the PR (branch the PR was merged INTO)
             BASE_BRANCH="${{ github.base_ref }}"
             # Checkout the base branch after merge
