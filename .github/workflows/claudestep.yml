@@ -1,25 +1,17 @@
-# ClaudeStep workflow - Generic workflow that works on ANY branch
+# ClaudeStep Workflow
 #
-# This workflow is branch-agnostic and adapts to any branch without configuration.
+# This workflow handles all event types automatically by passing the GitHub
+# event context to the action. The action determines:
+# - Whether to execute or skip
+# - Which ref to checkout
+# - The project name (from branch pattern or input)
+# - The base branch for PR creation (from project config or default)
 #
 # Trigger modes:
 # - workflow_dispatch: Manual trigger with project_name input
-# - pull_request close: Continues processing after PR merge (requires 'claudestep' label)
+# - push: Continues processing after PR merge (or direct push)
 #
-# Base branch inference:
-# - PR merge event: Uses github.base_ref (the branch the PR was merged INTO)
-# - workflow_dispatch: Uses base_branch input if provided, otherwise uses checkout_ref
-#
-# When a spec is pushed to 'main', PRs target 'main'.
-# When a spec is pushed to 'main-e2e', PRs target 'main-e2e'.
-# Works on any branch: feature branches, test branches, etc.
-#
-# Security considerations:
-# - PR merge trigger: Only runs for PRs with 'claudestep' label (requires write access to add)
-# - workflow_dispatch: Requires repository write access to trigger
-# - Branch names validated against strict pattern (claude-step-{project}-{hex})
-# - Spec files fetched from base branch via GitHub API (source of truth)
-# - No arbitrary code execution from PR branches - only spec.md content drives tasks
+# Security: workflow_dispatch requires repository write access.
 
 name: ClaudeStep
 

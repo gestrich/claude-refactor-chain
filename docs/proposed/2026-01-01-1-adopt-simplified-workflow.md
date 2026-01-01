@@ -119,7 +119,7 @@ on:
 - The `base_branch` and `checkout_ref` workflow_dispatch inputs were already removed in Phase 1
 - All 791 unit/integration tests pass
 
-- [ ] Phase 3: Update header comments
+- [x] Phase 3: Update header comments
 
 Update the workflow header comments to reflect the simplified design:
 
@@ -139,6 +139,13 @@ Update the workflow header comments to reflect the simplified design:
 #
 # Security: workflow_dispatch requires repository write access.
 ```
+
+**Completed:** 2026-01-01
+
+**Technical notes:**
+- Updated header comments from 23 lines to 14 lines, removing outdated references to `pull_request:closed` trigger and `claudestep` label requirement
+- Updated `tests/integration/test_auto_start_workflow.py`: renamed `test_claudestep_has_generic_workflow_documentation` to `test_claudestep_has_event_handling_documentation` to match new simplified header language
+- All 791 unit/integration tests pass
 
 - [ ] Phase 4: Delete examples directory
 

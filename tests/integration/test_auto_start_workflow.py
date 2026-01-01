@@ -385,16 +385,16 @@ class TestSimplifiedWorkflowEventHandling:
 class TestGenericWorkflowDocumentation:
     """Tests for generic workflow documentation."""
 
-    def test_claudestep_has_generic_workflow_documentation(self):
-        """Verify ClaudeStep workflow has documentation about generic behavior."""
+    def test_claudestep_has_event_handling_documentation(self):
+        """Verify ClaudeStep workflow has documentation about automatic event handling."""
         workflow_path = Path(__file__).parent.parent.parent / ".github/workflows/claudestep.yml"
 
         with open(workflow_path) as f:
             content = f.read()
 
-        # Should document generic behavior
-        assert "generic" in content.lower() or "branch-agnostic" in content.lower(), \
-            "Should document that workflow is branch-agnostic"
+        # Should document automatic event handling
+        assert "automatically" in content.lower() or "event context" in content.lower(), \
+            "Should document that workflow handles events automatically"
 
     def test_claudestep_has_security_documentation(self):
         """Verify ClaudeStep workflow has security considerations documented."""
