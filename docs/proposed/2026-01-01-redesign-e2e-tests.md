@@ -288,14 +288,14 @@ This redesign will create a more realistic E2E test suite that:
 
 ---
 
-- [ ] Phase 8: Update auto-start workflow to trigger on main-e2e
+- [x] Phase 8: Update auto-start workflow to trigger on main-e2e
 
 **Goal**: Update the auto-start workflow to trigger on both `main` and `main-e2e` branches.
 
 **Tasks**:
-1. Review [claudestep-auto-start.yml](../.github/workflows/claudestep-auto-start.yml:4-8) to understand the existing workflow structure
+1. ✅ Review [claudestep-auto-start.yml](../.github/workflows/claudestep-auto-start.yml:4-8) to understand the existing workflow structure
 
-2. Update the `on.push.branches` section to include both branches:
+2. ✅ Update the `on.push.branches` section to include both branches:
    ```yaml
    on:
      push:
@@ -306,15 +306,21 @@ This redesign will create a more realistic E2E test suite that:
          - 'claude-step/*/spec.md'
    ```
 
-3. Update the `BASE_BRANCH` environment variable to use the actual branch that triggered the workflow:
+3. ✅ Update the `BASE_BRANCH` environment variable to use the actual branch that triggered the workflow:
    ```yaml
    env:
      BASE_BRANCH: ${{ github.ref_name }}  # Will be 'main' or 'main-e2e'
    ```
 
-4. Add a comment explaining that this workflow triggers on both production (`main`) and E2E (`main-e2e`) branches
+4. ✅ Add a comment explaining that this workflow triggers on both production (`main`) and E2E (`main-e2e`) branches
 
 **Expected outcome**: When specs are pushed to either `main` or `main-e2e`, the auto-start workflow triggers with the correct base branch.
+
+**Technical notes**:
+- Updated [claudestep-auto-start.yml](../.github/workflows/claudestep-auto-start.yml) to trigger on both `main` and `main-e2e` branches
+- Changed `BASE_BRANCH` environment variable from hardcoded `main` to dynamic `${{ github.ref_name }}` which will be either `main` or `main-e2e` depending on which branch triggered the workflow
+- Added comment at top of workflow file explaining dual-branch support for production and E2E testing
+- All 592 unit tests pass successfully
 
 ---
 

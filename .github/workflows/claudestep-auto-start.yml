@@ -1,9 +1,12 @@
 name: ClaudeStep Auto-Start
 
+# This workflow triggers on both production (main) and E2E test (main-e2e) branches
+# to support automated testing of the auto-start functionality
 on:
   push:
     branches:
       - main
+      - main-e2e
     paths:
       - 'claude-step/*/spec.md'
 
@@ -33,7 +36,7 @@ jobs:
         run: python3 -m claudestep auto-start
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
-          BASE_BRANCH: main
+          BASE_BRANCH: ${{ github.ref_name }}  # Will be 'main' or 'main-e2e'
           REF_BEFORE: ${{ github.event.before }}
           REF_AFTER: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
