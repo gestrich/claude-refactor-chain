@@ -2,7 +2,7 @@
 
 This module contains E2E integration tests that verify the ClaudeStep workflow
 creates PRs correctly, generates AI summaries, includes cost information, and
-tests the real user workflows (auto-start and merge-trigger).
+tests the real user workflows (push-triggered and merge-triggered).
 
 The tests use a recursive workflow pattern where the claude-step repository
 tests itself by running the actual claudestep.yml workflow against the main-e2e
@@ -11,8 +11,8 @@ branch with dynamically generated test projects.
 TESTS IN THIS MODULE:
 
 1. test_auto_start_workflow
-   - What: Verifies pushing spec to main-e2e triggers auto-start workflow and PR creation
-   - Why E2E: Tests real user flow of auto-start and automatic PR generation
+   - What: Verifies pushing spec to main-e2e triggers claudestep.yml and PR creation
+   - Why E2E: Tests real user flow of push-triggered automatic PR generation
 
 2. test_merge_triggered_workflow
    - What: Verifies merging a PR triggers creation of the next PR
@@ -26,19 +26,18 @@ def test_auto_start_workflow(
     gh: GitHubHelper,
     setup_test_project: str
 ) -> None:
-    """Test that auto-start workflow triggers when spec is pushed to main-e2e.
+    """Test that claudestep.yml triggers when spec is pushed to main-e2e.
 
     This test validates the real user flow where pushing a spec to main-e2e
-    automatically triggers PR creation via the auto-start workflow.
+    automatically triggers PR creation via the push-triggered workflow.
 
     The test verifies:
-    1. Pushing spec to main-e2e triggers claudestep-auto-start.yml workflow
-    2. Auto-start workflow completes successfully
-    3. Auto-start triggers the main claudestep.yml workflow
-    4. Main workflow creates a PR for the first task
-    5. PR has "claudestep" label
-    6. PR targets main-e2e branch
-    7. PR has AI summary comment with cost breakdown
+    1. Pushing spec to main-e2e triggers claudestep.yml workflow (push event)
+    2. Workflow completes successfully
+    3. Workflow creates a PR for the first task
+    4. PR has "claudestep" label
+    5. PR targets main-e2e branch
+    6. PR has AI summary comment with cost breakdown
 
     Cleanup happens at test START (not end) to allow manual inspection.
 
@@ -51,45 +50,28 @@ def test_auto_start_workflow(
 
     test_project = setup_test_project
 
-    # Wait for auto-start workflow to start
-    gh.wait_for_workflow_to_start(
-        workflow_name="claudestep-auto-start.yml",
-        timeout=60,
-        branch=E2E_TEST_BRANCH
-    )
-
-    # Wait for auto-start workflow to complete
-    auto_start_run = gh.wait_for_workflow_completion(
-        workflow_name="claudestep-auto-start.yml",
-        timeout=300,  # 5 minutes
-        branch=E2E_TEST_BRANCH
-    )
-
-    assert auto_start_run.conclusion == "success", \
-        f"Auto-start workflow should complete successfully. Run URL: {auto_start_run.url}"
-
-    # Wait for main claudestep workflow to start (triggered by auto-start)
+    # Wait for claudestep workflow to start (triggered by push)
     gh.wait_for_workflow_to_start(
         workflow_name="claudestep.yml",
         timeout=60,
         branch=E2E_TEST_BRANCH
     )
 
-    # Wait for main workflow to complete
-    main_run = gh.wait_for_workflow_completion(
+    # Wait for workflow to complete
+    workflow_run = gh.wait_for_workflow_completion(
         workflow_name="claudestep.yml",
         timeout=900,  # 15 minutes
         branch=E2E_TEST_BRANCH
     )
 
-    assert main_run.conclusion == "success", \
-        f"Main workflow should complete successfully. Run URL: {main_run.url}"
+    assert workflow_run.conclusion == "success", \
+        f"Workflow should complete successfully. Run URL: {workflow_run.url}"
 
     # Get all PRs for this project
     project_prs = gh.get_pull_requests_for_project(test_project)
 
     assert len(project_prs) > 0, \
-        f"At least one PR should be created for project '{test_project}'. Workflow run: {main_run.url}"
+        f"At least one PR should be created for project '{test_project}'. Workflow run: {workflow_run.url}"
 
     # Get the first (most recent) PR
     pr = project_prs[0]
@@ -140,8 +122,8 @@ def test_merge_triggered_workflow(
     automatically triggers and creates a PR for the next task in the spec.
 
     The test verifies:
-    1. Auto-start workflow creates first PR (reuses test_auto_start_workflow setup)
-    2. Merging the first PR triggers claudestep.yml workflow via PR close event
+    1. Push triggers claudestep.yml and creates first PR
+    2. Merging the first PR triggers claudestep.yml workflow via push event
     3. Workflow creates a second PR for the next task
     4. Second PR has "claudestep" label
     5. Second PR targets main-e2e branch
@@ -157,29 +139,14 @@ def test_merge_triggered_workflow(
 
     test_project = setup_test_project
 
-    # Wait for auto-start workflow to complete (from test setup)
-    gh.wait_for_workflow_to_start(
-        workflow_name="claudestep-auto-start.yml",
-        timeout=60,
-        branch=E2E_TEST_BRANCH
-    )
-
-    auto_start_run = gh.wait_for_workflow_completion(
-        workflow_name="claudestep-auto-start.yml",
-        timeout=300,  # 5 minutes
-        branch=E2E_TEST_BRANCH
-    )
-
-    assert auto_start_run.conclusion == "success", \
-        f"Auto-start workflow should complete successfully. Run URL: {auto_start_run.url}"
-
-    # Wait for main workflow to complete (creates first PR)
+    # Wait for claudestep workflow to start (triggered by push from setup)
     gh.wait_for_workflow_to_start(
         workflow_name="claudestep.yml",
         timeout=60,
         branch=E2E_TEST_BRANCH
     )
 
+    # Wait for workflow to complete (creates first PR)
     first_workflow_run = gh.wait_for_workflow_completion(
         workflow_name="claudestep.yml",
         timeout=900,  # 15 minutes
