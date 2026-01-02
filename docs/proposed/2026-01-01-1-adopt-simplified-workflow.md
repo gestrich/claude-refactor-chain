@@ -167,13 +167,22 @@ The `examples/claudestep-simplified.yml` file was a temporary demonstration. Now
 - Deleted `examples/` directory containing `claudestep-simplified.yml`
 - All 791 unit/integration tests pass
 
-- [ ] Phase 5: Update README references
+- [x] Phase 5: Update README references
 
 Check if README.md references the examples directory and update accordingly:
 - Remove references to `examples/claudestep-simplified.yml`
 - Point users to `.github/workflows/claudestep.yml` as the reference implementation
 
 **File to modify:** `README.md` (if it references examples)
+
+**Completed:** 2026-01-01
+
+**Technical notes:**
+- Updated "Examples" section to point to `.github/workflows/claudestep.yml` as the canonical reference implementation
+- Updated Option A workflow example in Step 3 to use `push` trigger instead of `pull_request: types: [closed]`
+- Updated "Migrating to Simplified Workflow" section to reflect new `push` trigger pattern
+- Updated Troubleshooting section to remove references to deprecated `claudestep-auto-start.yml` workflow
+- All 791 unit/integration tests pass
 
 - [ ] Phase 6: Validation
 

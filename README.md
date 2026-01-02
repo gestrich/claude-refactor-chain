@@ -97,11 +97,9 @@ on:
         description: 'Project name (folder under claude-step/)'
         required: true
         type: string
-  pull_request:
-    types: [closed]
   push:
-    paths:
-      - 'claude-step/*/spec.md'
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -123,9 +121,9 @@ jobs:
 ```
 
 This workflow:
-- Automatically detects the project from branch names (for merged PRs)
-- Handles all event types (workflow_dispatch, pull_request, push)
-- Skips non-ClaudeStep PRs automatically
+- Triggers on push events (including PR merges) and manual dispatch
+- Automatically detects the project from ClaudeStep branch names
+- Skips pushes that aren't from ClaudeStep branches
 - Requires only ~20 lines instead of ~100
 
 **Option B: Standard Workflow**
@@ -242,8 +240,8 @@ Review the generated PR, verify it follows your spec, and make any needed fixes.
 
 If the first task doesn't automatically start after pushing your spec:
 
-1. **Check the workflow run**: Go to Actions > ClaudeStep Auto-Start and verify it ran
-2. **Review the summary**: The workflow provides a summary showing which projects were detected and whether they were triggered
+1. **Check the workflow run**: Go to Actions > ClaudeStep and verify the push event triggered a run
+2. **Review the summary**: The workflow provides a summary showing what action was taken
 3. **Verify it's a new project**: Auto-start only works for projects with no existing ClaudeStep PRs
 4. **Check for errors**: Look at the workflow logs for any error messages
 5. **Manual trigger**: As a fallback, you can always manually trigger via Actions > ClaudeStep > Run workflow
@@ -252,10 +250,10 @@ If the first task doesn't automatically start after pushing your spec:
 
 The auto-start feature is enabled by default for all new projects. If you prefer manual control, you can:
 
-1. Delete or disable the `.github/workflows/claudestep-auto-start.yml` workflow file
+1. Remove the `push` trigger from your workflow file
 2. Manually trigger tasks using Actions > ClaudeStep > Run workflow
 
-Note: Disabling auto-start only affects the first task. Subsequent tasks will still auto-trigger when you merge PRs.
+Note: Disabling auto-start only affects the first task. Subsequent tasks will still auto-trigger when you merge PRs (since merging creates a push event).
 
 ## Modifying Tasks
 
@@ -478,9 +476,7 @@ This ensures all PRs must pass the test suite (493 tests, 85% coverage minimum) 
 
 ## Examples
 
-- [Simplified Workflow](examples/claudestep-simplified.yml) - Recommended, handles all events automatically
-- [Basic Example](examples/basic/workflow.yml) - Single project, scheduled trigger
-- [Advanced Example](examples/advanced/workflow.yml) - Multi-project with all triggers
+See [`.github/workflows/claudestep.yml`](.github/workflows/claudestep.yml) for a complete reference implementation. This project uses ClaudeStep to automate its own development.
 
 ## Migrating to Simplified Workflow
 
@@ -489,15 +485,15 @@ If you're currently using the standard workflow and want to switch to the simpli
 1. **Update your workflow file** to use the simplified format (see Step 3 above)
 2. **Remove custom bash logic** for determining project name and base branch - the action handles this automatically
 3. **Update action version** from `@v1` to `@v2`
-4. **Add new inputs**:
+4. **Change trigger** from `pull_request: types: [closed]` to `push: branches: [main]`
+5. **Add new inputs**:
    - `github_event: ${{ toJson(github.event) }}`
    - `event_name: ${{ github.event_name }}`
-5. **Make project_name conditional**: Only needed for `workflow_dispatch`, extracted from branch for `pull_request`
+6. **Make project_name conditional**: Only needed for `workflow_dispatch`, extracted from branch name for `push` events
 
 The simplified workflow automatically:
-- Skips PRs without the `claudestep` label
-- Skips closed (not merged) PRs
 - Extracts project name from branch pattern `claude-step-{project}-{hash}`
+- Skips pushes that aren't from ClaudeStep branches
 - Determines the base branch from the event context
 
 ## Contributing
