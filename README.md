@@ -1,8 +1,5 @@
 # ClaudeStep
 
-[![Tests](https://github.com/gestrich/claude-step/actions/workflows/test.yml/badge.svg)](https://github.com/gestrich/claude-step/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/gestrich/claude-step/branch/main/graph/badge.svg)](https://codecov.io/gh/gestrich/claude-step)
-
 ## Overview
 
 ClaudeStep runs Claude Code on individual steps that you define for your project, creating pull requests for each step one at a time. When you merge a PR, it automatically stages the next PR, creating a chain of incremental improvements.
@@ -19,7 +16,6 @@ Built on Claude Code and GitHub Actions, it automates the tedious refactoring wo
 
 ## Prerequisites
 
-- GitHub repository with code to refactor
 - Anthropic API key ([get one here](https://console.anthropic.com))
 
 ## Setup
@@ -408,6 +404,7 @@ jobs:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `reviewers` | array | ✅ | Reviewers with `username` and `maxOpenPRs` |
+| `baseBranch` | string | | Override base branch for this project (defaults to workflow context) |
 
 Example:
 ```yaml
@@ -416,7 +413,10 @@ reviewers:
     maxOpenPRs: 1
   - username: bob
     maxOpenPRs: 2
+baseBranch: develop  # Optional: override base branch for this project
 ```
+
+**baseBranch:** When specified, PRs for this project will target the specified branch instead of the workflow's default. Useful when different projects in the same repo target different branches (e.g., one project targets `main`, another targets `develop`).
 
 **Branch Naming:** All ClaudeStep PRs use the format `claude-step-{project_name}-{task-hash}` (e.g., `claude-step-my-refactor-a3f2b891`). Each task is identified by a hash of its description, allowing you to freely reorder, insert, or delete tasks in spec.md without breaking PR tracking.
 

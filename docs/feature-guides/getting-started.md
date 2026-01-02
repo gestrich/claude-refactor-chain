@@ -25,6 +25,7 @@ mkdir -p claude-step/my-refactor
 reviewers:
   - username: YOUR_GITHUB_USERNAME
     maxOpenPRs: 1
+# baseBranch: main  # Optional: override if targeting a branch other than workflow default
 ```
 
 ### 3. Create `claude-step/my-refactor/spec.md`
