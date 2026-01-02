@@ -143,24 +143,43 @@ def get_changed_files_context(self) -> Optional[Tuple[str, str]]:
 
 **Note:** The actual API call happens in `parse_event.py`, not in the domain model (domain doesn't call infrastructure).
 
-- [ ] Phase 4: Update `parse_event.py` to detect project from changed files
+- [x] Phase 4: Update `parse_event.py` to detect project from changed files
 
 Modify the command to use the new detection approach.
 
-**Files to modify:**
-- `src/claudestep/cli/commands/parse_event.py`
+**Files modified:**
+- `src/claudestep/cli/commands/parse_event.py` - Updated project detection logic
+- `src/claudestep/domain/github_event.py` - Extended `get_changed_files_context()` to support pull_request events
+- `tests/integration/cli/commands/test_parse_event.py` - Updated tests to use mocked API calls
+- `tests/unit/domain/test_github_event.py` - Updated tests for new pull_request support
 
-**New logic flow:**
+**Technical notes:**
+- Added `repo` parameter to `cmd_parse_event()` function and `main()` entry point
+- The function now reads `GITHUB_REPOSITORY` environment variable for API calls
+- Extended `get_changed_files_context()` in `GitHubEventContext` to also return `(base_ref, head_ref)` for pull_request events, enabling project detection from diff for both push and pull_request events
+- For push events: Uses before_sha/after_sha to compare commits
+- For pull_request events: Uses base_ref/head_ref to compare branches
+- All tests mock `compare_commits` and `detect_project_from_diff` to avoid real API calls
+- 811 tests pass including 64 tests for parse_event and github_event
+
+**Implementation details:**
 ```python
 # Determine project name
 resolved_project = project_name  # From input (workflow_dispatch)
 
 if not resolved_project:
-    # Try to detect from changed files (push events)
-    if context.before_sha and context.after_sha:
-        changed_files = compare_commits(repo, context.before_sha, context.after_sha)
+    # Try to detect from changed files (push/pull_request events)
+    changed_files_context = context.get_changed_files_context()
+    if changed_files_context and repo:
+        before_sha, after_sha = changed_files_context
+        print(f"\n  Detecting project from changed files...")
+        print(f"  Comparing {before_sha[:8]}...{after_sha[:8]}")
+        changed_files = compare_commits(repo, before_sha, after_sha)
+        print(f"  Found {len(changed_files)} changed files")
         try:
             resolved_project = detect_project_from_diff(changed_files)
+            if resolved_project:
+                print(f"  Detected project: {resolved_project}")
         except ValueError as e:
             # Multiple projects modified
             reason = str(e)
@@ -181,7 +200,7 @@ if not resolved_project:
 ```
 
 **Environment variable needed:**
-- Add `GITHUB_REPOSITORY` to the parse-event step in `action.yml` so the API call knows which repo to query
+- Add `GITHUB_REPOSITORY` to the parse-event step in `action.yml` so the API call knows which repo to query (done in Phase 5)
 
 - [ ] Phase 5: Update `action.yml` to pass repository context
 

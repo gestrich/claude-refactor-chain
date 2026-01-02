@@ -11,6 +11,10 @@ from typing import Optional
 
 from claudestep.domain.github_event import GitHubEventContext
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
+from claudestep.infrastructure.github.operations import (
+    compare_commits,
+    detect_project_from_diff,
+)
 
 
 def cmd_parse_event(
@@ -20,6 +24,7 @@ def cmd_parse_event(
     project_name: Optional[str] = None,
     default_base_branch: str = "main",
     pr_label: str = "claudestep",
+    repo: Optional[str] = None,
 ) -> int:
     """Parse GitHub event and output action parameters.
 
@@ -38,6 +43,7 @@ def cmd_parse_event(
         project_name: Optional project name override (for workflow_dispatch)
         default_base_branch: Default base branch if not determined from event
         pr_label: Required label for pull_request events
+        repo: GitHub repository (owner/name) for API calls
 
     Returns:
         0 on success, 1 on error
@@ -81,17 +87,34 @@ def cmd_parse_event(
             return 0
 
         # Determine project name
-        resolved_project = project_name
-        if not resolved_project:
-            resolved_project = context.extract_project_from_branch()
+        resolved_project = project_name  # From input (workflow_dispatch)
 
         if not resolved_project:
-            # For workflow_dispatch without project_name, this is an error
-            # For other events, we may need the project from the branch pattern
+            # Try to detect from changed files (push events)
+            changed_files_context = context.get_changed_files_context()
+            if changed_files_context and repo:
+                before_sha, after_sha = changed_files_context
+                print(f"\n  Detecting project from changed files...")
+                print(f"  Comparing {before_sha[:8]}...{after_sha[:8]}")
+                changed_files = compare_commits(repo, before_sha, after_sha)
+                print(f"  Found {len(changed_files)} changed files")
+                try:
+                    resolved_project = detect_project_from_diff(changed_files)
+                    if resolved_project:
+                        print(f"  Detected project: {resolved_project}")
+                except ValueError as e:
+                    # Multiple projects modified
+                    reason = str(e)
+                    print(f"\n⏭️  Skipping: {reason}")
+                    gh.write_output("skip", "true")
+                    gh.write_output("skip_reason", reason)
+                    return 0
+
+        if not resolved_project:
             if event_name == "workflow_dispatch":
                 reason = "No project_name provided for workflow_dispatch event"
             else:
-                reason = "Could not determine project name from branch pattern"
+                reason = "No spec.md changes detected in push"
             print(f"\n⏭️  Skipping: {reason}")
             gh.write_output("skip", "true")
             gh.write_output("skip_reason", reason)
@@ -147,6 +170,7 @@ def main() -> int:
         PROJECT_NAME: Optional project name override
         DEFAULT_BASE_BRANCH: Default base branch (default: "main")
         PR_LABEL: Required label for PR events (default: "claudestep")
+        GITHUB_REPOSITORY: GitHub repository (owner/name) for API calls
     """
     gh = GitHubActionsHelper()
 
@@ -155,6 +179,7 @@ def main() -> int:
     project_name = os.environ.get("PROJECT_NAME", "") or None
     default_base_branch = os.environ.get("DEFAULT_BASE_BRANCH", "main")
     pr_label = os.environ.get("PR_LABEL", "claudestep")
+    repo = os.environ.get("GITHUB_REPOSITORY", "") or None
 
     return cmd_parse_event(
         gh=gh,
@@ -163,6 +188,7 @@ def main() -> int:
         project_name=project_name,
         default_base_branch=default_base_branch,
         pr_label=pr_label,
+        repo=repo,
     )
 
 

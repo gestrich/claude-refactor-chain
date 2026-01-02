@@ -414,14 +414,46 @@ class TestGitHubEventContextChangedFilesContext:
         # Assert
         assert result is None
 
-    def test_returns_none_for_pull_request(self):
-        """Should return None for pull_request events."""
+    def test_returns_refs_for_pull_request(self):
+        """Should return base/head refs for pull_request events."""
         # Arrange
         context = GitHubEventContext(
             event_name="pull_request",
             pr_merged=True,
             base_ref="main",
             head_ref="feature-branch"
+        )
+
+        # Act
+        result = context.get_changed_files_context()
+
+        # Assert
+        assert result == ("main", "feature-branch")
+
+    def test_returns_none_for_pull_request_missing_base_ref(self):
+        """Should return None for pull_request events without base_ref."""
+        # Arrange
+        context = GitHubEventContext(
+            event_name="pull_request",
+            pr_merged=True,
+            base_ref=None,
+            head_ref="feature-branch"
+        )
+
+        # Act
+        result = context.get_changed_files_context()
+
+        # Assert
+        assert result is None
+
+    def test_returns_none_for_pull_request_missing_head_ref(self):
+        """Should return None for pull_request events without head_ref."""
+        # Arrange
+        context = GitHubEventContext(
+            event_name="pull_request",
+            pr_merged=True,
+            base_ref="main",
+            head_ref=None
         )
 
         # Act
@@ -583,8 +615,8 @@ class TestGitHubEventContextIntegration:
         assert context.should_skip() == (False, "")
         assert context.get_checkout_ref() == "main"
         assert context.get_default_base_branch() == "main"
-        # PR events don't have changed files context (no before/after SHA)
-        assert context.get_changed_files_context() is None
+        # PR events have changed files context (base/head refs for compare API)
+        assert context.get_changed_files_context() == ("main", "claude-step-auth-refactor-f7c4d3e2")
 
     def test_full_push_workflow(self):
         """Should correctly process a push event end-to-end."""

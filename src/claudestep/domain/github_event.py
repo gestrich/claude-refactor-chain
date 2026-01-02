@@ -245,15 +245,15 @@ class GitHubEventContext:
         return self.get_checkout_ref()
 
     def get_changed_files_context(self) -> Optional[Tuple[str, str]]:
-        """Get commit SHAs for detecting changed files via GitHub Compare API.
+        """Get refs for detecting changed files via GitHub Compare API.
 
-        For push events, returns the before and after SHAs that can be used
-        to determine which files changed. This enables project detection
-        by looking for modified spec.md files.
+        For push events, returns the before and after SHAs.
+        For pull_request events, returns the base and head branch names.
+        This enables project detection by looking for modified spec.md files.
 
         Returns:
-            Tuple of (before_sha, after_sha) for push events, None otherwise.
-            The caller can use these SHAs with the GitHub Compare API.
+            Tuple of (base_ref, head_ref) for push/pull_request events, None otherwise.
+            The caller can use these refs with the GitHub Compare API.
 
         Examples:
             >>> context = GitHubEventContext(
@@ -264,12 +264,22 @@ class GitHubEventContext:
             >>> context.get_changed_files_context()
             ('abc123', 'def456')
 
+            >>> context = GitHubEventContext(
+            ...     event_name="pull_request",
+            ...     base_ref="main",
+            ...     head_ref="feature-branch"
+            ... )
+            >>> context.get_changed_files_context()
+            ('main', 'feature-branch')
+
             >>> context = GitHubEventContext(event_name="workflow_dispatch")
             >>> context.get_changed_files_context()
             None
         """
         if self.event_name == "push" and self.before_sha and self.after_sha:
             return (self.before_sha, self.after_sha)
+        if self.event_name == "pull_request" and self.base_ref and self.head_ref:
+            return (self.base_ref, self.head_ref)
         return None
 
     def has_label(self, label: str) -> bool:
