@@ -119,7 +119,7 @@ Instead of passing three separate cost parameters, pass a serialized `CostBreakd
 - `src/claudestep/__main__.py`
 - `action.yml`
 
-- [ ] Phase 3: Update tests
+- [x] Phase 3: Update tests
 
 Update all tests to use new command name and single cost model:
 - Rename `test_notify_pr.py` → `test_format_slack_notification.py`
@@ -132,7 +132,7 @@ Update all tests to use new command name and single cost model:
 - `tests/unit/domain/test_cost_breakdown.py` (add serialization tests)
 - Any integration tests referencing `notify-pr`
 
-- [ ] Phase 4: Validation
+- [x] Phase 4: Validation
 
 Run full test suite to verify changes:
 ```bash
