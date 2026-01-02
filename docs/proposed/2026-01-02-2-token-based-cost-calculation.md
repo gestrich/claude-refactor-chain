@@ -203,3 +203,53 @@ The original costs were inflated because `claude-3-haiku-20240307` was charged a
 | Cache Read | 90,755 | 44,484 | 135,239 |
 | Cache Write | 42,904 | 27,451 | 70,355 |
 | **Total** | 138,760 | 72,455 | **211,215** |
+
+- [ ] Phase 4: Per-Model Breakdown Display
+
+Add per-model cost breakdown to all outputs (PR comment, Slack, workflow summary).
+
+**Current State:**
+- PR comment shows aggregate cost + token totals via `CostBreakdown.format_for_github()`
+- Slack receives only `MAIN_COST`/`SUMMARY_COST` floats via environment variables
+- Workflow summary has no cost information
+
+**Changes Required:**
+
+1. **Extend `CostBreakdown` domain model:**
+   - Add `main_models: list[ModelUsage]` and `summary_models: list[ModelUsage]` fields
+   - Update `from_execution_files()` to preserve per-model data
+   - Add `format_model_breakdown()` method returning markdown table
+
+2. **Update `format_for_github()` in `CostBreakdown`:**
+   - Add per-model breakdown section after token usage:
+   ```markdown
+   ### Per-Model Breakdown
+
+   | Model | Input | Output | Cache R | Cache W | Cost |
+   |-------|-------|--------|---------|---------|------|
+   | claude-haiku-4-5-20251001 | 4,274 | 597 | 0 | 24,546 | $0.037942 |
+   | claude-3-haiku-20240307 | 21 | 729 | 135,239 | 45,809 | $0.018614 |
+   | **Total** | 4,295 | 1,326 | 135,239 | 70,355 | **$0.056556** |
+   ```
+
+3. **Update `post_pr_comment.py`:**
+   - Write model breakdown JSON as output for Slack to consume
+   - Add `gh.write_output("model_breakdown", json.dumps(breakdown_data))`
+
+4. **Update `notify_pr.py`:**
+   - Parse `MODEL_BREAKDOWN` environment variable (JSON)
+   - Update `format_pr_notification()` to include per-model table in Slack mrkdwn format
+
+5. **Update `action.yml`:**
+   - Pass `MODEL_BREAKDOWN` to notify step
+   - Add step to write cost summary to `$GITHUB_STEP_SUMMARY` after `post_pr_comment`
+
+6. **Add workflow summary output:**
+   - Update `post_pr_comment.py` to write summary to `GITHUB_STEP_SUMMARY`
+   - Include: task completed, PR link, cost breakdown, per-model table
+
+**Tests:**
+- `CostBreakdown.format_model_breakdown()` output format
+- Updated `format_for_github()` includes model table
+- `notify_pr.py` parses and formats model breakdown
+- Integration test for full workflow output
