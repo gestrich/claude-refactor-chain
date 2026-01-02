@@ -26,7 +26,7 @@ This is simpler than workarounds like re-triggering as workflow_dispatch.
 
 ## Phases
 
-- [ ] Phase 1: Update workflow file
+- [x] Phase 1: Update workflow file
 
 Replace `push` trigger with `pull_request: types: [closed]`.
 
@@ -69,7 +69,7 @@ on:
 
 Also update the header comments to reflect the new trigger modes.
 
-- [ ] Phase 2: Update documentation
+- [x] Phase 2: Update documentation
 
 Update all documentation to reflect the supported triggers.
 
