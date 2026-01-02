@@ -113,10 +113,11 @@ class TestCmdPostPrComment:
     @pytest.fixture
     def create_execution_file(self, tmp_path):
         """Helper to create execution files with cost data"""
+        counter = [0]  # Use list for mutable closure
+
         def _create(cost: float):
-            if cost == 0.0 or not cost:
-                return ""
-            exec_file = tmp_path / f"exec_{cost}.json"
+            counter[0] += 1
+            exec_file = tmp_path / f"exec_{counter[0]}_{cost}.json"
             exec_file.write_text(json.dumps({"total_cost_usd": cost}))
             return str(exec_file)
         return _create
@@ -544,34 +545,45 @@ class TestCmdPostPrComment:
     def test_cmd_post_pr_comment_handles_summary_file_read_error(self, mock_gh_actions, create_execution_file, tmp_path):
         """Should continue with cost-only comment when summary file read fails"""
         # Arrange
+        main_exec_file = create_execution_file(0.123456)
+        summary_exec_file = create_execution_file(0.045678)
+
         written_content = []
 
         def capture_write(content):
             written_content.append(content)
 
+        # Create a mock open that only fails for the summary file
+        original_open = open
+        protected_path = "/tmp/protected_file.md"
+
+        def selective_open(path, *args, **kwargs):
+            if path == protected_path:
+                raise PermissionError("Access denied")
+            return original_open(path, *args, **kwargs)
+
         with patch('subprocess.run') as mock_run:
             with patch('tempfile.NamedTemporaryFile') as mock_tempfile:
                 with patch('os.unlink'):
-                    with patch('os.path.exists', return_value=True):
-                        with patch('builtins.open', side_effect=PermissionError("Access denied")):
-                            mock_file = Mock()
-                            mock_file.name = "/tmp/test.md"
-                            mock_file.write = Mock(side_effect=capture_write)
-                            mock_file.__enter__ = Mock(return_value=mock_file)
-                            mock_file.__exit__ = Mock(return_value=False)
-                            mock_tempfile.return_value = mock_file
-                            mock_run.return_value = Mock(returncode=0)
+                    with patch('builtins.open', side_effect=selective_open):
+                        mock_file = Mock()
+                        mock_file.name = "/tmp/test.md"
+                        mock_file.write = Mock(side_effect=capture_write)
+                        mock_file.__enter__ = Mock(return_value=mock_file)
+                        mock_file.__exit__ = Mock(return_value=False)
+                        mock_tempfile.return_value = mock_file
+                        mock_run.return_value = Mock(returncode=0)
 
-                            # Act
-                            result = cmd_post_pr_comment(
-                                gh=mock_gh_actions,
-                                pr_number="42",
-                                summary_file_path="/tmp/protected_file.md",
-                                main_execution_file=create_execution_file(0.123456),
-                                summary_execution_file=create_execution_file(0.045678),
-                                repo="owner/repo",
-                                run_id="12345"
-                            )
+                        # Act
+                        result = cmd_post_pr_comment(
+                            gh=mock_gh_actions,
+                            pr_number="42",
+                            summary_file_path=protected_path,
+                            main_execution_file=main_exec_file,
+                            summary_execution_file=summary_exec_file,
+                            repo="owner/repo",
+                            run_id="12345"
+                        )
 
         # Assert
         assert result == 0
