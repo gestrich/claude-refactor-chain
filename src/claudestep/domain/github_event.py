@@ -8,7 +8,6 @@ Following the principle: "Parse once into well-formed models"
 """
 
 import json
-import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -22,7 +21,7 @@ class GitHubEventContext:
     information from the event payload and provides methods for:
     - Determining if execution should be skipped
     - Finding the appropriate git ref to checkout
-    - Extracting project names from branch patterns
+    - Getting context for changed files detection (for push events)
     - Getting the default base branch from event context
 
     Attributes:
@@ -245,44 +244,32 @@ class GitHubEventContext:
         # that was pushed to or that the workflow was triggered from
         return self.get_checkout_ref()
 
-    def extract_project_from_branch(self) -> Optional[str]:
-        """Extract project name from branch name pattern.
+    def get_changed_files_context(self) -> Optional[Tuple[str, str]]:
+        """Get commit SHAs for detecting changed files via GitHub Compare API.
 
-        ClaudeStep branch names follow the pattern:
-        claude-step-{project_name}-{task_hash}
-
-        This method extracts the project name from the head branch
-        (for pull_request events) to determine which project a PR belongs to.
+        For push events, returns the before and after SHAs that can be used
+        to determine which files changed. This enables project detection
+        by looking for modified spec.md files.
 
         Returns:
-            Project name if branch matches pattern, None otherwise
+            Tuple of (before_sha, after_sha) for push events, None otherwise.
+            The caller can use these SHAs with the GitHub Compare API.
 
         Examples:
             >>> context = GitHubEventContext(
-            ...     event_name="pull_request",
-            ...     head_ref="claude-step-my-refactor-a3f2b891"
+            ...     event_name="push",
+            ...     before_sha="abc123",
+            ...     after_sha="def456"
             ... )
-            >>> context.extract_project_from_branch()
-            'my-refactor'
+            >>> context.get_changed_files_context()
+            ('abc123', 'def456')
 
-            >>> context = GitHubEventContext(
-            ...     event_name="pull_request",
-            ...     head_ref="feature/new-feature"
-            ... )
-            >>> context.extract_project_from_branch()
+            >>> context = GitHubEventContext(event_name="workflow_dispatch")
+            >>> context.get_changed_files_context()
             None
         """
-        if self.event_name != "pull_request" or not self.head_ref:
-            return None
-
-        # Pattern: claude-step-{project}-{hash}
-        # Project name can contain hyphens, hash is 8 hex chars at the end
-        pattern = r"^claude-step-(.+)-([a-f0-9]{8})$"
-        match = re.match(pattern, self.head_ref)
-
-        if match:
-            return match.group(1)
-
+        if self.event_name == "push" and self.before_sha and self.after_sha:
+            return (self.before_sha, self.after_sha)
         return None
 
     def has_label(self, label: str) -> bool:

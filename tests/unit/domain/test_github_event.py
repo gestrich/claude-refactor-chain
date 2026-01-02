@@ -381,67 +381,87 @@ class TestGitHubEventContextCheckoutRef:
             context.get_checkout_ref()
 
 
-class TestGitHubEventContextProjectExtraction:
-    """Tests for extract_project_from_branch method."""
+class TestGitHubEventContextChangedFilesContext:
+    """Tests for get_changed_files_context method."""
 
-    def test_extract_project_from_claudestep_branch(self):
-        """Should extract project name from valid ClaudeStep branch."""
+    def test_returns_shas_for_push_event(self):
+        """Should return before/after SHAs for push events."""
         # Arrange
         context = GitHubEventContext(
-            event_name="pull_request",
-            head_ref="claude-step-my-refactor-a3f2b891"
+            event_name="push",
+            before_sha="abc123",
+            after_sha="def456"
         )
 
         # Act
-        project = context.extract_project_from_branch()
+        result = context.get_changed_files_context()
 
         # Assert
-        assert project == "my-refactor"
+        assert result == ("abc123", "def456")
 
-    def test_extract_project_with_hyphens_in_name(self):
-        """Should handle project names with hyphens."""
+    def test_returns_none_for_workflow_dispatch(self):
+        """Should return None for workflow_dispatch events."""
         # Arrange
         context = GitHubEventContext(
-            event_name="pull_request",
-            head_ref="claude-step-my-complex-project-name-12345678"
+            event_name="workflow_dispatch",
+            ref_name="main",
+            inputs={"project_name": "test"}
         )
 
         # Act
-        project = context.extract_project_from_branch()
+        result = context.get_changed_files_context()
 
         # Assert
-        assert project == "my-complex-project-name"
+        assert result is None
 
-    def test_extract_project_returns_none_for_feature_branch(self):
-        """Should return None for non-ClaudeStep branches."""
+    def test_returns_none_for_pull_request(self):
+        """Should return None for pull_request events."""
         # Arrange
         context = GitHubEventContext(
             event_name="pull_request",
-            head_ref="feature/new-feature"
+            pr_merged=True,
+            base_ref="main",
+            head_ref="feature-branch"
         )
 
         # Act
-        project = context.extract_project_from_branch()
+        result = context.get_changed_files_context()
 
         # Assert
-        assert project is None
+        assert result is None
 
-    def test_extract_project_returns_none_for_main_branch(self):
-        """Should return None for main branch."""
+    def test_returns_none_when_before_sha_missing(self):
+        """Should return None if before_sha is missing."""
         # Arrange
         context = GitHubEventContext(
-            event_name="pull_request",
-            head_ref="main"
+            event_name="push",
+            before_sha=None,
+            after_sha="def456"
         )
 
         # Act
-        project = context.extract_project_from_branch()
+        result = context.get_changed_files_context()
 
         # Assert
-        assert project is None
+        assert result is None
 
-    def test_extract_project_returns_none_for_non_pr_event(self):
-        """Should return None for non-pull_request events."""
+    def test_returns_none_when_after_sha_missing(self):
+        """Should return None if after_sha is missing."""
+        # Arrange
+        context = GitHubEventContext(
+            event_name="push",
+            before_sha="abc123",
+            after_sha=None
+        )
+
+        # Act
+        result = context.get_changed_files_context()
+
+        # Assert
+        assert result is None
+
+    def test_returns_none_when_both_shas_missing(self):
+        """Should return None if both SHAs are missing."""
         # Arrange
         context = GitHubEventContext(
             event_name="push",
@@ -449,52 +469,10 @@ class TestGitHubEventContextProjectExtraction:
         )
 
         # Act
-        project = context.extract_project_from_branch()
+        result = context.get_changed_files_context()
 
         # Assert
-        assert project is None
-
-    def test_extract_project_returns_none_when_no_head_ref(self):
-        """Should return None when head_ref is None."""
-        # Arrange
-        context = GitHubEventContext(
-            event_name="pull_request",
-            head_ref=None
-        )
-
-        # Act
-        project = context.extract_project_from_branch()
-
-        # Assert
-        assert project is None
-
-    def test_extract_project_invalid_hash_length(self):
-        """Should return None when hash is wrong length."""
-        # Arrange
-        context = GitHubEventContext(
-            event_name="pull_request",
-            head_ref="claude-step-project-abc"  # Only 3 chars
-        )
-
-        # Act
-        project = context.extract_project_from_branch()
-
-        # Assert
-        assert project is None
-
-    def test_extract_project_invalid_hash_chars(self):
-        """Should return None when hash has invalid characters."""
-        # Arrange
-        context = GitHubEventContext(
-            event_name="pull_request",
-            head_ref="claude-step-project-XXXXXXXX"  # Uppercase not valid hex
-        )
-
-        # Act
-        project = context.extract_project_from_branch()
-
-        # Assert
-        assert project is None
+        assert result is None
 
 
 class TestGitHubEventContextDefaultBaseBranch:
@@ -605,7 +583,8 @@ class TestGitHubEventContextIntegration:
         assert context.should_skip() == (False, "")
         assert context.get_checkout_ref() == "main"
         assert context.get_default_base_branch() == "main"
-        assert context.extract_project_from_branch() == "auth-refactor"
+        # PR events don't have changed files context (no before/after SHA)
+        assert context.get_changed_files_context() is None
 
     def test_full_push_workflow(self):
         """Should correctly process a push event end-to-end."""
@@ -623,7 +602,8 @@ class TestGitHubEventContextIntegration:
         assert context.should_skip() == (False, "")
         assert context.get_checkout_ref() == "main"
         assert context.get_default_base_branch() == "main"
-        assert context.extract_project_from_branch() is None  # Not a PR
+        # Push events have changed files context for project detection
+        assert context.get_changed_files_context() == ("abc123", "def456")
 
     def test_full_workflow_dispatch_workflow(self):
         """Should correctly process a workflow_dispatch event end-to-end."""
@@ -641,3 +621,5 @@ class TestGitHubEventContextIntegration:
         assert context.get_checkout_ref() == "develop"
         assert context.get_default_base_branch() == "develop"
         assert context.inputs["project_name"] == "database-migration"
+        # workflow_dispatch doesn't have changed files context
+        assert context.get_changed_files_context() is None

@@ -106,18 +106,40 @@ def detect_project_from_diff(changed_files: List[str]) -> Optional[str]:
         raise ValueError(f"Multiple projects modified in single push: {sorted(projects)}. Push changes to one project at a time.")
 ```
 
-- [ ] Phase 3: Update `GitHubEventContext` to support project detection from diff
+- [x] Phase 3: Update `GitHubEventContext` to support project detection from diff
 
 Modify `src/claudestep/domain/github_event.py` to use the new approach.
 
-**Files to modify:**
-- `src/claudestep/domain/github_event.py`
+**Files modified:**
+- `src/claudestep/domain/github_event.py` - Removed `extract_project_from_branch()`, added `get_changed_files_context()`
+- `tests/unit/domain/test_github_event.py` - Replaced `TestGitHubEventContextProjectExtraction` with `TestGitHubEventContextChangedFilesContext`
 
-**Changes:**
-1. Remove `extract_project_from_branch()` method (no longer needed)
-2. Add new method `get_changed_files_context()` that returns `before_sha` and `after_sha` for push events
-3. For push events: return `(before_sha, after_sha)` from event payload
-4. For workflow_dispatch: return `None` (no diff context, require `project_name` input)
+**Technical notes:**
+- Removed the `re` import since `extract_project_from_branch()` was the only method using regex
+- Updated class docstring to reflect new method instead of branch pattern extraction
+- New method `get_changed_files_context()` returns `Optional[Tuple[str, str]]`:
+  - For push events with both `before_sha` and `after_sha`: returns `(before_sha, after_sha)`
+  - For all other cases (workflow_dispatch, pull_request, or missing SHAs): returns `None`
+- Updated integration tests to verify `get_changed_files_context()` behavior across all event types
+- All 658 unit tests pass
+
+**Implementation details:**
+```python
+def get_changed_files_context(self) -> Optional[Tuple[str, str]]:
+    """Get commit SHAs for detecting changed files via GitHub Compare API.
+
+    For push events, returns the before and after SHAs that can be used
+    to determine which files changed. This enables project detection
+    by looking for modified spec.md files.
+
+    Returns:
+        Tuple of (before_sha, after_sha) for push events, None otherwise.
+        The caller can use these SHAs with the GitHub Compare API.
+    """
+    if self.event_name == "push" and self.before_sha and self.after_sha:
+        return (self.before_sha, self.after_sha)
+    return None
+```
 
 **Note:** The actual API call happens in `parse_event.py`, not in the domain model (domain doesn't call infrastructure).
 
