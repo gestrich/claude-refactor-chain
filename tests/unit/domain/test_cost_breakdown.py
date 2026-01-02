@@ -673,8 +673,8 @@ class TestFormatForGitHub:
         assert "$0.450000" in result
         assert "**$1.680000**" in result
 
-    def test_format_includes_token_section_when_tokens_present(self):
-        """Should include token usage section when tokens are available"""
+    def test_format_includes_model_section_when_models_present(self):
+        """Should include per-model breakdown section when models are available"""
         # Arrange
         breakdown = CostBreakdown(
             main_cost=1.0,
@@ -683,22 +683,30 @@ class TestFormatForGitHub:
             output_tokens=500,
             cache_read_tokens=2000,
             cache_write_tokens=300,
+            main_models=[
+                ModelUsage(
+                    model="claude-3-haiku-20240307",
+                    input_tokens=1000,
+                    output_tokens=500,
+                    cache_read_tokens=2000,
+                    cache_write_tokens=300,
+                )
+            ],
         )
 
         # Act
         result = breakdown.format_for_github("owner/repo", "12345")
 
         # Assert
-        assert "### Token Usage" in result
-        assert "| Token Type | Count |" in result
-        assert "| Input | 1,000 |" in result
-        assert "| Output | 500 |" in result
-        assert "| Cache Read | 2,000 |" in result
-        assert "| Cache Write | 300 |" in result
-        assert "| **Total** | **3,800** |" in result
+        assert "### Per-Model Breakdown" in result
+        assert "| Model | Input | Output | Cache R | Cache W | Cost |" in result
+        assert "claude-3-haiku-20240307" in result
+        assert "1,000" in result
+        assert "500" in result
+        assert "| **Total** |" in result
 
-    def test_format_excludes_token_section_when_no_tokens(self):
-        """Should not include token usage section when all tokens are zero"""
+    def test_format_excludes_model_section_when_no_models(self):
+        """Should not include per-model breakdown section when no models"""
         # Arrange
         breakdown = CostBreakdown(main_cost=1.0, summary_cost=0.5)
 
@@ -706,11 +714,10 @@ class TestFormatForGitHub:
         result = breakdown.format_for_github("owner/repo", "12345")
 
         # Assert
-        assert "### Token Usage" not in result
-        assert "| Token Type | Count |" not in result
+        assert "### Per-Model Breakdown" not in result
 
-    def test_format_with_large_token_counts(self):
-        """Should format large token counts with thousands separators"""
+    def test_format_with_large_token_counts_in_model_breakdown(self):
+        """Should format large token counts with thousands separators in model breakdown"""
         # Arrange
         breakdown = CostBreakdown(
             main_cost=1.0,
@@ -719,14 +726,23 @@ class TestFormatForGitHub:
             output_tokens=987654,
             cache_read_tokens=0,
             cache_write_tokens=0,
+            main_models=[
+                ModelUsage(
+                    model="claude-3-haiku-20240307",
+                    input_tokens=1234567,
+                    output_tokens=987654,
+                    cache_read_tokens=0,
+                    cache_write_tokens=0,
+                )
+            ],
         )
 
         # Act
         result = breakdown.format_for_github("owner/repo", "12345")
 
         # Assert
-        assert "| Input | 1,234,567 |" in result
-        assert "| Output | 987,654 |" in result
+        assert "1,234,567" in result
+        assert "987,654" in result
 
 
 class TestCostBreakdownWithTokens:
@@ -1141,9 +1157,226 @@ class TestRealWorkflowData:
         assert "$0.17" not in result
         assert "$0.09" not in result
         assert "$0.26" not in result
-        # Token usage section
-        assert "### Token Usage" in result
-        assert "4,295" in result  # Input tokens
-        assert "1,326" in result  # Output tokens
-        assert "135,239" in result  # Cache read tokens
-        assert "70,355" in result  # Cache write tokens
+        # Per-model breakdown section
+        assert "### Per-Model Breakdown" in result
+        assert "claude-haiku-4-5-20251001" in result
+        assert "claude-3-haiku-20240307" in result
+        assert "4,295" in result  # Input tokens (total)
+        assert "1,326" in result  # Output tokens (total)
+        assert "135,239" in result  # Cache read tokens (total)
+        assert "70,355" in result  # Cache write tokens (total)
+
+
+class TestPerModelBreakdown:
+    """Test suite for per-model breakdown functionality"""
+
+    def test_all_models_combines_main_and_summary(self):
+        """Should combine models from main and summary executions"""
+        # Arrange
+        breakdown = CostBreakdown(
+            main_cost=0.1,
+            summary_cost=0.05,
+            main_models=[ModelUsage(model="model-a", input_tokens=100)],
+            summary_models=[ModelUsage(model="model-b", input_tokens=200)],
+        )
+
+        # Act
+        all_models = breakdown.all_models
+
+        # Assert
+        assert len(all_models) == 2
+        assert all_models[0].model == "model-a"
+        assert all_models[1].model == "model-b"
+
+    def test_get_aggregated_models_combines_same_model(self):
+        """Should aggregate tokens for same model across executions"""
+        # Arrange
+        breakdown = CostBreakdown(
+            main_cost=0.1,
+            summary_cost=0.05,
+            main_models=[
+                ModelUsage(model="claude-3-haiku-20240307", input_tokens=100, output_tokens=50)
+            ],
+            summary_models=[
+                ModelUsage(model="claude-3-haiku-20240307", input_tokens=200, output_tokens=100)
+            ],
+        )
+
+        # Act
+        aggregated = breakdown.get_aggregated_models()
+
+        # Assert
+        assert len(aggregated) == 1
+        assert aggregated[0].model == "claude-3-haiku-20240307"
+        assert aggregated[0].input_tokens == 300
+        assert aggregated[0].output_tokens == 150
+
+    def test_get_aggregated_models_keeps_different_models_separate(self):
+        """Should keep different models separate in aggregation"""
+        # Arrange
+        breakdown = CostBreakdown(
+            main_cost=0.1,
+            summary_cost=0.05,
+            main_models=[
+                ModelUsage(model="claude-3-haiku-20240307", input_tokens=100),
+                ModelUsage(model="claude-sonnet-4-20250514", input_tokens=200),
+            ],
+            summary_models=[
+                ModelUsage(model="claude-3-haiku-20240307", input_tokens=50),
+            ],
+        )
+
+        # Act
+        aggregated = breakdown.get_aggregated_models()
+
+        # Assert
+        assert len(aggregated) == 2
+        haiku = next(m for m in aggregated if "haiku" in m.model)
+        sonnet = next(m for m in aggregated if "sonnet" in m.model)
+        assert haiku.input_tokens == 150  # 100 + 50
+        assert sonnet.input_tokens == 200
+
+    def test_format_model_breakdown_empty_when_no_models(self):
+        """Should return empty string when no models"""
+        # Arrange
+        breakdown = CostBreakdown(main_cost=0.1, summary_cost=0.05)
+
+        # Act
+        result = breakdown.format_model_breakdown()
+
+        # Assert
+        assert result == ""
+
+    def test_format_model_breakdown_includes_all_columns(self):
+        """Should include all token types and cost in table"""
+        # Arrange
+        breakdown = CostBreakdown(
+            main_cost=0.1,
+            summary_cost=0.0,
+            input_tokens=100,
+            output_tokens=50,
+            cache_read_tokens=200,
+            cache_write_tokens=30,
+            main_models=[
+                ModelUsage(
+                    model="claude-3-haiku-20240307",
+                    input_tokens=100,
+                    output_tokens=50,
+                    cache_read_tokens=200,
+                    cache_write_tokens=30,
+                )
+            ],
+        )
+
+        # Act
+        result = breakdown.format_model_breakdown()
+
+        # Assert
+        assert "### Per-Model Breakdown" in result
+        assert "| Model | Input | Output | Cache R | Cache W | Cost |" in result
+        assert "claude-3-haiku-20240307" in result
+        assert "100" in result
+        assert "50" in result
+        assert "200" in result
+        assert "30" in result
+        assert "$" in result  # Cost is formatted with $
+
+    def test_to_model_breakdown_json_returns_list_of_dicts(self):
+        """Should return list of dicts with model data"""
+        # Arrange
+        breakdown = CostBreakdown(
+            main_cost=0.1,
+            summary_cost=0.0,
+            main_models=[
+                ModelUsage(
+                    model="claude-3-haiku-20240307",
+                    input_tokens=1000,
+                    output_tokens=500,
+                    cache_read_tokens=2000,
+                    cache_write_tokens=300,
+                )
+            ],
+        )
+
+        # Act
+        result = breakdown.to_model_breakdown_json()
+
+        # Assert
+        assert len(result) == 1
+        assert result[0]["model"] == "claude-3-haiku-20240307"
+        assert result[0]["input_tokens"] == 1000
+        assert result[0]["output_tokens"] == 500
+        assert result[0]["cache_read_tokens"] == 2000
+        assert result[0]["cache_write_tokens"] == 300
+        assert "cost" in result[0]
+        assert isinstance(result[0]["cost"], float)
+
+    def test_to_model_breakdown_json_aggregates_models(self):
+        """Should aggregate same model in JSON output"""
+        # Arrange
+        breakdown = CostBreakdown(
+            main_cost=0.1,
+            summary_cost=0.05,
+            main_models=[
+                ModelUsage(model="claude-3-haiku-20240307", input_tokens=100)
+            ],
+            summary_models=[
+                ModelUsage(model="claude-3-haiku-20240307", input_tokens=200)
+            ],
+        )
+
+        # Act
+        result = breakdown.to_model_breakdown_json()
+
+        # Assert
+        assert len(result) == 1
+        assert result[0]["input_tokens"] == 300
+
+    def test_to_model_breakdown_json_empty_when_no_models(self):
+        """Should return empty list when no models"""
+        # Arrange
+        breakdown = CostBreakdown(main_cost=0.1, summary_cost=0.05)
+
+        # Act
+        result = breakdown.to_model_breakdown_json()
+
+        # Assert
+        assert result == []
+
+    def test_from_execution_files_preserves_models(self):
+        """Should preserve per-model data from execution files"""
+        # Arrange
+        with tempfile.TemporaryDirectory() as tmpdir:
+            main_file = Path(tmpdir) / "main.json"
+            summary_file = Path(tmpdir) / "summary.json"
+
+            main_file.write_text(json.dumps({
+                "total_cost_usd": 1.5,
+                "modelUsage": {
+                    "claude-3-haiku-20240307": {
+                        "inputTokens": 1000,
+                        "outputTokens": 500,
+                    },
+                },
+            }))
+            summary_file.write_text(json.dumps({
+                "total_cost_usd": 0.5,
+                "modelUsage": {
+                    "claude-sonnet-4-20250514": {
+                        "inputTokens": 200,
+                        "outputTokens": 100,
+                    },
+                },
+            }))
+
+            # Act
+            breakdown = CostBreakdown.from_execution_files(
+                str(main_file),
+                str(summary_file)
+            )
+
+            # Assert
+            assert len(breakdown.main_models) == 1
+            assert len(breakdown.summary_models) == 1
+            assert breakdown.main_models[0].model == "claude-3-haiku-20240307"
+            assert breakdown.summary_models[0].model == "claude-sonnet-4-20250514"

@@ -259,7 +259,7 @@ Now complete the task '{task}' following all the details and instructions in the
         gh.write_output("label", label)
         gh.write_output("reviewers_json", json.dumps([{"username": r.username, "maxOpenPRs": r.max_open_prs} for r in config.reviewers]))
         gh.write_output("slack_webhook_url", slack_webhook_url)
-        gh.write_output("task", task)
+        gh.write_output("task_description", task)
         gh.write_output("task_index", str(task_index))
         gh.write_output("has_task", "true")
         gh.write_output("all_tasks_done", "false")

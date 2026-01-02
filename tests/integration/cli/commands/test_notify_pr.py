@@ -2,7 +2,6 @@
 Tests for notify_pr.py - PR notification command
 """
 
-import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -34,6 +33,7 @@ class TestFormatPrNotification:
             main_cost=main_cost,
             summary_cost=summary_cost,
             total_cost=total_cost,
+            model_breakdown=[],
             repo=repo
         )
 
@@ -59,6 +59,7 @@ class TestFormatPrNotification:
             main_cost=main_cost,
             summary_cost=summary_cost,
             total_cost=total_cost,
+            model_breakdown=[],
             repo="owner/repo"
         )
 
@@ -85,6 +86,7 @@ class TestFormatPrNotification:
             main_cost=main_cost,
             summary_cost=summary_cost,
             total_cost=total_cost,
+            model_breakdown=[],
             repo="owner/repo"
         )
 
@@ -109,6 +111,7 @@ class TestFormatPrNotification:
             main_cost=main_cost,
             summary_cost=summary_cost,
             total_cost=total_cost,
+            model_breakdown=[],
             repo="owner/repo"
         )
 
@@ -134,6 +137,7 @@ class TestFormatPrNotification:
             main_cost=main_cost,
             summary_cost=summary_cost,
             total_cost=total_cost,
+            model_breakdown=[],
             repo="owner/repo"
         )
 
@@ -157,6 +161,7 @@ class TestFormatPrNotification:
             main_cost=0.0,
             summary_cost=0.0,
             total_cost=0.0,
+            model_breakdown=[],
             repo="owner/repo"
         )
 
@@ -175,11 +180,43 @@ class TestFormatPrNotification:
             main_cost=1.0,
             summary_cost=2.0,
             total_cost=3.0,
+            model_breakdown=[],
             repo="owner/repo"
         )
 
         # Assert
         assert "─────────────────────────────" in result
+
+    def test_format_pr_notification_includes_model_breakdown(self):
+        """Should include per-model breakdown when provided"""
+        # Arrange
+        model_breakdown = [
+            {
+                "model": "claude-3-haiku-20240307",
+                "input_tokens": 1000,
+                "output_tokens": 500,
+                "cost": 0.01,
+            }
+        ]
+
+        # Act
+        result = format_pr_notification(
+            pr_number="1",
+            pr_url="https://example.com",
+            project_name="test",
+            task="test",
+            main_cost=0.01,
+            summary_cost=0.0,
+            total_cost=0.01,
+            model_breakdown=model_breakdown,
+            repo="owner/repo"
+        )
+
+        # Assert
+        assert "*📊 Per-Model Usage:*" in result
+        assert "claude-3-haiku-20240307" in result
+        assert "1,000" in result
+        assert "500" in result
 
 
 class TestCmdNotifyPr:
@@ -194,24 +231,23 @@ class TestCmdNotifyPr:
         return mock
 
     @pytest.fixture
-    def notification_env_vars(self):
-        """Fixture providing standard notification environment variables"""
+    def default_params(self):
+        """Fixture providing standard notification parameters"""
         return {
-            "PR_NUMBER": "42",
-            "PR_URL": "https://github.com/owner/repo/pull/42",
-            "PROJECT_NAME": "my-project",
-            "TASK": "Refactor authentication system",
-            "MAIN_COST": "0.123456",
-            "SUMMARY_COST": "0.045678",
-            "GITHUB_REPOSITORY": "owner/repo"
+            "pr_number": "42",
+            "pr_url": "https://github.com/owner/repo/pull/42",
+            "project_name": "my-project",
+            "task": "Refactor authentication system",
+            "main_cost": "0.123456",
+            "summary_cost": "0.045678",
+            "model_breakdown_json": "",
+            "repo": "owner/repo"
         }
 
-    def test_cmd_notify_pr_generates_notification_successfully(self, mock_gh_actions, notification_env_vars):
+    def test_cmd_notify_pr_generates_notification_successfully(self, mock_gh_actions, default_params):
         """Should generate Slack notification when all inputs are valid"""
-        # Arrange
-        with patch.dict(os.environ, notification_env_vars, clear=True):
-            # Act
-            result = cmd_notify_pr(None, mock_gh_actions)
+        # Act
+        result = cmd_notify_pr(gh=mock_gh_actions, **default_params)
 
         # Assert
         assert result == 0
@@ -226,12 +262,10 @@ class TestCmdNotifyPr:
         assert "🎉 *New PR Created*" in message
         assert "my-project" in message
 
-    def test_cmd_notify_pr_includes_all_required_fields_in_message(self, mock_gh_actions, notification_env_vars):
+    def test_cmd_notify_pr_includes_all_required_fields_in_message(self, mock_gh_actions, default_params):
         """Should include PR number, URL, project, task, and costs in message"""
-        # Arrange
-        with patch.dict(os.environ, notification_env_vars, clear=True):
-            # Act
-            cmd_notify_pr(None, mock_gh_actions)
+        # Act
+        cmd_notify_pr(gh=mock_gh_actions, **default_params)
 
         # Assert
         calls = mock_gh_actions.write_output.call_args_list
@@ -247,20 +281,18 @@ class TestCmdNotifyPr:
 
     def test_cmd_notify_pr_calculates_total_cost_correctly(self, mock_gh_actions):
         """Should calculate total cost as sum of main and summary costs"""
-        # Arrange
-        env = {
-            "PR_NUMBER": "42",
-            "PR_URL": "https://github.com/owner/repo/pull/42",
-            "PROJECT_NAME": "test",
-            "TASK": "test",
-            "MAIN_COST": "0.123",
-            "SUMMARY_COST": "0.456",
-            "GITHUB_REPOSITORY": "owner/repo"
-        }
-
-        with patch.dict(os.environ, env, clear=True):
-            # Act
-            cmd_notify_pr(None, mock_gh_actions)
+        # Act
+        cmd_notify_pr(
+            gh=mock_gh_actions,
+            pr_number="42",
+            pr_url="https://github.com/owner/repo/pull/42",
+            project_name="test",
+            task="test",
+            main_cost="0.123",
+            summary_cost="0.456",
+            model_breakdown_json="",
+            repo="owner/repo"
+        )
 
         # Assert
         calls = mock_gh_actions.write_output.call_args_list
@@ -272,18 +304,19 @@ class TestCmdNotifyPr:
         assert "$0.579000" in message  # Total (0.123 + 0.456)
 
     def test_cmd_notify_pr_skips_when_no_pr_number(self, mock_gh_actions):
-        """Should skip notification and return success when PR_NUMBER is not set"""
-        # Arrange
-        env = {
-            "PR_URL": "https://github.com/owner/repo/pull/42",
-            "PROJECT_NAME": "test",
-            "TASK": "test",
-            "GITHUB_REPOSITORY": "owner/repo"
-        }
-
-        with patch.dict(os.environ, env, clear=True):
-            # Act
-            result = cmd_notify_pr(None, mock_gh_actions)
+        """Should skip notification and return success when pr_number is empty"""
+        # Act
+        result = cmd_notify_pr(
+            gh=mock_gh_actions,
+            pr_number="",
+            pr_url="https://github.com/owner/repo/pull/42",
+            project_name="test",
+            task="test",
+            main_cost="0",
+            summary_cost="0",
+            model_breakdown_json="",
+            repo="owner/repo"
+        )
 
         # Assert
         assert result == 0
@@ -291,56 +324,57 @@ class TestCmdNotifyPr:
         mock_gh_actions.set_error.assert_not_called()
 
     def test_cmd_notify_pr_skips_when_no_pr_url(self, mock_gh_actions):
-        """Should skip notification when PR_URL is not set"""
-        # Arrange
-        env = {
-            "PR_NUMBER": "42",
-            "PROJECT_NAME": "test",
-            "TASK": "test",
-            "GITHUB_REPOSITORY": "owner/repo"
-        }
-
-        with patch.dict(os.environ, env, clear=True):
-            # Act
-            result = cmd_notify_pr(None, mock_gh_actions)
+        """Should skip notification when pr_url is empty"""
+        # Act
+        result = cmd_notify_pr(
+            gh=mock_gh_actions,
+            pr_number="42",
+            pr_url="",
+            project_name="test",
+            task="test",
+            main_cost="0",
+            summary_cost="0",
+            model_breakdown_json="",
+            repo="owner/repo"
+        )
 
         # Assert
         assert result == 0
         mock_gh_actions.write_output.assert_called_once_with("has_pr", "false")
 
     def test_cmd_notify_pr_skips_when_pr_number_is_whitespace(self, mock_gh_actions):
-        """Should skip notification when PR_NUMBER is whitespace only"""
-        # Arrange
-        env = {
-            "PR_NUMBER": "   ",
-            "PR_URL": "https://github.com/owner/repo/pull/42",
-            "PROJECT_NAME": "test",
-            "TASK": "test",
-            "GITHUB_REPOSITORY": "owner/repo"
-        }
-
-        with patch.dict(os.environ, env, clear=True):
-            # Act
-            result = cmd_notify_pr(None, mock_gh_actions)
+        """Should skip notification when pr_number is whitespace only"""
+        # Act
+        result = cmd_notify_pr(
+            gh=mock_gh_actions,
+            pr_number="   ",
+            pr_url="https://github.com/owner/repo/pull/42",
+            project_name="test",
+            task="test",
+            main_cost="0",
+            summary_cost="0",
+            model_breakdown_json="",
+            repo="owner/repo"
+        )
 
         # Assert
         assert result == 0
         mock_gh_actions.write_output.assert_called_once_with("has_pr", "false")
 
     def test_cmd_notify_pr_skips_when_pr_url_is_whitespace(self, mock_gh_actions):
-        """Should skip notification when PR_URL is whitespace only"""
-        # Arrange
-        env = {
-            "PR_NUMBER": "42",
-            "PR_URL": "   ",
-            "PROJECT_NAME": "test",
-            "TASK": "test",
-            "GITHUB_REPOSITORY": "owner/repo"
-        }
-
-        with patch.dict(os.environ, env, clear=True):
-            # Act
-            result = cmd_notify_pr(None, mock_gh_actions)
+        """Should skip notification when pr_url is whitespace only"""
+        # Act
+        result = cmd_notify_pr(
+            gh=mock_gh_actions,
+            pr_number="42",
+            pr_url="   ",
+            project_name="test",
+            task="test",
+            main_cost="0",
+            summary_cost="0",
+            model_breakdown_json="",
+            repo="owner/repo"
+        )
 
         # Assert
         assert result == 0
@@ -348,20 +382,18 @@ class TestCmdNotifyPr:
 
     def test_cmd_notify_pr_handles_invalid_cost_values(self, mock_gh_actions):
         """Should treat invalid cost values as zero and continue"""
-        # Arrange
-        env = {
-            "PR_NUMBER": "42",
-            "PR_URL": "https://github.com/owner/repo/pull/42",
-            "PROJECT_NAME": "test",
-            "TASK": "test",
-            "MAIN_COST": "invalid",
-            "SUMMARY_COST": "not-a-number",
-            "GITHUB_REPOSITORY": "owner/repo"
-        }
-
-        with patch.dict(os.environ, env, clear=True):
-            # Act
-            result = cmd_notify_pr(None, mock_gh_actions)
+        # Act
+        result = cmd_notify_pr(
+            gh=mock_gh_actions,
+            pr_number="42",
+            pr_url="https://github.com/owner/repo/pull/42",
+            project_name="test",
+            task="test",
+            main_cost="invalid",
+            summary_cost="not-a-number",
+            model_breakdown_json="",
+            repo="owner/repo"
+        )
 
         # Assert
         assert result == 0
@@ -370,20 +402,20 @@ class TestCmdNotifyPr:
         message = slack_message_call[0][0][1]
         assert "$0.000000" in message  # Should use 0.0 for invalid values
 
-    def test_cmd_notify_pr_uses_default_zero_costs_when_missing(self, mock_gh_actions):
-        """Should use 0 for costs when environment variables are not set"""
-        # Arrange
-        env = {
-            "PR_NUMBER": "42",
-            "PR_URL": "https://github.com/owner/repo/pull/42",
-            "PROJECT_NAME": "test",
-            "TASK": "test",
-            "GITHUB_REPOSITORY": "owner/repo"
-        }
-
-        with patch.dict(os.environ, env, clear=True):
-            # Act
-            result = cmd_notify_pr(None, mock_gh_actions)
+    def test_cmd_notify_pr_uses_default_zero_costs(self, mock_gh_actions):
+        """Should use 0 for costs when cost strings are '0'"""
+        # Act
+        result = cmd_notify_pr(
+            gh=mock_gh_actions,
+            pr_number="42",
+            pr_url="https://github.com/owner/repo/pull/42",
+            project_name="test",
+            task="test",
+            main_cost="0",
+            summary_cost="0",
+            model_breakdown_json="",
+            repo="owner/repo"
+        )
 
         # Assert
         assert result == 0
@@ -393,21 +425,19 @@ class TestCmdNotifyPr:
         assert "$0.000000" in message
 
     def test_cmd_notify_pr_strips_whitespace_from_inputs(self, mock_gh_actions):
-        """Should strip whitespace from environment variable values"""
-        # Arrange
-        env = {
-            "PR_NUMBER": "  42  ",
-            "PR_URL": "  https://github.com/owner/repo/pull/42  ",
-            "PROJECT_NAME": "  my-project  ",
-            "TASK": "  test task  ",
-            "MAIN_COST": "  0.123  ",
-            "SUMMARY_COST": "  0.456  ",
-            "GITHUB_REPOSITORY": "owner/repo"
-        }
-
-        with patch.dict(os.environ, env, clear=True):
-            # Act
-            result = cmd_notify_pr(None, mock_gh_actions)
+        """Should strip whitespace from parameter values"""
+        # Act
+        result = cmd_notify_pr(
+            gh=mock_gh_actions,
+            pr_number="  42  ",
+            pr_url="  https://github.com/owner/repo/pull/42  ",
+            project_name="  my-project  ",
+            task="  test task  ",
+            main_cost="  0.123  ",
+            summary_cost="  0.456  ",
+            model_breakdown_json="",
+            repo="owner/repo"
+        )
 
         # Assert
         assert result == 0
@@ -420,18 +450,20 @@ class TestCmdNotifyPr:
         assert "$0.123000" in message
         assert "$0.456000" in message
 
-    def test_cmd_notify_pr_handles_missing_optional_fields(self, mock_gh_actions):
-        """Should handle missing optional fields gracefully"""
-        # Arrange
-        env = {
-            "PR_NUMBER": "42",
-            "PR_URL": "https://github.com/owner/repo/pull/42",
-            # PROJECT_NAME, TASK, MAIN_COST, SUMMARY_COST, GITHUB_REPOSITORY all missing
-        }
-
-        with patch.dict(os.environ, env, clear=True):
-            # Act
-            result = cmd_notify_pr(None, mock_gh_actions)
+    def test_cmd_notify_pr_handles_empty_optional_fields(self, mock_gh_actions):
+        """Should handle empty optional fields gracefully"""
+        # Act
+        result = cmd_notify_pr(
+            gh=mock_gh_actions,
+            pr_number="42",
+            pr_url="https://github.com/owner/repo/pull/42",
+            project_name="",
+            task="",
+            main_cost="0",
+            summary_cost="0",
+            model_breakdown_json="",
+            repo=""
+        )
 
         # Assert
         assert result == 0
@@ -443,16 +475,15 @@ class TestCmdNotifyPr:
         assert "🎉 *New PR Created*" in message
         assert "#42" in message
 
-    def test_cmd_notify_pr_handles_unexpected_exception(self, mock_gh_actions, notification_env_vars):
+    def test_cmd_notify_pr_handles_unexpected_exception(self, mock_gh_actions, default_params):
         """Should catch and report unexpected exceptions"""
         # Arrange
-        with patch.dict(os.environ, notification_env_vars, clear=True):
-            with patch('claudestep.cli.commands.notify_pr.format_pr_notification') as mock_format:
-                # Simulate unexpected error during formatting
-                mock_format.side_effect = RuntimeError("Unexpected error")
+        with patch('claudestep.cli.commands.notify_pr.format_pr_notification') as mock_format:
+            # Simulate unexpected error during formatting
+            mock_format.side_effect = RuntimeError("Unexpected error")
 
-                # Act
-                result = cmd_notify_pr(None, mock_gh_actions)
+            # Act
+            result = cmd_notify_pr(gh=mock_gh_actions, **default_params)
 
         # Assert
         assert result == 1
@@ -462,15 +493,14 @@ class TestCmdNotifyPr:
         assert "Unexpected error" in error_message
         mock_gh_actions.write_output.assert_called_once_with("has_pr", "false")
 
-    def test_cmd_notify_pr_writes_has_pr_false_on_exception(self, mock_gh_actions, notification_env_vars):
+    def test_cmd_notify_pr_writes_has_pr_false_on_exception(self, mock_gh_actions, default_params):
         """Should write has_pr=false when exception occurs"""
         # Arrange
-        with patch.dict(os.environ, notification_env_vars, clear=True):
-            with patch('claudestep.cli.commands.notify_pr.format_pr_notification') as mock_format:
-                mock_format.side_effect = Exception("Test error")
+        with patch('claudestep.cli.commands.notify_pr.format_pr_notification') as mock_format:
+            mock_format.side_effect = Exception("Test error")
 
-                # Act
-                result = cmd_notify_pr(None, mock_gh_actions)
+            # Act
+            result = cmd_notify_pr(gh=mock_gh_actions, **default_params)
 
         # Assert
         assert result == 1
@@ -478,18 +508,18 @@ class TestCmdNotifyPr:
 
     def test_cmd_notify_pr_handles_empty_task_description(self, mock_gh_actions):
         """Should handle empty task description gracefully"""
-        # Arrange
-        env = {
-            "PR_NUMBER": "42",
-            "PR_URL": "https://github.com/owner/repo/pull/42",
-            "PROJECT_NAME": "test",
-            "TASK": "",
-            "GITHUB_REPOSITORY": "owner/repo"
-        }
-
-        with patch.dict(os.environ, env, clear=True):
-            # Act
-            result = cmd_notify_pr(None, mock_gh_actions)
+        # Act
+        result = cmd_notify_pr(
+            gh=mock_gh_actions,
+            pr_number="42",
+            pr_url="https://github.com/owner/repo/pull/42",
+            project_name="test",
+            task="",
+            main_cost="0",
+            summary_cost="0",
+            model_breakdown_json="",
+            repo="owner/repo"
+        )
 
         # Assert
         assert result == 0
@@ -500,18 +530,18 @@ class TestCmdNotifyPr:
 
     def test_cmd_notify_pr_handles_empty_project_name(self, mock_gh_actions):
         """Should handle empty project name gracefully"""
-        # Arrange
-        env = {
-            "PR_NUMBER": "42",
-            "PR_URL": "https://github.com/owner/repo/pull/42",
-            "PROJECT_NAME": "",
-            "TASK": "test task",
-            "GITHUB_REPOSITORY": "owner/repo"
-        }
-
-        with patch.dict(os.environ, env, clear=True):
-            # Act
-            result = cmd_notify_pr(None, mock_gh_actions)
+        # Act
+        result = cmd_notify_pr(
+            gh=mock_gh_actions,
+            pr_number="42",
+            pr_url="https://github.com/owner/repo/pull/42",
+            project_name="",
+            task="test task",
+            main_cost="0",
+            summary_cost="0",
+            model_breakdown_json="",
+            repo="owner/repo"
+        )
 
         # Assert
         assert result == 0
@@ -520,12 +550,10 @@ class TestCmdNotifyPr:
         message = slack_message_call[0][0][1]
         assert "*Project:*" in message  # Project field should still be present
 
-    def test_cmd_notify_pr_outputs_message_to_console(self, mock_gh_actions, notification_env_vars, capsys):
+    def test_cmd_notify_pr_outputs_message_to_console(self, mock_gh_actions, default_params, capsys):
         """Should print notification message to console for debugging"""
-        # Arrange
-        with patch.dict(os.environ, notification_env_vars, clear=True):
-            # Act
-            cmd_notify_pr(None, mock_gh_actions)
+        # Act
+        cmd_notify_pr(gh=mock_gh_actions, **default_params)
 
         # Assert
         captured = capsys.readouterr()

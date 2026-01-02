@@ -2,34 +2,53 @@
 Generate Slack notification message for created PR.
 """
 
-import os
+import json
+
+from claudestep.infrastructure.github.actions import GitHubActionsHelper
 
 
-def cmd_notify_pr(args, gh):
+def cmd_notify_pr(
+    gh: GitHubActionsHelper,
+    pr_number: str,
+    pr_url: str,
+    project_name: str,
+    task: str,
+    main_cost: str,
+    summary_cost: str,
+    model_breakdown_json: str,
+    repo: str,
+) -> int:
     """
     Generate Slack notification message for a created PR.
 
-    Reads from environment:
-    - PR_NUMBER: Pull request number
-    - PR_URL: Pull request URL
-    - PROJECT_NAME: Name of the project
-    - TASK: Task description
-    - MAIN_COST: Cost of main refactoring task (USD)
-    - SUMMARY_COST: Cost of PR summary generation (USD)
-    - GITHUB_REPOSITORY: Repository in format owner/repo
+    All parameters passed explicitly, no environment variable access.
+
+    Args:
+        gh: GitHub Actions helper for outputs and errors
+        pr_number: Pull request number
+        pr_url: Pull request URL
+        project_name: Name of the project
+        task: Task description
+        main_cost: Cost of main refactoring task (USD) as string
+        summary_cost: Cost of PR summary generation (USD) as string
+        model_breakdown_json: JSON string with per-model cost breakdown
+        repo: Repository in format owner/repo
 
     Outputs:
-    - slack_message: Formatted Slack message in mrkdwn format
-    - has_pr: "true" if PR was created
+        slack_message: Formatted Slack message in mrkdwn format
+        has_pr: "true" if PR was created
+
+    Returns:
+        0 on success, 1 on error
     """
-    # Get required environment variables
-    pr_number = os.environ.get("PR_NUMBER", "").strip()
-    pr_url = os.environ.get("PR_URL", "").strip()
-    project_name = os.environ.get("PROJECT_NAME", "").strip()
-    task = os.environ.get("TASK", "").strip()
-    main_cost = os.environ.get("MAIN_COST", "0").strip()
-    summary_cost = os.environ.get("SUMMARY_COST", "0").strip()
-    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    # Strip whitespace from inputs
+    pr_number = pr_number.strip()
+    pr_url = pr_url.strip()
+    project_name = project_name.strip()
+    task = task.strip()
+    main_cost = main_cost.strip()
+    summary_cost = summary_cost.strip()
+    model_breakdown_json = model_breakdown_json.strip()
 
     # If no PR, don't send notification
     if not pr_number or not pr_url:
@@ -51,6 +70,14 @@ def cmd_notify_pr(args, gh):
 
         total_cost = main_cost_val + summary_cost_val
 
+        # Parse model breakdown
+        model_breakdown = []
+        if model_breakdown_json:
+            try:
+                model_breakdown = json.loads(model_breakdown_json)
+            except json.JSONDecodeError:
+                pass
+
         # Format the Slack message
         message = format_pr_notification(
             pr_number=pr_number,
@@ -60,6 +87,7 @@ def cmd_notify_pr(args, gh):
             main_cost=main_cost_val,
             summary_cost=summary_cost_val,
             total_cost=total_cost,
+            model_breakdown=model_breakdown,
             repo=repo
         )
 
@@ -87,6 +115,7 @@ def format_pr_notification(
     main_cost: float,
     summary_cost: float,
     total_cost: float,
+    model_breakdown: list[dict],
     repo: str
 ) -> str:
     """
@@ -100,6 +129,7 @@ def format_pr_notification(
         main_cost: Main task cost in USD
         summary_cost: PR summary cost in USD
         total_cost: Total cost in USD
+        model_breakdown: List of dicts with per-model cost data
         repo: Repository name
 
     Returns:
@@ -107,19 +137,35 @@ def format_pr_notification(
     """
     # Build the message with Slack mrkdwn formatting
     lines = [
-        f"🎉 *New PR Created*",
+        "🎉 *New PR Created*",
         "",
         f"*PR:* <{pr_url}|#{pr_number}>",
         f"*Project:* `{project_name}`",
         f"*Task:* {task}",
         "",
         "*💰 Cost Breakdown:*",
-        f"```",
+        "```",
         f"Main task:      ${main_cost:.6f}",
         f"PR summary:     ${summary_cost:.6f}",
-        f"─────────────────────────────",
+        "─────────────────────────────",
         f"Total:          ${total_cost:.6f}",
-        f"```",
+        "```",
     ]
+
+    # Add per-model breakdown if available
+    if model_breakdown:
+        lines.append("")
+        lines.append("*📊 Per-Model Usage:*")
+        lines.append("```")
+        for model in model_breakdown:
+            model_name = model.get("model", "unknown")
+            cost = model.get("cost", 0.0)
+            input_tokens = model.get("input_tokens", 0)
+            output_tokens = model.get("output_tokens", 0)
+            # Truncate long model names for display
+            display_name = model_name[:30] if len(model_name) > 30 else model_name
+            lines.append(f"{display_name}")
+            lines.append(f"  Cost: ${cost:.6f} | In: {input_tokens:,} | Out: {output_tokens:,}")
+        lines.append("```")
 
     return "\n".join(lines)

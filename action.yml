@@ -94,7 +94,7 @@ outputs:
     value: ${{ steps.prepare.outputs.reviewer }}
   task_completed:
     description: 'Task description that was completed (empty if none)'
-    value: ${{ steps.prepare.outputs.task }}
+    value: ${{ steps.prepare.outputs.task_description }}
   has_capacity:
     description: 'Whether a reviewer had capacity (true/false)'
     value: ${{ steps.prepare.outputs.has_capacity }}
@@ -212,7 +212,7 @@ runs:
         BRANCH_NAME: ${{ steps.prepare.outputs.branch_name }}
         LABEL: ${{ steps.prepare.outputs.label }}
         REVIEWER: ${{ steps.prepare.outputs.reviewer }}
-        TASK: ${{ steps.prepare.outputs.task }}
+        TASK_DESCRIPTION: ${{ steps.prepare.outputs.task_description }}
         TASK_INDEX: ${{ steps.prepare.outputs.task_index }}
         PROJECT: ${{ steps.prepare.outputs.project_name }}
         PROJECT_PATH: ${{ steps.prepare.outputs.project_path }}
@@ -238,7 +238,7 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github_token }}
         PR_NUMBER: ${{ steps.finalize.outputs.pr_number }}
-        TASK: ${{ steps.prepare.outputs.task }}
+        TASK_DESCRIPTION: ${{ steps.prepare.outputs.task_description }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_RUN_ID: ${{ github.run_id }}
         ACTION_PATH: ${{ github.action_path }}
@@ -285,6 +285,7 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_RUN_ID: ${{ github.run_id }}
         ACTION_PATH: ${{ github.action_path }}
+        TASK_DESCRIPTION: ${{ steps.prepare.outputs.task_description }}
       run: |
         export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"
         python3 -m claudestep post-pr-comment
@@ -299,9 +300,10 @@ runs:
         PR_NUMBER: ${{ steps.finalize.outputs.pr_number }}
         PR_URL: ${{ steps.finalize.outputs.pr_url }}
         PROJECT_NAME: ${{ steps.prepare.outputs.project_name }}
-        TASK: ${{ steps.prepare.outputs.task }}
+        TASK_DESCRIPTION: ${{ steps.prepare.outputs.task_description }}
         MAIN_COST: ${{ steps.post_pr_comment.outputs.main_cost }}
         SUMMARY_COST: ${{ steps.post_pr_comment.outputs.summary_cost }}
+        MODEL_BREAKDOWN: ${{ steps.post_pr_comment.outputs.model_breakdown }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         ACTION_PATH: ${{ github.action_path }}
       run: |

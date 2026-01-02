@@ -49,7 +49,7 @@ def main():
         return cmd_prepare_summary(
             gh=gh,
             pr_number=os.environ.get("PR_NUMBER", ""),
-            task=os.environ.get("TASK", ""),
+            task=os.environ.get("TASK_DESCRIPTION", ""),
             repo=os.environ.get("GITHUB_REPOSITORY", ""),
             run_id=os.environ.get("GITHUB_RUN_ID", ""),
             action_path=os.environ.get("ACTION_PATH", "")
@@ -62,10 +62,21 @@ def main():
             main_execution_file=os.environ.get("MAIN_EXECUTION_FILE", ""),
             summary_execution_file=os.environ.get("SUMMARY_EXECUTION_FILE", ""),
             repo=os.environ.get("GITHUB_REPOSITORY", ""),
-            run_id=os.environ.get("GITHUB_RUN_ID", "")
+            run_id=os.environ.get("GITHUB_RUN_ID", ""),
+            task=os.environ.get("TASK_DESCRIPTION", ""),
         )
     elif args.command == "notify-pr":
-        return cmd_notify_pr(args, gh)
+        return cmd_notify_pr(
+            gh=gh,
+            pr_number=os.environ.get("PR_NUMBER", ""),
+            pr_url=os.environ.get("PR_URL", ""),
+            project_name=os.environ.get("PROJECT_NAME", ""),
+            task=os.environ.get("TASK_DESCRIPTION", ""),
+            main_cost=os.environ.get("MAIN_COST", "0"),
+            summary_cost=os.environ.get("SUMMARY_COST", "0"),
+            model_breakdown_json=os.environ.get("MODEL_BREAKDOWN", ""),
+            repo=os.environ.get("GITHUB_REPOSITORY", ""),
+        )
     elif args.command == "statistics":
         return cmd_statistics(
             gh=gh,

@@ -5,6 +5,8 @@ This command combines the AI-generated summary and cost breakdown into a single
 comment, using the reliable Python-based posting mechanism.
 """
 
+import json
+import os
 import subprocess
 import tempfile
 
@@ -20,7 +22,8 @@ def cmd_post_pr_comment(
     main_execution_file: str,
     summary_execution_file: str,
     repo: str,
-    run_id: str
+    run_id: str,
+    task: str = "",
 ) -> int:
     """
     Post a unified comment with PR summary and cost breakdown.
@@ -35,12 +38,14 @@ def cmd_post_pr_comment(
         summary_execution_file: Path to summary execution file
         repo: Repository in format owner/repo
         run_id: Workflow run ID
+        task: Task description (for workflow summary)
 
     Outputs:
         comment_posted: "true" if comment was posted, "false" otherwise
         main_cost: Cost of main task (USD)
         summary_cost: Cost of summary generation (USD)
         total_cost: Total cost (USD)
+        model_breakdown: JSON string with per-model cost breakdown
 
     Returns:
         0 on success, 1 on error
@@ -71,6 +76,10 @@ def cmd_post_pr_comment(
         gh.write_output("summary_cost", f"{cost_breakdown.summary_cost:.6f}")
         gh.write_output("total_cost", f"{cost_breakdown.total_cost:.6f}")
 
+        # Output per-model breakdown for Slack notifications
+        model_breakdown_json = json.dumps(cost_breakdown.to_model_breakdown_json())
+        gh.write_output("model_breakdown", model_breakdown_json)
+
         # Use domain models for parsing and formatting
         summary = SummaryFile.from_file(summary_file_path)
 
@@ -99,12 +108,21 @@ def cmd_post_pr_comment(
             print(f"   - PR summary: ${cost_breakdown.summary_cost:.6f}")
             print(f"   - Total: ${cost_breakdown.total_cost:.6f}")
 
+            # Write workflow summary to GITHUB_STEP_SUMMARY
+            _write_workflow_summary(
+                gh=gh,
+                pr_number=pr_number,
+                pr_url=f"https://github.com/{repo}/pull/{pr_number}",
+                task=task,
+                cost_breakdown=cost_breakdown,
+                repo=repo,
+                run_id=run_id,
+            )
+
             gh.write_output("comment_posted", "true")
             return 0
 
         finally:
-            # Clean up temp file
-            import os
             os.unlink(temp_file)
 
     except subprocess.CalledProcessError as e:
@@ -113,3 +131,60 @@ def cmd_post_pr_comment(
     except Exception as e:
         gh.set_error(f"Error posting PR comment: {str(e)}")
         return 1
+
+
+def _write_workflow_summary(
+    gh: GitHubActionsHelper,
+    pr_number: str,
+    pr_url: str,
+    task: str,
+    cost_breakdown: CostBreakdown,
+    repo: str,
+    run_id: str,
+) -> None:
+    """Write cost summary to GITHUB_STEP_SUMMARY for workflow visibility.
+
+    Args:
+        gh: GitHub Actions helper for writing step summary
+        pr_number: Pull request number
+        pr_url: Full URL to the pull request
+        task: Task description
+        cost_breakdown: Cost breakdown with per-model data
+        repo: Repository in format owner/repo
+        run_id: Workflow run ID
+    """
+    workflow_url = f"https://github.com/{repo}/actions/runs/{run_id}"
+
+    lines = [
+        "## ✅ ClaudeStep Complete",
+        "",
+        f"**PR:** [#{pr_number}]({pr_url})",
+    ]
+
+    if task:
+        lines.append(f"**Task:** {task}")
+
+    lines.extend([
+        "",
+        "### 💰 Cost Summary",
+        "",
+        "| Component | Cost (USD) |",
+        "|-----------|------------|",
+        f"| Main refactoring task | ${cost_breakdown.main_cost:.6f} |",
+        f"| PR summary generation | ${cost_breakdown.summary_cost:.6f} |",
+        f"| **Total** | **${cost_breakdown.total_cost:.6f}** |",
+        "",
+    ])
+
+    # Add per-model breakdown if available
+    model_breakdown = cost_breakdown.format_model_breakdown()
+    if model_breakdown:
+        lines.append(model_breakdown)
+        lines.append("")
+
+    lines.extend([
+        "---",
+        f"*[View workflow run]({workflow_url})*",
+    ])
+
+    gh.write_step_summary("\n".join(lines))

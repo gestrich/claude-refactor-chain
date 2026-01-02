@@ -182,8 +182,8 @@ class TestCmdPostPrComment:
 
             # Assert
             assert result == 0
-            # Function now outputs 4 values: main_cost, summary_cost, total_cost, comment_posted
-            assert mock_gh_actions.write_output.call_count == 4
+            # Function now outputs 5 values: main_cost, summary_cost, total_cost, model_breakdown, comment_posted
+            assert mock_gh_actions.write_output.call_count == 5
             # Verify the last call is comment_posted
             last_call = mock_gh_actions.write_output.call_args_list[-1]
             assert last_call[0] == ("comment_posted", "true")

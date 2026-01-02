@@ -204,7 +204,7 @@ The original costs were inflated because `claude-3-haiku-20240307` was charged a
 | Cache Write | 42,904 | 27,451 | 70,355 |
 | **Total** | 138,760 | 72,455 | **211,215** |
 
-- [ ] Phase 4: Per-Model Breakdown Display
+- [x] Phase 4: Per-Model Breakdown Display
 
 Add per-model cost breakdown to all outputs (PR comment, Slack, workflow summary).
 

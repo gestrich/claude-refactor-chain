@@ -40,7 +40,7 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
 
         # Get environment variables
         branch_name = os.environ.get("BRANCH_NAME", "")
-        task = os.environ.get("TASK", "")
+        task = os.environ.get("TASK_DESCRIPTION", "")
         task_index = os.environ.get("TASK_INDEX", "")
         reviewer = os.environ.get("REVIEWER", "")
         project = os.environ.get("PROJECT", "")

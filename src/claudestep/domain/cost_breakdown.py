@@ -268,6 +268,9 @@ class CostBreakdown:
     output_tokens: int = 0
     cache_read_tokens: int = 0
     cache_write_tokens: int = 0
+    # Per-model breakdowns for detailed display
+    main_models: list[ModelUsage] = field(default_factory=list)
+    summary_models: list[ModelUsage] = field(default_factory=list)
 
     @property
     def total_cost(self) -> float:
@@ -300,6 +303,8 @@ class CostBreakdown:
             output_tokens=total_usage.output_tokens,
             cache_read_tokens=total_usage.cache_read_tokens,
             cache_write_tokens=total_usage.cache_write_tokens,
+            main_models=main_usage.models,
+            summary_models=summary_usage.models,
         )
 
     @property
@@ -311,6 +316,102 @@ class CostBreakdown:
             + self.cache_read_tokens
             + self.cache_write_tokens
         )
+
+    @property
+    def all_models(self) -> list[ModelUsage]:
+        """Get all models from both main and summary executions."""
+        return self.main_models + self.summary_models
+
+    def get_aggregated_models(self) -> list[ModelUsage]:
+        """Aggregate model usage across main and summary executions.
+
+        Models with the same name are combined into a single entry.
+
+        Returns:
+            List of ModelUsage with unique model names, tokens/costs summed.
+        """
+        aggregated: dict[str, ModelUsage] = {}
+
+        for model in self.all_models:
+            if model.model in aggregated:
+                existing = aggregated[model.model]
+                aggregated[model.model] = ModelUsage(
+                    model=model.model,
+                    cost=existing.cost + model.cost,
+                    input_tokens=existing.input_tokens + model.input_tokens,
+                    output_tokens=existing.output_tokens + model.output_tokens,
+                    cache_read_tokens=existing.cache_read_tokens + model.cache_read_tokens,
+                    cache_write_tokens=existing.cache_write_tokens + model.cache_write_tokens,
+                )
+            else:
+                aggregated[model.model] = ModelUsage(
+                    model=model.model,
+                    cost=model.cost,
+                    input_tokens=model.input_tokens,
+                    output_tokens=model.output_tokens,
+                    cache_read_tokens=model.cache_read_tokens,
+                    cache_write_tokens=model.cache_write_tokens,
+                )
+
+        return list(aggregated.values())
+
+    def format_model_breakdown(self) -> str:
+        """Format per-model cost breakdown as markdown table.
+
+        Returns:
+            Formatted markdown string with model breakdown table,
+            or empty string if no models.
+        """
+        models = self.get_aggregated_models()
+        if not models:
+            return ""
+
+        lines = [
+            "### Per-Model Breakdown",
+            "",
+            "| Model | Input | Output | Cache R | Cache W | Cost |",
+            "|-------|-------|--------|---------|---------|------|",
+        ]
+
+        for model in models:
+            calculated_cost = model.calculate_cost()
+            lines.append(
+                f"| {model.model} | {self._format_token_count(model.input_tokens)} | "
+                f"{self._format_token_count(model.output_tokens)} | "
+                f"{self._format_token_count(model.cache_read_tokens)} | "
+                f"{self._format_token_count(model.cache_write_tokens)} | "
+                f"${calculated_cost:.6f} |"
+            )
+
+        # Add totals row
+        lines.append(
+            f"| **Total** | **{self._format_token_count(self.input_tokens)}** | "
+            f"**{self._format_token_count(self.output_tokens)}** | "
+            f"**{self._format_token_count(self.cache_read_tokens)}** | "
+            f"**{self._format_token_count(self.cache_write_tokens)}** | "
+            f"**${self.total_cost:.6f}** |"
+        )
+
+        return "\n".join(lines)
+
+    def to_model_breakdown_json(self) -> list[dict]:
+        """Convert per-model breakdown to JSON-serializable format.
+
+        Returns:
+            List of dicts with model breakdown data for downstream steps.
+        """
+        models = self.get_aggregated_models()
+        return [
+            {
+                "model": m.model,
+                "input_tokens": m.input_tokens,
+                "output_tokens": m.output_tokens,
+                "cache_read_tokens": m.cache_read_tokens,
+                "cache_write_tokens": m.cache_write_tokens,
+                "cost": m.calculate_cost(),
+            }
+            for m in models
+        ]
 
     @staticmethod
     def _format_token_count(count: int) -> str:
@@ -329,20 +430,10 @@ class CostBreakdown:
         """
         workflow_url = f"https://github.com/{repo}/actions/runs/{run_id}"
 
-        # Build token section only if we have token data
-        token_section = ""
-        if self.total_tokens > 0:
-            token_section = f"""
-### Token Usage
-
-| Token Type | Count |
-|------------|-------|
-| Input | {self._format_token_count(self.input_tokens)} |
-| Output | {self._format_token_count(self.output_tokens)} |
-| Cache Read | {self._format_token_count(self.cache_read_tokens)} |
-| Cache Write | {self._format_token_count(self.cache_write_tokens)} |
-| **Total** | **{self._format_token_count(self.total_tokens)}** |
-"""
+        # Build per-model breakdown section
+        model_section = self.format_model_breakdown()
+        if model_section:
+            model_section = "\n" + model_section + "\n"
 
         cost_section = f"""## 💰 Cost Breakdown
 
@@ -353,7 +444,7 @@ This PR was generated using Claude Code with the following costs:
 | Main refactoring task | ${self.main_cost:.6f} |
 | PR summary generation | ${self.summary_cost:.6f} |
 | **Total** | **${self.total_cost:.6f}** |
-{token_section}
+{model_section}
 ---
 *Cost tracking by ClaudeStep • [View workflow run]({workflow_url})*
 """
