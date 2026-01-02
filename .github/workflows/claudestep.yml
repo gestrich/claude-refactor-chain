@@ -33,6 +33,8 @@ on:
     branches:
       - main
       - main-e2e
+    paths:
+      - 'claude-step/**'
 
 permissions:
   contents: write       # Commit and push changes
