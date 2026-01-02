@@ -184,7 +184,7 @@ Check if README.md references the examples directory and update accordingly:
 - Updated Troubleshooting section to remove references to deprecated `claudestep-auto-start.yml` workflow
 - All 791 unit/integration tests pass
 
-- [ ] Phase 6: Validation
+- [x] Phase 6: Validation
 
 **Automated testing:**
 - Run unit tests: `pytest tests/unit/`
@@ -208,3 +208,15 @@ Check if README.md references the examples directory and update accordingly:
 - README updated to reference `claudestep.yml` instead of examples
 - Workflow uses `push` trigger instead of `pull_request:closed`
 - Workflow still supports workflow_dispatch for manual triggers
+
+**Completed:** 2026-01-01
+
+**Technical notes:**
+- All 643 unit tests pass
+- All 148 integration tests pass
+- `claudestep.yml` reduced to 49 lines (from ~140 lines)
+- No bash complexity in workflow file - only YAML configuration
+- `examples/` directory confirmed removed
+- README references `.github/workflows/claudestep.yml` as the canonical reference implementation
+- Workflow uses `push: branches: [main, main-e2e]` trigger
+- Workflow supports `workflow_dispatch` with `project_name` input for manual triggers
