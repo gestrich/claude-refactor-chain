@@ -1,5 +1,5 @@
 """
-Generate Slack notification message for created PR.
+Format Slack notification message for created PR.
 """
 
 import json
@@ -7,7 +7,7 @@ import json
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 
 
-def cmd_notify_pr(
+def cmd_format_slack_notification(
     gh: GitHubActionsHelper,
     pr_number: str,
     pr_url: str,
@@ -19,7 +19,7 @@ def cmd_notify_pr(
     repo: str,
 ) -> int:
     """
-    Generate Slack notification message for a created PR.
+    Format Slack notification message for a created PR.
 
     All parameters passed explicitly, no environment variable access.
 

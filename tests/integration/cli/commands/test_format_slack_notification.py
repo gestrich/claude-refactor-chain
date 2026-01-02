@@ -1,12 +1,12 @@
 """
-Tests for notify_pr.py - PR notification command
+Tests for format_slack_notification.py - Slack notification formatting command
 """
 
 from unittest.mock import Mock, patch
 
 import pytest
 
-from claudestep.cli.commands.notify_pr import cmd_notify_pr, format_pr_notification
+from claudestep.cli.commands.format_slack_notification import cmd_format_slack_notification, format_pr_notification
 
 
 class TestFormatPrNotification:
@@ -219,8 +219,8 @@ class TestFormatPrNotification:
         assert "500" in result
 
 
-class TestCmdNotifyPr:
-    """Test suite for notify_pr command functionality"""
+class TestCmdFormatSlackNotification:
+    """Test suite for format_slack_notification command functionality"""
 
     @pytest.fixture
     def mock_gh_actions(self):
@@ -244,10 +244,10 @@ class TestCmdNotifyPr:
             "repo": "owner/repo"
         }
 
-    def test_cmd_notify_pr_generates_notification_successfully(self, mock_gh_actions, default_params):
+    def test_cmd_format_slack_notification_generates_notification_successfully(self, mock_gh_actions, default_params):
         """Should generate Slack notification when all inputs are valid"""
         # Act
-        result = cmd_notify_pr(gh=mock_gh_actions, **default_params)
+        result = cmd_format_slack_notification(gh=mock_gh_actions, **default_params)
 
         # Assert
         assert result == 0
@@ -262,10 +262,10 @@ class TestCmdNotifyPr:
         assert "🎉 *New PR Created*" in message
         assert "my-project" in message
 
-    def test_cmd_notify_pr_includes_all_required_fields_in_message(self, mock_gh_actions, default_params):
+    def test_cmd_format_slack_notification_includes_all_required_fields_in_message(self, mock_gh_actions, default_params):
         """Should include PR number, URL, project, task, and costs in message"""
         # Act
-        cmd_notify_pr(gh=mock_gh_actions, **default_params)
+        cmd_format_slack_notification(gh=mock_gh_actions, **default_params)
 
         # Assert
         calls = mock_gh_actions.write_output.call_args_list
@@ -279,10 +279,10 @@ class TestCmdNotifyPr:
         assert "$0.123456" in message
         assert "$0.045678" in message
 
-    def test_cmd_notify_pr_calculates_total_cost_correctly(self, mock_gh_actions):
+    def test_cmd_format_slack_notification_calculates_total_cost_correctly(self, mock_gh_actions):
         """Should calculate total cost as sum of main and summary costs"""
         # Act
-        cmd_notify_pr(
+        cmd_format_slack_notification(
             gh=mock_gh_actions,
             pr_number="42",
             pr_url="https://github.com/owner/repo/pull/42",
@@ -303,10 +303,10 @@ class TestCmdNotifyPr:
         assert "$0.456000" in message  # Summary cost
         assert "$0.579000" in message  # Total (0.123 + 0.456)
 
-    def test_cmd_notify_pr_skips_when_no_pr_number(self, mock_gh_actions):
+    def test_cmd_format_slack_notification_skips_when_no_pr_number(self, mock_gh_actions):
         """Should skip notification and return success when pr_number is empty"""
         # Act
-        result = cmd_notify_pr(
+        result = cmd_format_slack_notification(
             gh=mock_gh_actions,
             pr_number="",
             pr_url="https://github.com/owner/repo/pull/42",
@@ -323,10 +323,10 @@ class TestCmdNotifyPr:
         mock_gh_actions.write_output.assert_called_once_with("has_pr", "false")
         mock_gh_actions.set_error.assert_not_called()
 
-    def test_cmd_notify_pr_skips_when_no_pr_url(self, mock_gh_actions):
+    def test_cmd_format_slack_notification_skips_when_no_pr_url(self, mock_gh_actions):
         """Should skip notification when pr_url is empty"""
         # Act
-        result = cmd_notify_pr(
+        result = cmd_format_slack_notification(
             gh=mock_gh_actions,
             pr_number="42",
             pr_url="",
@@ -342,10 +342,10 @@ class TestCmdNotifyPr:
         assert result == 0
         mock_gh_actions.write_output.assert_called_once_with("has_pr", "false")
 
-    def test_cmd_notify_pr_skips_when_pr_number_is_whitespace(self, mock_gh_actions):
+    def test_cmd_format_slack_notification_skips_when_pr_number_is_whitespace(self, mock_gh_actions):
         """Should skip notification when pr_number is whitespace only"""
         # Act
-        result = cmd_notify_pr(
+        result = cmd_format_slack_notification(
             gh=mock_gh_actions,
             pr_number="   ",
             pr_url="https://github.com/owner/repo/pull/42",
@@ -361,10 +361,10 @@ class TestCmdNotifyPr:
         assert result == 0
         mock_gh_actions.write_output.assert_called_once_with("has_pr", "false")
 
-    def test_cmd_notify_pr_skips_when_pr_url_is_whitespace(self, mock_gh_actions):
+    def test_cmd_format_slack_notification_skips_when_pr_url_is_whitespace(self, mock_gh_actions):
         """Should skip notification when pr_url is whitespace only"""
         # Act
-        result = cmd_notify_pr(
+        result = cmd_format_slack_notification(
             gh=mock_gh_actions,
             pr_number="42",
             pr_url="   ",
@@ -380,10 +380,10 @@ class TestCmdNotifyPr:
         assert result == 0
         mock_gh_actions.write_output.assert_called_once_with("has_pr", "false")
 
-    def test_cmd_notify_pr_handles_invalid_cost_values(self, mock_gh_actions):
+    def test_cmd_format_slack_notification_handles_invalid_cost_values(self, mock_gh_actions):
         """Should treat invalid cost values as zero and continue"""
         # Act
-        result = cmd_notify_pr(
+        result = cmd_format_slack_notification(
             gh=mock_gh_actions,
             pr_number="42",
             pr_url="https://github.com/owner/repo/pull/42",
@@ -402,10 +402,10 @@ class TestCmdNotifyPr:
         message = slack_message_call[0][0][1]
         assert "$0.000000" in message  # Should use 0.0 for invalid values
 
-    def test_cmd_notify_pr_uses_default_zero_costs(self, mock_gh_actions):
+    def test_cmd_format_slack_notification_uses_default_zero_costs(self, mock_gh_actions):
         """Should use 0 for costs when cost strings are '0'"""
         # Act
-        result = cmd_notify_pr(
+        result = cmd_format_slack_notification(
             gh=mock_gh_actions,
             pr_number="42",
             pr_url="https://github.com/owner/repo/pull/42",
@@ -424,10 +424,10 @@ class TestCmdNotifyPr:
         message = slack_message_call[0][0][1]
         assert "$0.000000" in message
 
-    def test_cmd_notify_pr_strips_whitespace_from_inputs(self, mock_gh_actions):
+    def test_cmd_format_slack_notification_strips_whitespace_from_inputs(self, mock_gh_actions):
         """Should strip whitespace from parameter values"""
         # Act
-        result = cmd_notify_pr(
+        result = cmd_format_slack_notification(
             gh=mock_gh_actions,
             pr_number="  42  ",
             pr_url="  https://github.com/owner/repo/pull/42  ",
@@ -450,10 +450,10 @@ class TestCmdNotifyPr:
         assert "$0.123000" in message
         assert "$0.456000" in message
 
-    def test_cmd_notify_pr_handles_empty_optional_fields(self, mock_gh_actions):
+    def test_cmd_format_slack_notification_handles_empty_optional_fields(self, mock_gh_actions):
         """Should handle empty optional fields gracefully"""
         # Act
-        result = cmd_notify_pr(
+        result = cmd_format_slack_notification(
             gh=mock_gh_actions,
             pr_number="42",
             pr_url="https://github.com/owner/repo/pull/42",
@@ -475,15 +475,15 @@ class TestCmdNotifyPr:
         assert "🎉 *New PR Created*" in message
         assert "#42" in message
 
-    def test_cmd_notify_pr_handles_unexpected_exception(self, mock_gh_actions, default_params):
+    def test_cmd_format_slack_notification_handles_unexpected_exception(self, mock_gh_actions, default_params):
         """Should catch and report unexpected exceptions"""
         # Arrange
-        with patch('claudestep.cli.commands.notify_pr.format_pr_notification') as mock_format:
+        with patch('claudestep.cli.commands.format_slack_notification.format_pr_notification') as mock_format:
             # Simulate unexpected error during formatting
             mock_format.side_effect = RuntimeError("Unexpected error")
 
             # Act
-            result = cmd_notify_pr(gh=mock_gh_actions, **default_params)
+            result = cmd_format_slack_notification(gh=mock_gh_actions, **default_params)
 
         # Assert
         assert result == 1
@@ -493,23 +493,23 @@ class TestCmdNotifyPr:
         assert "Unexpected error" in error_message
         mock_gh_actions.write_output.assert_called_once_with("has_pr", "false")
 
-    def test_cmd_notify_pr_writes_has_pr_false_on_exception(self, mock_gh_actions, default_params):
+    def test_cmd_format_slack_notification_writes_has_pr_false_on_exception(self, mock_gh_actions, default_params):
         """Should write has_pr=false when exception occurs"""
         # Arrange
-        with patch('claudestep.cli.commands.notify_pr.format_pr_notification') as mock_format:
+        with patch('claudestep.cli.commands.format_slack_notification.format_pr_notification') as mock_format:
             mock_format.side_effect = Exception("Test error")
 
             # Act
-            result = cmd_notify_pr(gh=mock_gh_actions, **default_params)
+            result = cmd_format_slack_notification(gh=mock_gh_actions, **default_params)
 
         # Assert
         assert result == 1
         mock_gh_actions.write_output.assert_called_with("has_pr", "false")
 
-    def test_cmd_notify_pr_handles_empty_task_description(self, mock_gh_actions):
+    def test_cmd_format_slack_notification_handles_empty_task_description(self, mock_gh_actions):
         """Should handle empty task description gracefully"""
         # Act
-        result = cmd_notify_pr(
+        result = cmd_format_slack_notification(
             gh=mock_gh_actions,
             pr_number="42",
             pr_url="https://github.com/owner/repo/pull/42",
@@ -528,10 +528,10 @@ class TestCmdNotifyPr:
         message = slack_message_call[0][0][1]
         assert "*Task:*" in message  # Task field should still be present
 
-    def test_cmd_notify_pr_handles_empty_project_name(self, mock_gh_actions):
+    def test_cmd_format_slack_notification_handles_empty_project_name(self, mock_gh_actions):
         """Should handle empty project name gracefully"""
         # Act
-        result = cmd_notify_pr(
+        result = cmd_format_slack_notification(
             gh=mock_gh_actions,
             pr_number="42",
             pr_url="https://github.com/owner/repo/pull/42",
@@ -550,10 +550,10 @@ class TestCmdNotifyPr:
         message = slack_message_call[0][0][1]
         assert "*Project:*" in message  # Project field should still be present
 
-    def test_cmd_notify_pr_outputs_message_to_console(self, mock_gh_actions, default_params, capsys):
+    def test_cmd_format_slack_notification_outputs_message_to_console(self, mock_gh_actions, default_params, capsys):
         """Should print notification message to console for debugging"""
         # Act
-        cmd_notify_pr(gh=mock_gh_actions, **default_params)
+        cmd_format_slack_notification(gh=mock_gh_actions, **default_params)
 
         # Assert
         captured = capsys.readouterr()

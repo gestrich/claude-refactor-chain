@@ -291,7 +291,7 @@ runs:
         python3 -m claudestep post-pr-comment
       continue-on-error: true
 
-    - name: Prepare Slack notification
+    - name: Format Slack notification
       id: notify
       if: steps.finalize.outputs.pr_number != ''
       shell: bash
@@ -308,7 +308,7 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
       run: |
         export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"
-        python3 -m claudestep notify-pr
+        python3 -m claudestep format-slack-notification
       continue-on-error: true
 
     - name: Post to Slack

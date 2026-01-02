@@ -133,7 +133,7 @@ Available commands:
 - `finalize` - Finalize after Claude Code execution (commit, PR, summary)
 - `prepare-summary` - Prepare prompt for PR summary generation
 - `post-pr-comment` - Post unified PR comment with summary and cost breakdown
-- `notify-pr` - Generate Slack notification for created PR
+- `format-slack-notification` - Format Slack notification message for created PR
 - `statistics` - Generate statistics and reports
 
 ## Notes

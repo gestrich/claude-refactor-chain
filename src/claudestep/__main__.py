@@ -13,7 +13,7 @@ from claudestep.cli.commands.auto_start import cmd_auto_start, cmd_auto_start_su
 from claudestep.cli.commands.discover import main as cmd_discover
 from claudestep.cli.commands.discover_ready import main as cmd_discover_ready
 from claudestep.cli.commands.finalize import cmd_finalize
-from claudestep.cli.commands.notify_pr import cmd_notify_pr
+from claudestep.cli.commands.format_slack_notification import cmd_format_slack_notification
 from claudestep.cli.commands.parse_event import main as cmd_parse_event
 from claudestep.cli.commands.post_pr_comment import cmd_post_pr_comment
 from claudestep.cli.commands.prepare import cmd_prepare
@@ -65,8 +65,8 @@ def main():
             run_id=os.environ.get("GITHUB_RUN_ID", ""),
             task=os.environ.get("TASK_DESCRIPTION", ""),
         )
-    elif args.command == "notify-pr":
-        return cmd_notify_pr(
+    elif args.command == "format-slack-notification":
+        return cmd_format_slack_notification(
             gh=gh,
             pr_number=os.environ.get("PR_NUMBER", ""),
             pr_url=os.environ.get("PR_URL", ""),

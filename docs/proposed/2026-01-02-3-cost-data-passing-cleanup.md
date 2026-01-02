@@ -29,7 +29,7 @@ After completing the token-based cost calculation feature (Phase 4 in `2026-01-0
 
 ## Phases
 
-- [ ] Phase 1: Rename `notify_pr` to `format_slack_notification`
+- [x] Phase 1: Rename `notify_pr` to `format_slack_notification`
 
 Rename the command to clearly indicate its purpose:
 - Rename `src/claudestep/cli/commands/notify_pr.py` → `src/claudestep/cli/commands/format_slack_notification.py`
