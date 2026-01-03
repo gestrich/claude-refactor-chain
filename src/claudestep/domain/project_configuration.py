@@ -51,6 +51,7 @@ class ProjectConfiguration:
     project: Project
     reviewers: List[Reviewer]
     base_branch: Optional[str] = None  # Optional override for target base branch
+    allowed_tools: Optional[str] = None  # Optional override for Claude's allowed tools
 
     @classmethod
     def default(cls, project: Project) -> 'ProjectConfiguration':
@@ -59,6 +60,7 @@ class ProjectConfiguration:
         Default configuration:
         - No reviewers (PRs created without assignee)
         - No base branch override (uses workflow default)
+        - No allowed tools override (uses workflow default)
 
         Args:
             project: Project domain model
@@ -69,7 +71,8 @@ class ProjectConfiguration:
         return cls(
             project=project,
             reviewers=[],
-            base_branch=None
+            base_branch=None,
+            allowed_tools=None
         )
 
     @classmethod
@@ -89,11 +92,13 @@ class ProjectConfiguration:
         reviewers_config = config.get("reviewers", [])
         reviewers = [Reviewer.from_dict(r) for r in reviewers_config if "username" in r]
         base_branch = config.get("baseBranch")
+        allowed_tools = config.get("allowedTools")
 
         return cls(
             project=project,
             reviewers=reviewers,
-            base_branch=base_branch
+            base_branch=base_branch,
+            allowed_tools=allowed_tools
         )
 
     def get_reviewer_usernames(self) -> List[str]:
@@ -128,6 +133,19 @@ class ProjectConfiguration:
             return self.base_branch
         return default_base_branch
 
+    def get_allowed_tools(self, default_allowed_tools: str) -> str:
+        """Resolve allowed tools from project config or fall back to default.
+
+        Args:
+            default_allowed_tools: Default from workflow/CLI (required, no default here)
+
+        Returns:
+            Project's allowedTools if set, otherwise the default
+        """
+        if self.allowed_tools:
+            return self.allowed_tools
+        return default_allowed_tools
+
     def to_dict(self) -> dict:
         """Convert to dictionary representation
 
@@ -140,4 +158,6 @@ class ProjectConfiguration:
         }
         if self.base_branch:
             result["baseBranch"] = self.base_branch
+        if self.allowed_tools:
+            result["allowedTools"] = self.allowed_tools
         return result

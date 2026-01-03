@@ -641,6 +641,152 @@ baseBranch: feature/my-branch
         assert result["baseBranch"] == "feature/my-branch"
 
 
+class TestProjectConfigurationAllowedTools:
+    """Test suite for ProjectConfiguration allowed_tools functionality"""
+
+    def test_from_yaml_string_parses_allowed_tools(self):
+        """Should parse allowedTools from YAML configuration"""
+        # Arrange
+        project = Project("my-project")
+        yaml_content = """
+reviewers:
+  - username: alice
+    maxOpenPRs: 2
+allowedTools: Write,Read,Edit
+"""
+
+        # Act
+        config = ProjectConfiguration.from_yaml_string(project, yaml_content)
+
+        # Assert
+        assert config.allowed_tools == "Write,Read,Edit"
+
+    def test_from_yaml_string_allowed_tools_is_none_when_not_specified(self):
+        """Should have None allowed_tools when not specified in YAML"""
+        # Arrange
+        project = Project("my-project")
+        yaml_content = """
+reviewers:
+  - username: alice
+    maxOpenPRs: 2
+"""
+
+        # Act
+        config = ProjectConfiguration.from_yaml_string(project, yaml_content)
+
+        # Assert
+        assert config.allowed_tools is None
+
+    def test_get_allowed_tools_returns_config_value_when_set(self):
+        """Should return config's allowed_tools when it is set"""
+        # Arrange
+        project = Project("my-project")
+        config = ProjectConfiguration(
+            project=project,
+            reviewers=[],
+            allowed_tools="Write,Read,Edit"
+        )
+
+        # Act
+        result = config.get_allowed_tools("Write,Read,Bash,Edit")
+
+        # Assert
+        assert result == "Write,Read,Edit"
+
+    def test_get_allowed_tools_returns_default_when_not_set(self):
+        """Should return default_allowed_tools when config's allowed_tools is not set"""
+        # Arrange
+        project = Project("my-project")
+        config = ProjectConfiguration(
+            project=project,
+            reviewers=[],
+            allowed_tools=None
+        )
+
+        # Act
+        result = config.get_allowed_tools("Write,Read,Bash,Edit")
+
+        # Assert
+        assert result == "Write,Read,Bash,Edit"
+
+    def test_to_dict_includes_allowed_tools_when_set(self):
+        """Should include allowedTools in dict when allowed_tools is set"""
+        # Arrange
+        project = Project("my-project")
+        config = ProjectConfiguration(
+            project=project,
+            reviewers=[],
+            allowed_tools="Write,Read,Edit"
+        )
+
+        # Act
+        result = config.to_dict()
+
+        # Assert
+        assert "allowedTools" in result
+        assert result["allowedTools"] == "Write,Read,Edit"
+
+    def test_to_dict_excludes_allowed_tools_when_not_set(self):
+        """Should not include allowedTools in dict when allowed_tools is None"""
+        # Arrange
+        project = Project("my-project")
+        config = ProjectConfiguration(
+            project=project,
+            reviewers=[],
+            allowed_tools=None
+        )
+
+        # Act
+        result = config.to_dict()
+
+        # Assert
+        assert "allowedTools" not in result
+
+    def test_allowed_tools_with_granular_bash_permissions(self):
+        """Should handle allowed_tools with Bash(command:*) syntax"""
+        # Arrange
+        project = Project("my-project")
+        yaml_content = """
+reviewers:
+  - username: alice
+allowedTools: Read,Write,Edit,Bash(git add:*),Bash(git commit:*)
+"""
+
+        # Act
+        config = ProjectConfiguration.from_yaml_string(project, yaml_content)
+
+        # Assert
+        assert config.allowed_tools == "Read,Write,Edit,Bash(git add:*),Bash(git commit:*)"
+        assert config.get_allowed_tools("default") == "Read,Write,Edit,Bash(git add:*),Bash(git commit:*)"
+
+        # Verify to_dict also handles it correctly
+        result = config.to_dict()
+        assert result["allowedTools"] == "Read,Write,Edit,Bash(git add:*),Bash(git commit:*)"
+
+    def test_default_creates_config_with_no_allowed_tools(self):
+        """Should create default config with no allowed_tools override"""
+        # Arrange
+        project = Project("my-project")
+
+        # Act
+        config = ProjectConfiguration.default(project)
+
+        # Assert
+        assert config.allowed_tools is None
+
+    def test_default_get_allowed_tools_returns_workflow_default(self):
+        """Default config should fall back to workflow's default allowed_tools"""
+        # Arrange
+        project = Project("my-project")
+        config = ProjectConfiguration.default(project)
+
+        # Act
+        allowed_tools = config.get_allowed_tools("Write,Read,Bash,Edit")
+
+        # Assert
+        assert allowed_tools == "Write,Read,Bash,Edit"
+
+
 class TestProjectConfigurationIntegration:
     """Integration tests for ProjectConfiguration with various scenarios"""
 
@@ -680,3 +826,33 @@ settings:
         dict_form = config.to_dict()
         assert dict_form["project"] == "integration-test"
         assert len(dict_form["reviewers"]) == 3
+
+    def test_full_config_with_all_fields(self):
+        """Should handle configuration with all fields set"""
+        # Arrange
+        project = Project("full-config-test")
+        yaml_content = """
+reviewers:
+  - username: alice
+    maxOpenPRs: 2
+baseBranch: develop
+allowedTools: Read,Write,Edit,Bash(npm test:*)
+"""
+
+        # Act
+        config = ProjectConfiguration.from_yaml_string(project, yaml_content)
+
+        # Assert
+        assert config.project.name == "full-config-test"
+        assert len(config.reviewers) == 1
+        assert config.base_branch == "develop"
+        assert config.allowed_tools == "Read,Write,Edit,Bash(npm test:*)"
+
+        # Verify all getters work correctly
+        assert config.get_base_branch("main") == "develop"
+        assert config.get_allowed_tools("Write,Read,Bash,Edit") == "Read,Write,Edit,Bash(npm test:*)"
+
+        # Verify to_dict includes all fields
+        result = config.to_dict()
+        assert result["baseBranch"] == "develop"
+        assert result["allowedTools"] == "Read,Write,Edit,Bash(npm test:*)"
