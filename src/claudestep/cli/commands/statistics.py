@@ -108,6 +108,12 @@ def cmd_statistics(
                 stats = report.project_stats[project_name]
                 gh.write_step_summary(stats.format_summary())
                 gh.write_step_summary("")
+
+            # Add detailed task view with orphaned PRs
+            gh.write_step_summary("## Detailed Task View")
+            gh.write_step_summary("")
+            gh.write_step_summary(report.format_project_details())
+            gh.write_step_summary("")
         else:
             gh.write_step_summary("## Project Progress")
             gh.write_step_summary("")
