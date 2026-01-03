@@ -7,6 +7,7 @@ This guide explains how to create and configure ClaudeStep projects, including w
 - [Project Structure](#project-structure)
 - [spec.md Format](#specmd-format)
 - [configuration.yml Format](#configurationyml-format)
+  - [Tool Permissions](#tool-permissions)
 - [Modifying Tasks](#modifying-tasks)
 - [PR Templates](#pr-templates)
 
@@ -174,6 +175,9 @@ reviewers:
 
 # Optional: Override base branch for this project
 baseBranch: develop
+
+# Optional: Override allowed tools for this project
+allowedTools: Read,Write,Edit,Bash
 ```
 
 ### Field Reference
@@ -184,6 +188,7 @@ baseBranch: develop
 | `reviewers[].username` | string | Yes | GitHub username |
 | `reviewers[].maxOpenPRs` | number | Yes | Maximum open PRs for this reviewer |
 | `baseBranch` | string | No | Override base branch (defaults to workflow context) |
+| `allowedTools` | string | No | Override allowed tools (defaults to workflow input) |
 
 ### Reviewer Assignment
 
@@ -209,6 +214,52 @@ reviewers:
   - username: alice
     maxOpenPRs: 1
 ```
+
+### Tool Permissions
+
+Use `allowedTools` to customize which tools Claude can use for a specific project. This overrides the workflow-level `claude_allowed_tools` input.
+
+**Default tools** (minimal for security):
+- `Read` - Read spec.md and codebase files
+- `Write` - Create new files
+- `Edit` - Modify existing files
+- `Bash(git add:*)` - Stage changes
+- `Bash(git commit:*)` - Commit changes
+
+**When to expand permissions:**
+
+If your tasks require running tests, builds, or other shell commands, add them to the project's configuration:
+
+```yaml
+# Full Bash access for this project
+allowedTools: Read,Write,Edit,Bash
+
+reviewers:
+  - username: alice
+    maxOpenPRs: 1
+```
+
+**Granular Bash permissions:**
+
+Use `Bash(command:*)` syntax to allow specific commands only:
+
+```yaml
+# Allow only specific commands
+allowedTools: Read,Write,Edit,Bash(git add:*),Bash(git commit:*),Bash(npm test:*),Bash(npm run build:*)
+```
+
+**Examples by project type:**
+
+| Project Type | Recommended `allowedTools` |
+|--------------|----------------------------|
+| Documentation updates | `Read,Write,Edit,Bash(git add:*),Bash(git commit:*)` (default) |
+| Code refactoring with tests | `Read,Write,Edit,Bash` |
+| Build-dependent changes | `Read,Write,Edit,Bash(git add:*),Bash(git commit:*),Bash(npm run build:*)` |
+| Security-sensitive projects | `Read,Edit,Bash(git add:*),Bash(git commit:*)` (no `Write`) |
+
+**Configuration hierarchy:**
+1. Workflow-level `claude_allowed_tools` input (default for all projects)
+2. Project-level `allowedTools` in `configuration.yml` (overrides workflow default)
 
 ---
 

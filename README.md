@@ -111,7 +111,7 @@ Each project lives in `claude-step/{project-name}/` with:
 | File | Required | Purpose |
 |------|----------|---------|
 | `spec.md` | Yes | Task list and instructions for Claude |
-| `configuration.yml` | No | Reviewer assignment and capacity limits |
+| `configuration.yml` | No | Reviewer assignment, base branch, and tool overrides |
 | `pr-template.md` | No | Custom PR description template |
 
 **Example configuration.yml:**
@@ -122,6 +122,8 @@ reviewers:
     maxOpenPRs: 2
   - username: bob
     maxOpenPRs: 1
+baseBranch: develop              # Optional: override base branch
+allowedTools: Read,Write,Edit,Bash  # Optional: override tool permissions
 ```
 
 → **[Full guide: Projects](docs/feature-guides/projects.md)**

@@ -208,7 +208,7 @@ After triggering:
 | `github_event` | No | - | GitHub event payload (pass `${{ toJson(github.event) }}`) |
 | `event_name` | No | - | GitHub event name (pass `${{ github.event_name }}`) |
 | `claude_model` | No | `claude-sonnet-4-5` | Claude model to use |
-| `claude_allowed_tools` | No | `Write,Read,Bash,Edit` | Tools Claude can use |
+| `claude_allowed_tools` | No | `Read,Write,Edit,Bash(git add:*),Bash(git commit:*)` | Tools Claude can use (can be overridden per-project) |
 | `base_branch` | No | (inferred) | Base branch for PRs |
 | `default_base_branch` | No | `main` | Default if not determined from event |
 | `working_directory` | No | `.` | Working directory |
@@ -239,18 +239,50 @@ After triggering:
 | `claude-sonnet-4-5` | Balanced performance and cost (default) |
 | `claude-opus-4-5` | Highest capability |
 
-### Available Tools
+### Tool Permissions
+
+ClaudeStep uses minimal permissions by default for security. You can configure tools at the workflow level (`claude_allowed_tools` input) or per-project (`allowedTools` in `configuration.yml`).
+
+**Default tools:**
+
+| Tool | Purpose |
+|------|---------|
+| `Read` | Read spec.md and codebase files |
+| `Write` | Create new files |
+| `Edit` | Modify existing files |
+| `Bash(git add:*)` | Stage changes (required by ClaudeStep) |
+| `Bash(git commit:*)` | Commit changes (required by ClaudeStep) |
+
+**Additional tools available:**
 
 | Tool | Description |
 |------|-------------|
-| `Write` | Create new files |
-| `Read` | Read file contents |
-| `Bash` | Execute shell commands |
-| `Edit` | Modify existing files |
+| `Bash` | Full shell access (use with caution) |
+| `Bash(command:*)` | Restricted to specific command (e.g., `Bash(npm test:*)`) |
 | `Glob` | Find files by pattern |
 | `Grep` | Search file contents |
 
-Default: `Write,Read,Bash,Edit`
+**Enabling additional Bash access:**
+
+If your tasks require running tests, builds, or other shell commands, add them explicitly:
+
+```yaml
+# Workflow-level: Full Bash access for all projects
+- uses: gestrich/claude-step@v2
+  with:
+    claude_allowed_tools: 'Read,Write,Edit,Bash'
+```
+
+Or configure per-project in `configuration.yml`:
+
+```yaml
+# Specific commands only
+allowedTools: Read,Write,Edit,Bash(git add:*),Bash(git commit:*),Bash(npm test:*),Bash(npm run build:*)
+```
+
+See [Projects Guide](./projects.md#tool-permissions) for per-project configuration details.
+
+**Note:** The PR summary generation step uses fixed, minimal permissions and is not affected by tool configuration
 
 ---
 

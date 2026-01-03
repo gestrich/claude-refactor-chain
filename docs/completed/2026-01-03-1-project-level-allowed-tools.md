@@ -60,7 +60,7 @@ This aligns with Claude Code Action's security-first philosophy while adding onl
 
 ## Phases
 
-- [ ] Phase 1: Extend ProjectConfiguration domain model
+- [x] Phase 1: Extend ProjectConfiguration domain model
 
 Add `allowed_tools` field to the `ProjectConfiguration` dataclass in `src/claudestep/domain/project_configuration.py`:
 
@@ -82,7 +82,7 @@ Add factory method updates:
 **Files to modify:**
 - `src/claudestep/domain/project_configuration.py`
 
-- [ ] Phase 2: Pass allowed_tools through prepare command
+- [x] Phase 2: Pass allowed_tools through prepare command
 
 Per architecture principles (see `docs/general-architecture/python-style.md`), environment variables should only be read in `__main__.py`, not in CLI commands. The adapter layer in `__main__.py` handles all env var reading and passes explicit parameters to commands.
 
@@ -106,7 +106,7 @@ Update the following files:
    - Resolve with config: `allowed_tools = config.get_allowed_tools(default_allowed_tools)`
    - Add output: `gh.write_output("allowed_tools", allowed_tools)`
 
-- [ ] Phase 3: Update action.yml to use resolved allowed_tools
+- [x] Phase 3: Update action.yml to use resolved allowed_tools
 
 Modify `action.yml` to:
 1. Update input default from `Write,Read,Bash,Edit` to `Read,Write,Edit,Bash(git add:*),Bash(git commit:*)`
@@ -133,7 +133,7 @@ Modify `action.yml` to:
     ```
   - Note: Quotes around allowedTools value are required for the `Bash(command:*)` syntax
 
-- [ ] Phase 4: Tighten PR summary step permissions
+- [x] Phase 4: Tighten PR summary step permissions
 
 The PR summary generation step (line 259 in action.yml) currently uses `--allowedTools Bash,Write` which grants full Bash access. This should be restricted to only the specific commands needed.
 
@@ -157,7 +157,7 @@ claude_args: '--allowedTools "Bash(gh pr diff:*),Bash(cat:*),Write" --model ${{ 
 **Files to modify:**
 - `action.yml` (line 259)
 
-- [ ] Phase 5: Add unit tests
+- [x] Phase 5: Add unit tests
 
 Add tests for the new functionality:
 
@@ -175,7 +175,7 @@ Add tests for the new functionality:
 - `tests/unit/domain/test_project_configuration.py`
 - `tests/unit/cli/commands/test_prepare.py`
 
-- [ ] Phase 6: Update documentation
+- [x] Phase 6: Update documentation
 
 Update documentation to explain the new configuration option:
 
@@ -237,7 +237,7 @@ allowedTools: Read,Write,Edit,Bash(git add:*),Bash(git commit:*),Bash(npm test:*
 - `README.md` (Configuration Reference section)
 - `docs/feature-guides/getting-started.md`
 
-- [ ] Phase 7: Validation
+- [x] Phase 7: Validation
 
 Run the test suite to verify changes:
 
