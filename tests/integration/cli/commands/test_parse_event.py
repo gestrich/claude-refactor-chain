@@ -81,15 +81,42 @@ class TestCmdParseEvent:
         })
 
     # =============================================================================
-    # Tests for pull_request events with project detection from changed files
+    # Tests for pull_request events with project detection from branch name
     # =============================================================================
+
+    def test_pull_request_merged_detects_project_from_branch_name(
+        self, mock_github_helper, pull_request_merged_event, capsys
+    ):
+        """Should detect project from ClaudeStep branch name without calling compare API"""
+        # No mocking needed - branch name detection should avoid compare API entirely
+        result = cmd_parse_event(
+            gh=mock_github_helper,
+            event_name="pull_request",
+            event_json=pull_request_merged_event,
+            project_name=None,
+            default_base_branch="main",
+            pr_label="claudestep",
+            repo="owner/repo"
+        )
+
+        assert result == 0
+        mock_github_helper.write_output.assert_any_call("skip", "false")
+        mock_github_helper.write_output.assert_any_call("project_name", "my-project")
+        mock_github_helper.write_output.assert_any_call("checkout_ref", "main")
+        mock_github_helper.write_output.assert_any_call("base_branch", "main")
+        mock_github_helper.write_output.assert_any_call("merged_pr_number", "42")
+
+        captured = capsys.readouterr()
+        assert "Detected project from branch: my-project" in captured.out
+        assert "Event parsing complete" in captured.out
 
     @patch("claudestep.cli.commands.parse_event.compare_commits")
     @patch("claudestep.cli.commands.parse_event.detect_project_from_diff")
     def test_pull_request_merged_with_label_succeeds(
         self, mock_detect, mock_compare, mock_github_helper, pull_request_merged_event, capsys
     ):
-        """Should process merged PR with claudestep label, detecting project from diff"""
+        """Should process merged PR with claudestep label, detecting project from branch name (not diff)"""
+        # These mocks won't be called because branch name detection takes precedence
         mock_compare.return_value = ["claude-step/my-project/spec.md", "README.md"]
         mock_detect.return_value = "my-project"
 
@@ -104,8 +131,9 @@ class TestCmdParseEvent:
         )
 
         assert result == 0
-        mock_compare.assert_called_once_with("owner/repo", "main", "claude-step-my-project-a1b2c3d4")
-        mock_detect.assert_called_once()
+        # Compare API should NOT be called since branch name detection succeeds first
+        mock_compare.assert_not_called()
+        mock_detect.assert_not_called()
         mock_github_helper.write_output.assert_any_call("skip", "false")
         mock_github_helper.write_output.assert_any_call("project_name", "my-project")
         mock_github_helper.write_output.assert_any_call("checkout_ref", "main")
@@ -154,15 +182,10 @@ class TestCmdParseEvent:
             "skip_reason", "PR does not have required label 'claudestep'"
         )
 
-    @patch("claudestep.cli.commands.parse_event.compare_commits")
-    @patch("claudestep.cli.commands.parse_event.detect_project_from_diff")
     def test_pull_request_custom_label_requirement(
-        self, mock_detect, mock_compare, mock_github_helper, capsys
+        self, mock_github_helper, capsys
     ):
         """Should respect custom label requirement"""
-        mock_compare.return_value = ["claude-step/proj/spec.md"]
-        mock_detect.return_value = "proj"
-
         event = json.dumps({
             "action": "closed",
             "pull_request": {
@@ -188,15 +211,10 @@ class TestCmdParseEvent:
         mock_github_helper.write_output.assert_any_call("skip", "false")
         mock_github_helper.write_output.assert_any_call("project_name", "proj")
 
-    @patch("claudestep.cli.commands.parse_event.compare_commits")
-    @patch("claudestep.cli.commands.parse_event.detect_project_from_diff")
-    def test_pull_request_detects_project_from_diff(
-        self, mock_detect, mock_compare, mock_github_helper, capsys
+    def test_pull_request_detects_project_from_branch_pattern(
+        self, mock_github_helper, capsys
     ):
-        """Should detect project name from changed files via compare API"""
-        mock_compare.return_value = ["claude-step/complex-project-name/spec.md", "src/code.py"]
-        mock_detect.return_value = "complex-project-name"
-
+        """Should detect project name from ClaudeStep branch name pattern"""
         event = json.dumps({
             "action": "closed",
             "pull_request": {
@@ -216,8 +234,41 @@ class TestCmdParseEvent:
         )
 
         assert result == 0
-        mock_compare.assert_called_once_with("owner/repo", "main", "claude-step-complex-project-name-abcd1234")
         mock_github_helper.write_output.assert_any_call("project_name", "complex-project-name")
+
+        captured = capsys.readouterr()
+        assert "Detected project from branch" in captured.out
+
+    @patch("claudestep.cli.commands.parse_event.compare_commits")
+    @patch("claudestep.cli.commands.parse_event.detect_project_from_diff")
+    def test_pull_request_detects_project_from_diff_when_branch_not_claudestep(
+        self, mock_detect, mock_compare, mock_github_helper, capsys
+    ):
+        """Should fall back to diff detection when branch name is not ClaudeStep pattern"""
+        mock_compare.return_value = ["claude-step/some-project/spec.md", "src/code.py"]
+        mock_detect.return_value = "some-project"
+
+        event = json.dumps({
+            "action": "closed",
+            "pull_request": {
+                "number": 123,
+                "merged": True,
+                "labels": [{"name": "claudestep"}],
+                "base": {"ref": "main"},
+                "head": {"ref": "feature/some-random-feature"}
+            }
+        })
+
+        result = cmd_parse_event(
+            gh=mock_github_helper,
+            event_name="pull_request",
+            event_json=event,
+            repo="owner/repo"
+        )
+
+        assert result == 0
+        mock_compare.assert_called_once_with("owner/repo", "main", "feature/some-random-feature")
+        mock_github_helper.write_output.assert_any_call("project_name", "some-project")
 
     @patch("claudestep.cli.commands.parse_event.compare_commits")
     @patch("claudestep.cli.commands.parse_event.detect_project_from_diff")
@@ -473,15 +524,10 @@ class TestCmdParseEvent:
     # Tests for output consistency
     # =============================================================================
 
-    @patch("claudestep.cli.commands.parse_event.compare_commits")
-    @patch("claudestep.cli.commands.parse_event.detect_project_from_diff")
     def test_outputs_all_required_fields_on_success(
-        self, mock_detect, mock_compare, mock_github_helper, pull_request_merged_event
+        self, mock_github_helper, pull_request_merged_event
     ):
         """Should output all required fields on success"""
-        mock_compare.return_value = ["claude-step/my-project/spec.md"]
-        mock_detect.return_value = "my-project"
-
         result = cmd_parse_event(
             gh=mock_github_helper,
             event_name="pull_request",
@@ -525,15 +571,10 @@ class TestCmdParseEvent:
         assert output_calls.get("skip") == "true"
         assert "skip_reason" in output_calls
 
-    @patch("claudestep.cli.commands.parse_event.compare_commits")
-    @patch("claudestep.cli.commands.parse_event.detect_project_from_diff")
     def test_console_output_includes_context(
-        self, mock_detect, mock_compare, mock_github_helper, pull_request_merged_event, capsys
+        self, mock_github_helper, pull_request_merged_event, capsys
     ):
         """Should include helpful context in console output"""
-        mock_compare.return_value = ["claude-step/my-project/spec.md"]
-        mock_detect.return_value = "my-project"
-
         cmd_parse_event(
             gh=mock_github_helper,
             event_name="pull_request",
@@ -559,15 +600,10 @@ class TestCmdParseEventEdgeCases:
         mock.set_error = Mock()
         return mock
 
-    @patch("claudestep.cli.commands.parse_event.compare_commits")
-    @patch("claudestep.cli.commands.parse_event.detect_project_from_diff")
     def test_project_name_with_multiple_hyphens(
-        self, mock_detect, mock_compare, mock_github_helper
+        self, mock_github_helper
     ):
         """Should handle project names with multiple hyphens"""
-        mock_compare.return_value = ["claude-step/my-very-long-project-name/spec.md"]
-        mock_detect.return_value = "my-very-long-project-name"
-
         event = json.dumps({
             "action": "closed",
             "pull_request": {
@@ -591,15 +627,10 @@ class TestCmdParseEventEdgeCases:
             "project_name", "my-very-long-project-name"
         )
 
-    @patch("claudestep.cli.commands.parse_event.compare_commits")
-    @patch("claudestep.cli.commands.parse_event.detect_project_from_diff")
     def test_different_base_branches(
-        self, mock_detect, mock_compare, mock_github_helper
+        self, mock_github_helper
     ):
         """Should respect different base branches from event"""
-        mock_compare.return_value = ["claude-step/test/spec.md"]
-        mock_detect.return_value = "test"
-
         event = json.dumps({
             "action": "closed",
             "pull_request": {
@@ -619,7 +650,8 @@ class TestCmdParseEventEdgeCases:
         )
 
         assert result == 0
-        mock_compare.assert_called_once_with("owner/repo", "develop", "claude-step-test-abcd1234")
+        # Branch name detection now handles this, no compare API call
+        mock_github_helper.write_output.assert_any_call("project_name", "test")
         mock_github_helper.write_output.assert_any_call("base_branch", "develop")
         mock_github_helper.write_output.assert_any_call("checkout_ref", "develop")
 

@@ -10,6 +10,7 @@ import os
 from typing import Optional
 
 from claudestep.domain.github_event import GitHubEventContext
+from claudestep.domain.models import BranchInfo
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 from claudestep.infrastructure.github.operations import (
     compare_commits,
@@ -88,6 +89,15 @@ def cmd_parse_event(
 
         # Determine project name
         resolved_project = project_name  # From input (workflow_dispatch)
+
+        if not resolved_project:
+            # For merged PRs, extract project from branch name pattern
+            # This avoids calling Compare API which fails if branch was deleted
+            if context.event_name == "pull_request" and context.head_ref:
+                branch_info = BranchInfo.from_branch_name(context.head_ref)
+                if branch_info:
+                    resolved_project = branch_info.project_name
+                    print(f"\n  Detected project from branch: {resolved_project}")
 
         if not resolved_project:
             # Try to detect from changed files (push events)
