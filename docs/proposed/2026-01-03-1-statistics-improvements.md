@@ -170,7 +170,7 @@ Update user-facing documentation to reflect the changes.
 **Files to potentially remove content from:**
 - Remove/minimize leaderboard examples in documentation since it's opt-in now
 
-- [ ] Phase 7: Validation
+- [x] Phase 7: Validation
 
 **Unit tests to add/update:**
 - Test `ProjectConfiguration.stale_pr_days` parsing and default
