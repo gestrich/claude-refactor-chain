@@ -346,6 +346,28 @@ Ask yourself: **"Would an empty result surprise the caller and cause problems do
 
 ✅ **Prevents data corruption**: Invalid states don't propagate through the system
 
+### Let Exceptions Propagate in Services
+
+Service methods should **not** catch exceptions and continue with default values. Let exceptions propagate to fail the calling workflow:
+
+```python
+# ❌ BAD: Catch and continue with empty data
+def collect_stats(self, project: str) -> Stats:
+    try:
+        prs = self.pr_service.get_open_prs(project)
+    except Exception as e:
+        print(f"Error: {e}")
+        prs = []  # ❌ Silent failure - stats will be wrong
+    return Stats(prs=prs)
+
+# ✅ GOOD: Let exceptions propagate
+def collect_stats(self, project: str) -> Stats:
+    prs = self.pr_service.get_open_prs(project)  # ✅ Fails if API errors
+    return Stats(prs=prs)
+```
+
+If the GitHub API fails, the workflow should fail - not continue with incomplete data.
+
 ### Custom Exception Classes
 
 Define specific exceptions to make error handling clear:

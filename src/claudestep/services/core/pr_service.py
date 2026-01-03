@@ -8,6 +8,7 @@ Encapsulates business logic for PR-related operations.
 import re
 from typing import List, Literal, Optional, Set, Tuple, Union
 
+from claudestep.domain.constants import DEFAULT_STATS_DAYS_BACK
 from claudestep.domain.exceptions import GitHubAPIError
 from claudestep.domain.github_models import GitHubPullRequest
 from claudestep.domain.models import BranchInfo
@@ -115,6 +116,41 @@ class PRService:
             True
         """
         return self.get_project_prs(project, state="open", label=label)
+
+    def get_merged_prs_for_project(
+        self, project: str, label: str = "claudestep", days_back: int = DEFAULT_STATS_DAYS_BACK
+    ) -> List[GitHubPullRequest]:
+        """Fetch merged PRs for a project within a time window.
+
+        Convenience wrapper for get_project_prs() with state="merged",
+        filtered to only include PRs merged within the specified days.
+
+        Args:
+            project: Project name (e.g., "my-refactor")
+            label: GitHub label to filter PRs (default: "claudestep")
+            days_back: Only include PRs merged within this many days (default: 30)
+
+        Returns:
+            List of merged GitHubPullRequest domain models for the project
+
+        Examples:
+            >>> service = PRService("owner/repo")
+            >>> merged_prs = service.get_merged_prs_for_project("my-refactor", days_back=7)
+            >>> all(pr.is_merged() for pr in merged_prs)
+            True
+        """
+        from datetime import datetime, timedelta, timezone
+
+        all_merged = self.get_project_prs(project, state="merged", label=label)
+
+        # Filter by merge date
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days_back)
+        recent_merged = [
+            pr for pr in all_merged
+            if pr.merged_at and pr.merged_at >= cutoff
+        ]
+
+        return recent_merged
 
     def get_open_prs_for_reviewer(
         self, username: str, label: str = "claudestep"

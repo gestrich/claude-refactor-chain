@@ -823,6 +823,77 @@ class StatisticsReport:
 
         return "\n".join(lines)
 
+    def format_project_details(self, for_slack: bool = False) -> str:
+        """Format detailed task view showing each task with its PR association.
+
+        Shows all tasks from spec.md with their status and associated PRs (if any),
+        plus any orphaned PRs (PRs whose tasks were removed from spec).
+
+        Args:
+            for_slack: If True, use Slack mrkdwn format; otherwise GitHub markdown
+
+        Returns:
+            Formatted string with task details and orphaned PRs
+
+        Example output:
+            ## my-project (5/20 complete)
+
+            ### Tasks
+            - [x] `echo "Hello"` - PR #31 (Merged)
+            - [ ] `echo "World"` - PR #32 (Open, 2d)
+            - [ ] `echo "Foo"` - (no PR)
+
+            ### Orphaned PRs
+            - PR #25 (Merged) - Task removed from spec
+        """
+        fmt = MarkdownFormatter(for_slack)
+        lines = []
+
+        for project_name in sorted(self.project_stats.keys()):
+            stats = self.project_stats[project_name]
+
+            # Project header with completion count
+            header = f"{project_name} ({stats.completed_tasks}/{stats.total_tasks} complete)"
+            lines.append(fmt.header(header, level=2))
+            lines.append("")
+
+            # Tasks section
+            if stats.tasks:
+                lines.append(fmt.header("Tasks", level=3))
+                for task in stats.tasks:
+                    checkbox = "[x]" if task.status == TaskStatus.COMPLETED else "[ ]"
+                    # Truncate long descriptions
+                    desc = task.description[:60] + "..." if len(task.description) > 60 else task.description
+                    desc_formatted = fmt.code(desc)
+
+                    if task.has_pr:
+                        pr = task.pr
+                        if pr.is_merged():
+                            pr_info = f"PR #{pr.number} (Merged)"
+                        elif pr.is_open():
+                            pr_info = f"PR #{pr.number} (Open, {pr.days_open}d)"
+                        else:
+                            pr_info = f"PR #{pr.number} (Closed)"
+                        lines.append(f"- {checkbox} {desc_formatted} - {pr_info}")
+                    else:
+                        lines.append(f"- {checkbox} {desc_formatted} - (no PR)")
+                lines.append("")
+
+            # Orphaned PRs section
+            if stats.orphaned_prs:
+                lines.append(fmt.header("Orphaned PRs", level=3))
+                for pr in stats.orphaned_prs:
+                    if pr.is_merged():
+                        state = "Merged"
+                    elif pr.is_open():
+                        state = f"Open, {pr.days_open}d"
+                    else:
+                        state = "Closed"
+                    lines.append(f"- PR #{pr.number} ({state}) - Task removed from spec")
+                lines.append("")
+
+        return "\n".join(lines)
+
     def to_json(self) -> str:
         """Export as JSON for programmatic access"""
         import json

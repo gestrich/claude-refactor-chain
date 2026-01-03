@@ -34,7 +34,7 @@ Add new domain models and extend `ProjectStats` to hold detailed task-PR relatio
 
 The `task_hash` from `SpecTask` is already computed - we need to match it against PR branch names which contain the hash (e.g., `claude-step-project-name-a1b2c3d4`).
 
-- [ ] Phase 2: Update Statistics Service to Collect Task-PR Mappings
+- [x] Phase 2: Update Statistics Service to Collect Task-PR Mappings
 
 Modify `StatisticsService.collect_project_stats()` to:
 
@@ -50,7 +50,7 @@ Modify `StatisticsService.collect_project_stats()` to:
 - `src/claudestep/services/composite/statistics_service.py`
 - May need to add method to `PRService` to fetch merged PRs for a project (currently only fetches open PRs)
 
-- [ ] Phase 3: Add Merged PRs Fetching to PRService
+- [x] Phase 3: Add Merged PRs Fetching to PRService
 
 Currently `PRService.get_open_prs_for_project()` only returns open PRs. We need to also fetch merged PRs to:
 - Count how many tasks are completed

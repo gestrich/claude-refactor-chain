@@ -2,10 +2,11 @@
 
 import json
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch
 
-from claudestep.domain.models import TeamMemberStats, ProjectStats, StatisticsReport, PRReference
+from claudestep.domain.models import TeamMemberStats, ProjectStats, StatisticsReport, PRReference, TaskStatus, TaskWithPR
+from claudestep.domain.github_models import GitHubPullRequest, GitHubUser
 from claudestep.domain.project import Project
 from claudestep.domain.spec_content import SpecContent
 from claudestep.services.composite.statistics_service import StatisticsService
@@ -1160,6 +1161,7 @@ class TestCollectProjectStats:
         # Mock PROperationsService
         mock_pr_service = Mock()
         mock_pr_service.get_open_prs_for_project.return_value = [pr1]
+        mock_pr_service.get_merged_prs_for_project.return_value = []
 
         # Mock ProjectRepository
         mock_repo = Mock()
@@ -1195,11 +1197,11 @@ class TestCollectProjectStats:
 
         assert stats is None
 
-    def test_collect_stats_in_progress_error(self):
-        """Test stats collection when in-progress task detection fails"""
+    def test_collect_stats_pr_error_propagates(self):
+        """Test that PR fetch errors propagate to fail the workflow"""
         spec_content = "- [ ] Task 1\n- [x] Task 2"
 
-        # Mock PROperationsService to raise exception
+        # Mock PROperationsService to raise exception on open PRs
         mock_pr_service = Mock()
         mock_pr_service.get_open_prs_for_project.side_effect = Exception("API error")
 
@@ -1211,12 +1213,10 @@ class TestCollectProjectStats:
         project = Project("test-project")
         mock_repo.load_spec.return_value = SpecContent(project, spec_content)
 
-        # Create service and test
+        # Create service and test - exception should propagate
         service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
-        stats = service.collect_project_stats("test-project", "main", "claudestep")
-
-        assert stats.in_progress_tasks == 0
-        assert stats.pending_tasks == 1
+        with pytest.raises(Exception, match="API error"):
+            service.collect_project_stats("test-project", "main", "claudestep")
 
     def test_collect_stats_custom_base_branch(self):
         """Test that custom base_branch value is used correctly"""
@@ -1225,6 +1225,7 @@ class TestCollectProjectStats:
         # Mock PROperationsService with no open PRs
         mock_pr_service = Mock()
         mock_pr_service.get_open_prs_for_project.return_value = []
+        mock_pr_service.get_merged_prs_for_project.return_value = []
 
         # Mock ProjectRepository
         mock_repo = Mock()
@@ -1264,6 +1265,7 @@ reviewers:
         # Mock PROperationsService
         mock_pr_service = Mock()
         mock_pr_service.get_open_prs_for_project.return_value = []
+        mock_pr_service.get_merged_prs_for_project.return_value = []
         mock_pr_service.get_all_prs.return_value = []
 
         # Mock ProjectRepository
@@ -1474,6 +1476,7 @@ class TestStalePRTracking:
         # Mock PROperationsService
         mock_pr_service = Mock()
         mock_pr_service.get_open_prs_for_project.return_value = [pr_fresh, pr_stale]
+        mock_pr_service.get_merged_prs_for_project.return_value = []
 
         # Mock ProjectRepository
         mock_repo = Mock()
@@ -1522,6 +1525,7 @@ class TestStalePRTracking:
 
         mock_pr_service = Mock()
         mock_pr_service.get_open_prs_for_project.return_value = [pr]
+        mock_pr_service.get_merged_prs_for_project.return_value = []
 
         mock_repo = Mock()
         from claudestep.domain.project import Project
@@ -1549,6 +1553,7 @@ class TestStalePRTracking:
 
         mock_pr_service = Mock()
         mock_pr_service.get_open_prs_for_project.return_value = []
+        mock_pr_service.get_merged_prs_for_project.return_value = []
 
         mock_repo = Mock()
         from claudestep.domain.project import Project
@@ -1563,3 +1568,531 @@ class TestStalePRTracking:
         assert len(stats.open_prs) == 0
         assert stats.stale_pr_count == 0
         assert stats.in_progress_tasks == 0
+
+
+class TestTaskPRMappings:
+    """Test task-PR mapping logic in _build_task_pr_mappings"""
+
+    def test_task_matched_to_open_pr_is_in_progress(self):
+        """Task with matching open PR should be IN_PROGRESS"""
+        from datetime import datetime, timezone
+        from claudestep.domain.spec_content import SpecContent
+
+        spec_content = "- [ ] Implement feature X"
+
+        # Create open PR with matching task hash
+        project = Project("test-project")
+        spec = SpecContent(project, spec_content)
+        task_hash = spec.tasks[0].task_hash
+
+        open_pr = GitHubPullRequest(
+            number=42,
+            title="Implement feature X",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[GitHubUser(login="alice")],
+            labels=["claudestep"],
+            head_ref_name=f"claude-step-test-project-{task_hash}"
+        )
+
+        # Mock services
+        mock_pr_service = Mock()
+        mock_pr_service.get_open_prs_for_project.return_value = [open_pr]
+        mock_pr_service.get_merged_prs_for_project.return_value = []
+
+        mock_repo = Mock()
+        mock_repo.load_spec.return_value = spec
+
+        # Collect stats
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        stats = service.collect_project_stats("test-project", "main", "claudestep")
+
+        # Assert
+        assert len(stats.tasks) == 1
+        assert stats.tasks[0].status == TaskStatus.IN_PROGRESS
+        assert stats.tasks[0].pr is not None
+        assert stats.tasks[0].pr.number == 42
+
+    def test_task_matched_to_merged_pr_and_completed(self):
+        """Completed task with merged PR should be COMPLETED with PR reference"""
+        from datetime import datetime, timezone, timedelta
+        from claudestep.domain.spec_content import SpecContent
+
+        spec_content = "- [x] Implement feature X"
+
+        # Create merged PR with matching task hash
+        project = Project("test-project")
+        spec = SpecContent(project, spec_content)
+        task_hash = spec.tasks[0].task_hash
+
+        merged_pr = GitHubPullRequest(
+            number=99,
+            title="Implement feature X",
+            state="merged",
+            created_at=datetime.now(timezone.utc) - timedelta(days=2),
+            merged_at=datetime.now(timezone.utc) - timedelta(days=1),
+            assignees=[GitHubUser(login="bob")],
+            labels=["claudestep"],
+            head_ref_name=f"claude-step-test-project-{task_hash}"
+        )
+
+        # Mock services
+        mock_pr_service = Mock()
+        mock_pr_service.get_open_prs_for_project.return_value = []
+        mock_pr_service.get_merged_prs_for_project.return_value = [merged_pr]
+
+        mock_repo = Mock()
+        mock_repo.load_spec.return_value = spec
+
+        # Collect stats
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        stats = service.collect_project_stats("test-project", "main", "claudestep")
+
+        # Assert
+        assert len(stats.tasks) == 1
+        assert stats.tasks[0].status == TaskStatus.COMPLETED
+        assert stats.tasks[0].pr is not None
+        assert stats.tasks[0].pr.number == 99
+
+    def test_task_with_no_pr_is_pending(self):
+        """Task with no matching PR should be PENDING"""
+        from claudestep.domain.spec_content import SpecContent
+
+        spec_content = "- [ ] Implement feature X"
+
+        project = Project("test-project")
+        spec = SpecContent(project, spec_content)
+
+        # Mock services - no PRs
+        mock_pr_service = Mock()
+        mock_pr_service.get_open_prs_for_project.return_value = []
+        mock_pr_service.get_merged_prs_for_project.return_value = []
+
+        mock_repo = Mock()
+        mock_repo.load_spec.return_value = spec
+
+        # Collect stats
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        stats = service.collect_project_stats("test-project", "main", "claudestep")
+
+        # Assert
+        assert len(stats.tasks) == 1
+        assert stats.tasks[0].status == TaskStatus.PENDING
+        assert stats.tasks[0].pr is None
+
+    def test_orphaned_pr_detected(self):
+        """PR with no matching task in spec should be orphaned"""
+        from datetime import datetime, timezone
+        from claudestep.domain.spec_content import SpecContent
+
+        spec_content = "- [ ] Task A"
+
+        project = Project("test-project")
+        spec = SpecContent(project, spec_content)
+
+        # Create PR with a different task hash (orphaned)
+        orphaned_pr = GitHubPullRequest(
+            number=55,
+            title="Old removed task",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[GitHubUser(login="charlie")],
+            labels=["claudestep"],
+            head_ref_name="claude-step-test-project-deadbeef"  # Hash not in spec
+        )
+
+        # Mock services
+        mock_pr_service = Mock()
+        mock_pr_service.get_open_prs_for_project.return_value = [orphaned_pr]
+        mock_pr_service.get_merged_prs_for_project.return_value = []
+
+        mock_repo = Mock()
+        mock_repo.load_spec.return_value = spec
+
+        # Collect stats
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        stats = service.collect_project_stats("test-project", "main", "claudestep")
+
+        # Assert - task A has no PR, orphaned PR detected
+        assert len(stats.tasks) == 1
+        assert stats.tasks[0].status == TaskStatus.PENDING
+        assert stats.tasks[0].pr is None
+
+        assert len(stats.orphaned_prs) == 1
+        assert stats.orphaned_prs[0].number == 55
+
+    def test_mixed_tasks_and_prs(self):
+        """Test scenario with completed, in-progress, pending tasks and orphaned PR"""
+        from datetime import datetime, timezone, timedelta
+        from claudestep.domain.spec_content import SpecContent
+
+        spec_content = """- [x] Task completed
+- [ ] Task in progress
+- [ ] Task pending"""
+
+        project = Project("test-project")
+        spec = SpecContent(project, spec_content)
+
+        # Get task hashes
+        completed_hash = spec.tasks[0].task_hash
+        in_progress_hash = spec.tasks[1].task_hash
+        # pending_hash = spec.tasks[2].task_hash (no PR for this one)
+
+        # Create matching PRs
+        merged_pr = GitHubPullRequest(
+            number=1,
+            title="Task completed",
+            state="merged",
+            created_at=datetime.now(timezone.utc) - timedelta(days=5),
+            merged_at=datetime.now(timezone.utc) - timedelta(days=3),
+            assignees=[GitHubUser(login="alice")],
+            labels=["claudestep"],
+            head_ref_name=f"claude-step-test-project-{completed_hash}"
+        )
+
+        open_pr = GitHubPullRequest(
+            number=2,
+            title="Task in progress",
+            state="open",
+            created_at=datetime.now(timezone.utc) - timedelta(days=1),
+            merged_at=None,
+            assignees=[GitHubUser(login="bob")],
+            labels=["claudestep"],
+            head_ref_name=f"claude-step-test-project-{in_progress_hash}"
+        )
+
+        orphaned_pr = GitHubPullRequest(
+            number=3,
+            title="Removed task",
+            state="merged",
+            created_at=datetime.now(timezone.utc) - timedelta(days=10),
+            merged_at=datetime.now(timezone.utc) - timedelta(days=8),
+            assignees=[GitHubUser(login="charlie")],
+            labels=["claudestep"],
+            head_ref_name="claude-step-test-project-abcd1234"  # Not in spec
+        )
+
+        # Mock services
+        mock_pr_service = Mock()
+        mock_pr_service.get_open_prs_for_project.return_value = [open_pr]
+        mock_pr_service.get_merged_prs_for_project.return_value = [merged_pr, orphaned_pr]
+
+        mock_repo = Mock()
+        mock_repo.load_spec.return_value = spec
+
+        # Collect stats
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        stats = service.collect_project_stats("test-project", "main", "claudestep")
+
+        # Assert task statuses
+        assert len(stats.tasks) == 3
+
+        completed_task = next(t for t in stats.tasks if t.description == "Task completed")
+        assert completed_task.status == TaskStatus.COMPLETED
+        assert completed_task.pr is not None
+        assert completed_task.pr.number == 1
+
+        in_progress_task = next(t for t in stats.tasks if t.description == "Task in progress")
+        assert in_progress_task.status == TaskStatus.IN_PROGRESS
+        assert in_progress_task.pr is not None
+        assert in_progress_task.pr.number == 2
+
+        pending_task = next(t for t in stats.tasks if t.description == "Task pending")
+        assert pending_task.status == TaskStatus.PENDING
+        assert pending_task.pr is None
+
+        # Assert orphaned PR
+        assert len(stats.orphaned_prs) == 1
+        assert stats.orphaned_prs[0].number == 3
+
+    def test_completed_task_without_pr(self):
+        """Completed task without PR should still be COMPLETED"""
+        from claudestep.domain.spec_content import SpecContent
+
+        spec_content = "- [x] Manually completed task"
+
+        project = Project("test-project")
+        spec = SpecContent(project, spec_content)
+
+        # Mock services - no PRs
+        mock_pr_service = Mock()
+        mock_pr_service.get_open_prs_for_project.return_value = []
+        mock_pr_service.get_merged_prs_for_project.return_value = []
+
+        mock_repo = Mock()
+        mock_repo.load_spec.return_value = spec
+
+        # Collect stats
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        stats = service.collect_project_stats("test-project", "main", "claudestep")
+
+        # Assert - status comes from spec checkbox, not PR
+        assert len(stats.tasks) == 1
+        assert stats.tasks[0].status == TaskStatus.COMPLETED
+        assert stats.tasks[0].pr is None
+
+    def test_pr_without_task_hash_not_orphaned(self):
+        """PR without parseable task hash should not appear in orphaned list"""
+        from datetime import datetime, timezone
+        from claudestep.domain.spec_content import SpecContent
+
+        spec_content = "- [ ] Task A"
+
+        project = Project("test-project")
+        spec = SpecContent(project, spec_content)
+
+        # Create PR with non-ClaudeStep branch name
+        non_claudestep_pr = GitHubPullRequest(
+            number=77,
+            title="Manual PR",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[GitHubUser(login="dave")],
+            labels=["claudestep"],
+            head_ref_name="feature/manual-work"  # Not a ClaudeStep branch
+        )
+
+        # Mock services
+        mock_pr_service = Mock()
+        mock_pr_service.get_open_prs_for_project.return_value = [non_claudestep_pr]
+        mock_pr_service.get_merged_prs_for_project.return_value = []
+
+        mock_repo = Mock()
+        mock_repo.load_spec.return_value = spec
+
+        # Collect stats
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        stats = service.collect_project_stats("test-project", "main", "claudestep")
+
+        # Assert - PR has no task hash, so it's not tracked as orphaned
+        assert len(stats.orphaned_prs) == 0
+
+
+class TestFormatProjectDetails:
+    """Test format_project_details() method on StatisticsReport"""
+
+    def test_format_empty_report(self):
+        """Should return empty string for report with no projects"""
+        report = StatisticsReport()
+        result = report.format_project_details()
+        assert result == ""
+
+    def test_format_single_project_with_tasks(self):
+        """Should format project with tasks and their statuses"""
+        report = StatisticsReport()
+
+        # Create project stats with tasks
+        stats = ProjectStats("my-project", "/path/spec.md")
+        stats.total_tasks = 3
+        stats.completed_tasks = 1
+
+        # Add tasks with different statuses
+        stats.tasks = [
+            TaskWithPR(
+                task_hash="a1b2c3d4",
+                description="Implement feature A",
+                status=TaskStatus.COMPLETED,
+                pr=None
+            ),
+            TaskWithPR(
+                task_hash="e5f6g7h8",
+                description="Implement feature B",
+                status=TaskStatus.IN_PROGRESS,
+                pr=GitHubPullRequest(
+                    number=42,
+                    title="Implement feature B",
+                    state="open",
+                    created_at=datetime.now(timezone.utc) - timedelta(days=2),
+                    merged_at=None,
+                    assignees=[GitHubUser(login="alice")],
+                    labels=["claudestep"],
+                    head_ref_name="claude-step-my-project-e5f6g7h8"
+                )
+            ),
+            TaskWithPR(
+                task_hash="i9j0k1l2",
+                description="Implement feature C",
+                status=TaskStatus.PENDING,
+                pr=None
+            )
+        ]
+        report.add_project(stats)
+
+        result = report.format_project_details()
+
+        # Check project header
+        assert "my-project (1/3 complete)" in result
+        # Check tasks section
+        assert "### Tasks" in result
+        # Check completed task
+        assert "[x]" in result
+        assert "`Implement feature A`" in result
+        assert "(no PR)" in result
+        # Check in-progress task
+        assert "[ ]" in result
+        assert "`Implement feature B`" in result
+        assert "PR #42" in result
+        assert "Open" in result
+        # Check pending task
+        assert "`Implement feature C`" in result
+
+    def test_format_project_with_orphaned_prs(self):
+        """Should include orphaned PRs section when present"""
+        report = StatisticsReport()
+
+        stats = ProjectStats("my-project", "/path/spec.md")
+        stats.total_tasks = 1
+        stats.completed_tasks = 1
+        stats.tasks = [
+            TaskWithPR(
+                task_hash="a1b2c3d4",
+                description="Only task",
+                status=TaskStatus.COMPLETED,
+                pr=None
+            )
+        ]
+
+        # Add orphaned PRs
+        stats.orphaned_prs = [
+            GitHubPullRequest(
+                number=25,
+                title="Old task removed",
+                state="merged",
+                created_at=datetime.now(timezone.utc) - timedelta(days=10),
+                merged_at=datetime.now(timezone.utc) - timedelta(days=5),
+                assignees=[GitHubUser(login="bob")],
+                labels=["claudestep"],
+                head_ref_name="claude-step-my-project-x9y8z7w6"
+            ),
+            GitHubPullRequest(
+                number=28,
+                title="Another removed task",
+                state="open",
+                created_at=datetime.now(timezone.utc) - timedelta(days=5),
+                merged_at=None,
+                assignees=[GitHubUser(login="alice")],
+                labels=["claudestep"],
+                head_ref_name="claude-step-my-project-m3n4o5p6"
+            )
+        ]
+        report.add_project(stats)
+
+        result = report.format_project_details()
+
+        # Check orphaned PRs section
+        assert "### Orphaned PRs" in result
+        assert "PR #25 (Merged)" in result
+        assert "Task removed from spec" in result
+        assert "PR #28 (Open" in result
+
+    def test_format_project_with_merged_pr(self):
+        """Should show Merged state for merged PRs"""
+        report = StatisticsReport()
+
+        stats = ProjectStats("my-project", "/path/spec.md")
+        stats.total_tasks = 1
+        stats.completed_tasks = 1
+
+        merged_pr = GitHubPullRequest(
+            number=31,
+            title="Completed task",
+            state="merged",
+            created_at=datetime.now(timezone.utc) - timedelta(days=3),
+            merged_at=datetime.now(timezone.utc) - timedelta(days=1),
+            assignees=[GitHubUser(login="alice")],
+            labels=["claudestep"],
+            head_ref_name="claude-step-my-project-a1b2c3d4"
+        )
+
+        stats.tasks = [
+            TaskWithPR(
+                task_hash="a1b2c3d4",
+                description="echo 'Hello World!'",
+                status=TaskStatus.COMPLETED,
+                pr=merged_pr
+            )
+        ]
+        report.add_project(stats)
+
+        result = report.format_project_details()
+
+        assert "[x]" in result
+        assert "PR #31 (Merged)" in result
+
+    def test_format_truncates_long_descriptions(self):
+        """Should truncate task descriptions longer than 60 chars"""
+        report = StatisticsReport()
+
+        stats = ProjectStats("my-project", "/path/spec.md")
+        stats.total_tasks = 1
+        stats.completed_tasks = 0
+
+        long_desc = "A" * 100  # 100 character description
+
+        stats.tasks = [
+            TaskWithPR(
+                task_hash="a1b2c3d4",
+                description=long_desc,
+                status=TaskStatus.PENDING,
+                pr=None
+            )
+        ]
+        report.add_project(stats)
+
+        result = report.format_project_details()
+
+        # Should be truncated to 60 chars + "..."
+        assert "A" * 60 + "..." in result
+        assert "A" * 61 not in result
+
+    def test_format_multiple_projects_sorted(self):
+        """Should format multiple projects in sorted order"""
+        report = StatisticsReport()
+
+        # Add projects out of order
+        stats_b = ProjectStats("project-b", "/path/b.md")
+        stats_b.total_tasks = 5
+        stats_b.completed_tasks = 2
+        stats_b.tasks = []
+        report.add_project(stats_b)
+
+        stats_a = ProjectStats("project-a", "/path/a.md")
+        stats_a.total_tasks = 3
+        stats_a.completed_tasks = 1
+        stats_a.tasks = []
+        report.add_project(stats_a)
+
+        result = report.format_project_details()
+
+        # Projects should be sorted alphabetically
+        pos_a = result.find("project-a")
+        pos_b = result.find("project-b")
+        assert pos_a < pos_b
+
+    def test_format_for_slack(self):
+        """Should use Slack mrkdwn format when for_slack=True"""
+        report = StatisticsReport()
+
+        stats = ProjectStats("my-project", "/path/spec.md")
+        stats.total_tasks = 1
+        stats.completed_tasks = 1
+        stats.tasks = [
+            TaskWithPR(
+                task_hash="a1b2c3d4",
+                description="Task 1",
+                status=TaskStatus.COMPLETED,
+                pr=None
+            )
+        ]
+        report.add_project(stats)
+
+        result_github = report.format_project_details(for_slack=False)
+        result_slack = report.format_project_details(for_slack=True)
+
+        # GitHub uses ## for headers, Slack uses *bold*
+        assert "## my-project" in result_github
+        assert "*my-project" in result_slack
+        assert "##" not in result_slack

@@ -8,12 +8,12 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
-from claudestep.domain.constants import DEFAULT_PR_LABEL, DEFAULT_STALE_PR_DAYS
+from claudestep.domain.constants import DEFAULT_PR_LABEL, DEFAULT_STALE_PR_DAYS, DEFAULT_STATS_DAYS_BACK
 from claudestep.domain.project import Project
 from claudestep.domain.project_configuration import ProjectConfiguration
 from claudestep.infrastructure.repositories.project_repository import ProjectRepository
 from claudestep.services.core.pr_service import PRService
-from claudestep.domain.models import ProjectStats, StatisticsReport, TeamMemberStats, PRReference
+from claudestep.domain.models import ProjectStats, StatisticsReport, TeamMemberStats, PRReference, TaskWithPR, TaskStatus
 
 
 class StatisticsService:
@@ -49,7 +49,7 @@ class StatisticsService:
     def collect_all_statistics(
         self,
         config_path: Optional[str] = None,
-        days_back: int = 30,
+        days_back: int = DEFAULT_STATS_DAYS_BACK,
         label: str = DEFAULT_PR_LABEL,
         show_reviewer_stats: bool = False,
     ) -> StatisticsReport:
@@ -165,7 +165,8 @@ class StatisticsService:
     def collect_project_stats(
         self, project_name: str, base_branch: str = "main", label: str = DEFAULT_PR_LABEL,
         project: Optional[Project] = None,
-        stale_pr_days: int = DEFAULT_STALE_PR_DAYS
+        stale_pr_days: int = DEFAULT_STALE_PR_DAYS,
+        days_back: int = DEFAULT_STATS_DAYS_BACK
     ) -> ProjectStats:
         """Collect statistics for a single project
 
@@ -175,6 +176,7 @@ class StatisticsService:
             label: GitHub label for filtering
             project: Optional pre-loaded Project instance to avoid re-creating
             stale_pr_days: Number of days before a PR is considered stale
+            days_back: Days to look back for merged PRs (default: 30)
 
         Returns:
             ProjectStats object, or None if spec files don't exist in base branch
@@ -199,23 +201,27 @@ class StatisticsService:
             print(f"  Warning: Failed to fetch spec file: {e}")
             return None
 
-        # Get in-progress tasks from GitHub (open PRs for this project)
-        try:
-            open_prs = self.pr_service.get_open_prs_for_project(project_name, label=label)
-            stats.in_progress_tasks = len(open_prs)
-            print(f"  In-progress: {stats.in_progress_tasks}")
+        # Get PRs from GitHub (open and merged)
+        open_prs = self.pr_service.get_open_prs_for_project(project_name, label=label)
+        stats.in_progress_tasks = len(open_prs)
+        print(f"  In-progress: {stats.in_progress_tasks}")
 
-            # Store open PRs and calculate stale count
-            for pr in open_prs:
-                stats.open_prs.append(pr)
-                if pr.is_stale(stale_pr_days):
-                    stats.stale_pr_count += 1
+        # Store open PRs and calculate stale count
+        for pr in open_prs:
+            stats.open_prs.append(pr)
+            if pr.is_stale(stale_pr_days):
+                stats.stale_pr_count += 1
 
-            if stats.stale_pr_count > 0:
-                print(f"  Stale PRs: {stats.stale_pr_count} (>{stale_pr_days} days)")
-        except Exception as e:
-            print(f"  Error: Failed to get in-progress tasks: {e}")
-            stats.in_progress_tasks = 0
+        if stats.stale_pr_count > 0:
+            print(f"  Stale PRs: {stats.stale_pr_count} (>{stale_pr_days} days)")
+
+        merged_prs = self.pr_service.get_merged_prs_for_project(
+            project_name, label=label, days_back=days_back
+        )
+        print(f"  Merged PRs (last {days_back} days): {len(merged_prs)}")
+
+        # Build task-PR mappings
+        self._build_task_pr_mappings(stats, spec, open_prs, merged_prs)
 
         # Calculate pending tasks
         stats.pending_tasks = max(
@@ -228,8 +234,74 @@ class StatisticsService:
 
         return stats
 
+    def _build_task_pr_mappings(
+        self, stats: ProjectStats, spec, open_prs: List, merged_prs: List
+    ) -> None:
+        """Build task-PR mappings and identify orphaned PRs.
+
+        For each task in spec.md:
+        - Find matching PR by task hash
+        - Determine status based on spec checkbox and PR state
+        - Create TaskWithPR object
+
+        For each PR:
+        - If task hash doesn't match any spec task, add to orphaned_prs
+
+        Args:
+            stats: ProjectStats object to populate
+            spec: SpecContent with parsed tasks
+            open_prs: List of open PRs for the project
+            merged_prs: List of merged PRs for the project
+        """
+        from claudestep.domain.github_models import GitHubPullRequest
+
+        # Build a lookup map: task_hash -> PR
+        pr_by_hash: Dict[str, GitHubPullRequest] = {}
+        all_prs = open_prs + merged_prs
+
+        for pr in all_prs:
+            task_hash = pr.task_hash
+            if task_hash:
+                pr_by_hash[task_hash] = pr
+
+        # Track which task hashes we've seen (to identify orphaned PRs)
+        spec_task_hashes = set()
+
+        # Process each task from spec
+        for task in spec.tasks:
+            spec_task_hashes.add(task.task_hash)
+
+            # Find matching PR
+            matching_pr = pr_by_hash.get(task.task_hash)
+
+            # Determine status
+            if task.is_completed:
+                status = TaskStatus.COMPLETED
+            elif matching_pr and matching_pr.is_open():
+                status = TaskStatus.IN_PROGRESS
+            else:
+                status = TaskStatus.PENDING
+
+            # Create TaskWithPR
+            task_with_pr = TaskWithPR(
+                task_hash=task.task_hash,
+                description=task.description,
+                status=status,
+                pr=matching_pr
+            )
+            stats.tasks.append(task_with_pr)
+
+        # Identify orphaned PRs (PRs whose task hash doesn't match any spec task)
+        for pr in all_prs:
+            task_hash = pr.task_hash
+            if task_hash and task_hash not in spec_task_hashes:
+                stats.orphaned_prs.append(pr)
+
+        if stats.orphaned_prs:
+            print(f"  Orphaned PRs: {len(stats.orphaned_prs)}")
+
     def collect_team_member_stats(
-        self, reviewers: List[str], days_back: int = 30, label: str = DEFAULT_PR_LABEL
+        self, reviewers: List[str], days_back: int = DEFAULT_STATS_DAYS_BACK, label: str = DEFAULT_PR_LABEL
     ) -> Dict[str, TeamMemberStats]:
         """Collect PR statistics for team members from GitHub API
 
