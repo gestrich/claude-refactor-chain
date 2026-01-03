@@ -3,6 +3,7 @@ Format Slack notification message for created PR.
 """
 
 from claudestep.domain.cost_breakdown import CostBreakdown
+from claudestep.domain.formatting import format_usd
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 
 
@@ -111,10 +112,10 @@ def format_pr_notification(
         "",
         "*💰 Cost Breakdown:*",
         "```",
-        f"Main task:      ${cost_breakdown.main_cost:.6f}",
-        f"PR summary:     ${cost_breakdown.summary_cost:.6f}",
+        f"Main task:      {format_usd(cost_breakdown.main_cost)}",
+        f"PR summary:     {format_usd(cost_breakdown.summary_cost)}",
         "─────────────────────────────",
-        f"Total:          ${cost_breakdown.total_cost:.6f}",
+        f"Total:          {format_usd(cost_breakdown.total_cost)}",
         "```",
     ]
 
@@ -130,7 +131,7 @@ def format_pr_notification(
             # Truncate long model names for display
             display_name = model.model[:30] if len(model.model) > 30 else model.model
             lines.append(f"{display_name}")
-            lines.append(f"  Cost: ${calculated_cost:.6f} | In: {model.input_tokens:,} | Out: {model.output_tokens:,}")
+            lines.append(f"  Cost: {format_usd(calculated_cost)} | In: {model.input_tokens:,} | Out: {model.output_tokens:,}")
         lines.append("```")
 
     return "\n".join(lines)

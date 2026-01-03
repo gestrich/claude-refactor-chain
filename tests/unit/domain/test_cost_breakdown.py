@@ -634,9 +634,9 @@ class TestFormatForGitHub:
         # Assert
         assert "## 💰 Cost Breakdown" in result
         assert "| Component | Cost (USD) |" in result
-        assert "| Main refactoring task | $1.234567 |" in result
-        assert "| PR summary generation | $0.543210 |" in result
-        assert "| **Total** | **$1.777777** |" in result
+        assert "| Main refactoring task | $1.23 |" in result
+        assert "| PR summary generation | $0.54 |" in result
+        assert "| **Total** | **$1.78** |" in result
 
     def test_format_includes_workflow_url(self):
         """Should include link to workflow run"""
@@ -659,11 +659,11 @@ class TestFormatForGitHub:
         result = breakdown.format_for_github("owner/repo", "99999")
 
         # Assert
-        assert "$0.000000" in result
-        assert "**$0.000000**" in result  # Total
+        assert "$0.00" in result
+        assert "**$0.00**" in result  # Total
 
-    def test_format_preserves_six_decimal_places(self):
-        """Should format costs with 6 decimal places"""
+    def test_format_preserves_two_decimal_places(self):
+        """Should format costs with 2 decimal places (cents)"""
         # Arrange
         breakdown = CostBreakdown(main_cost=1.23, summary_cost=0.45)
 
@@ -671,9 +671,9 @@ class TestFormatForGitHub:
         result = breakdown.format_for_github("owner/repo", "12345")
 
         # Assert
-        assert "$1.230000" in result
-        assert "$0.450000" in result
-        assert "**$1.680000**" in result
+        assert "$1.23" in result
+        assert "$0.45" in result
+        assert "**$1.68**" in result
 
     def test_format_includes_model_section_when_models_present(self):
         """Should include per-model breakdown section when models are available"""
@@ -1298,7 +1298,7 @@ class TestRealWorkflowData:
         assert "## 💰 Cost Breakdown" in result
         assert "$0.03" in result  # Main cost ~$0.033959
         assert "$0.02" in result  # Summary cost ~$0.022597
-        assert "$0.05" in result  # Total ~$0.056556
+        assert "$0.06" in result  # Total ~$0.056556 rounds to $0.06
         # Should NOT show inflated costs
         assert "$0.17" not in result
         assert "$0.09" not in result

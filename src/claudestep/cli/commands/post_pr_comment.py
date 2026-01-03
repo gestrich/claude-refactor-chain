@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 
 from claudestep.domain.cost_breakdown import CostBreakdown
+from claudestep.domain.formatting import format_usd
 from claudestep.domain.summary_file import SummaryFile
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 
@@ -94,9 +95,9 @@ def cmd_post_pr_comment(
             print(f"✅ PR comment posted to PR #{pr_number}")
             if summary.has_content:
                 print("   - AI-generated summary included")
-            print(f"   - Main task: ${cost_breakdown.main_cost:.6f}")
-            print(f"   - PR summary: ${cost_breakdown.summary_cost:.6f}")
-            print(f"   - Total: ${cost_breakdown.total_cost:.6f}")
+            print(f"   - Main task: {format_usd(cost_breakdown.main_cost)}")
+            print(f"   - PR summary: {format_usd(cost_breakdown.summary_cost)}")
+            print(f"   - Total: {format_usd(cost_breakdown.total_cost)}")
 
             # Write workflow summary to GITHUB_STEP_SUMMARY
             _write_workflow_summary(
@@ -160,9 +161,9 @@ def _write_workflow_summary(
         "",
         "| Component | Cost (USD) |",
         "|-----------|------------|",
-        f"| Main refactoring task | ${cost_breakdown.main_cost:.6f} |",
-        f"| PR summary generation | ${cost_breakdown.summary_cost:.6f} |",
-        f"| **Total** | **${cost_breakdown.total_cost:.6f}** |",
+        f"| Main refactoring task | {format_usd(cost_breakdown.main_cost)} |",
+        f"| PR summary generation | {format_usd(cost_breakdown.summary_cost)} |",
+        f"| **Total** | **{format_usd(cost_breakdown.total_cost)}** |",
         "",
     ])
 

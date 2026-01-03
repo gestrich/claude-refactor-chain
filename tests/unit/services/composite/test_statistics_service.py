@@ -579,15 +579,15 @@ This PR was generated using Claude Code with the following costs:
 
 | Component | Cost (USD) |
 |-----------|------------|
-| Main refactoring task | $0.123456 |
-| PR summary generation | $0.002345 |
-| **Total** | **$0.125801** |
+| Main refactoring task | $0.12 |
+| PR summary generation | $0.00 |
+| **Total** | **$0.13** |
 
 ---
 *Cost tracking by ClaudeStep • [View workflow run](https://example.com)*
 """
         cost = StatisticsService.extract_cost_from_comment(comment)
-        assert cost == 0.125801
+        assert cost == 0.13
 
     def test_extract_cost_no_cost_comment(self):
         """Test extracting cost from comment without cost breakdown"""

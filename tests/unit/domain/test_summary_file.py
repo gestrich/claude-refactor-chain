@@ -217,8 +217,8 @@ class TestFormatWithCost:
         assert "Changes made here." in result
         assert "\n---\n" in result  # Separator
         assert "## 💰 Cost Breakdown" in result
-        assert "$1.500000" in result
-        assert "$0.500000" in result
+        assert "$1.50" in result
+        assert "$0.50" in result
 
     def test_format_without_summary_only_cost(self):
         """Should show only cost breakdown when no summary"""
@@ -231,8 +231,8 @@ class TestFormatWithCost:
 
         # Assert
         assert "## 💰 Cost Breakdown" in result
-        assert "$1.000000" in result
-        assert "$0.500000" in result
+        assert "$1.00" in result
+        assert "$0.50" in result
         # Should start with cost breakdown (no summary content before it)
         assert result.startswith("## 💰 Cost Breakdown")
 
@@ -247,8 +247,8 @@ class TestFormatWithCost:
 
         # Assert
         assert "## 💰 Cost Breakdown" in result
-        assert "$2.000000" in result
-        assert "$1.000000" in result
+        assert "$2.00" in result
+        assert "$1.00" in result
         # Should start with cost breakdown (no summary content before it)
         assert result.startswith("## 💰 Cost Breakdown")
 

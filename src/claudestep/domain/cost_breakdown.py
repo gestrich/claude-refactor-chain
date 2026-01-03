@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Self
 
+from claudestep.domain.formatting import format_usd
+
 logger = logging.getLogger(__name__)
 
 
@@ -460,7 +462,7 @@ class CostBreakdown:
                 f"{self._format_token_count(model.output_tokens)} | "
                 f"{self._format_token_count(model.cache_read_tokens)} | "
                 f"{self._format_token_count(model.cache_write_tokens)} | "
-                f"${calculated_cost:.6f} |"
+                f"{format_usd(calculated_cost)} |"
             )
 
         # Add totals row
@@ -469,7 +471,7 @@ class CostBreakdown:
             f"**{self._format_token_count(self.output_tokens)}** | "
             f"**{self._format_token_count(self.cache_read_tokens)}** | "
             f"**{self._format_token_count(self.cache_write_tokens)}** | "
-            f"**${self.total_cost:.6f}** |"
+            f"**{format_usd(self.total_cost)}** |"
         )
 
         return "\n".join(lines)
@@ -586,9 +588,9 @@ This PR was generated using Claude Code with the following costs:
 
 | Component | Cost (USD) |
 |-----------|------------|
-| Main refactoring task | ${self.main_cost:.6f} |
-| PR summary generation | ${self.summary_cost:.6f} |
-| **Total** | **${self.total_cost:.6f}** |
+| Main refactoring task | {format_usd(self.main_cost)} |
+| PR summary generation | {format_usd(self.summary_cost)} |
+| **Total** | **{format_usd(self.total_cost)}** |
 {model_section}
 ---
 *Cost tracking by ClaudeStep • [View workflow run]({workflow_url})*

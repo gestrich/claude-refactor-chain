@@ -34,9 +34,9 @@ class TestFormatUnifiedComment:
         assert "This PR implements feature X." in result
         assert "---" in result
         assert "## 💰 Cost Breakdown" in result
-        assert "| Main refactoring task | $0.123456 |" in result
-        assert "| PR summary generation | $0.045678 |" in result
-        assert "| **Total** | **$0.169134** |" in result
+        assert "| Main refactoring task | $0.12 |" in result
+        assert "| PR summary generation | $0.05 |" in result
+        assert "| **Total** | **$0.17** |" in result
 
     def test_format_unified_comment_without_summary(self):
         """Should format cost-only comment when summary is not available"""
@@ -95,7 +95,7 @@ class TestFormatUnifiedComment:
         result = summary.format_with_cost(cost_breakdown, "owner/repo", "123")
 
         # Assert
-        assert "$0.000000" in result
+        assert "$0.00" in result
         assert "## 💰 Cost Breakdown" in result
 
 
@@ -234,9 +234,9 @@ class TestCmdPostPrComment:
             assert "## AI-Generated Summary" in content
             assert "Test summary" in content
             assert "## 💰 Cost Breakdown" in content
-            assert "$0.123456" in content
-            assert "$0.045678" in content
-            assert "$0.169134" in content
+            assert "$0.12" in content
+            assert "$0.05" in content
+            assert "$0.17" in content
         finally:
             os.unlink(summary_file)
 
@@ -422,7 +422,7 @@ class TestCmdPostPrComment:
         # Assert
         assert result == 0
         content = written_content[0]
-        assert "$0.000000" in content
+        assert "$0.00" in content
 
     def test_cmd_post_pr_comment_uses_provided_cost_values(self, mock_gh_actions, create_execution_file, tmp_path):
         """Should use provided cost values in output"""
@@ -457,9 +457,9 @@ class TestCmdPostPrComment:
         # Assert
         assert result == 0
         content = written_content[0]
-        assert "$0.123000" in content
-        assert "$0.456000" in content
-        assert "$0.579000" in content
+        assert "$0.12" in content
+        assert "$0.46" in content
+        assert "$0.58" in content
 
     def test_cmd_post_pr_comment_handles_subprocess_error(self, mock_gh_actions, create_execution_file, tmp_path):
         """Should return error when gh CLI command fails"""
@@ -669,4 +669,4 @@ class TestCmdPostPrComment:
         # Assert
         content = written_content[0]
         # Domain model calculates total as main_cost + summary_cost = 0.579
-        assert "$0.579000" in content
+        assert "$0.58" in content

@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 from claudestep.domain.formatters.table_formatter import TableFormatter
+from claudestep.domain.formatting import format_usd
 
 
 @dataclass(frozen=True)
@@ -560,7 +561,7 @@ class StatisticsReport:
                 progress_display = f"{bar} {pct:>3.0f}%"
 
                 # Format cost
-                cost_display = f"${stats.total_cost_usd:.2f}" if stats.total_cost_usd > 0 else "-"
+                cost_display = format_usd(stats.total_cost_usd) if stats.total_cost_usd > 0 else "-"
 
                 table.add_row([
                     project_name[:20],

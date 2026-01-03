@@ -80,16 +80,16 @@ class TestFormatPrNotification:
         # Assert
         assert "*💰 Cost Breakdown:*" in result
         assert "```" in result
-        assert "Main task:      $0.123456" in result
-        assert "PR summary:     $0.045678" in result
-        assert "Total:          $0.169134" in result  # 0.123456 + 0.045678
+        assert "Main task:      $0.12" in result
+        assert "PR summary:     $0.05" in result
+        assert "Total:          $0.17" in result  # 0.123456 + 0.045678
 
-    def test_format_pr_notification_uses_six_decimal_places(self):
-        """Should display costs with 6 decimal places precision"""
+    def test_format_pr_notification_uses_two_decimal_places(self):
+        """Should display costs with 2 decimal places (cents)"""
         # Arrange
         cost_breakdown = CostBreakdown(
-            main_cost=0.000001,
-            summary_cost=0.000002,
+            main_cost=0.001,
+            summary_cost=0.002,
         )
 
         # Act
@@ -103,9 +103,8 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        assert "$0.000001" in result
-        assert "$0.000002" in result
-        assert "$0.000003" in result  # Total
+        assert "$0.00" in result  # Both round to $0.00
+        assert "Total:          $0.00" in result
 
     def test_format_pr_notification_handles_zero_costs(self):
         """Should format zero costs correctly"""
@@ -123,10 +122,10 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        assert "$0.000000" in result
-        assert "Main task:      $0.000000" in result
-        assert "PR summary:     $0.000000" in result
-        assert "Total:          $0.000000" in result
+        assert "$0.00" in result
+        assert "Main task:      $0.00" in result
+        assert "PR summary:     $0.00" in result
+        assert "Total:          $0.00" in result
 
     def test_format_pr_notification_handles_large_costs(self):
         """Should format large cost values correctly"""
@@ -147,9 +146,9 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        assert "$123.456789" in result
-        assert "$45.678901" in result
-        assert "$169.135690" in result  # Total
+        assert "$123.46" in result
+        assert "$45.68" in result
+        assert "$169.14" in result  # Total
 
     def test_format_pr_notification_formats_pr_link_as_slack_mrkdwn(self):
         """Should format PR link using Slack mrkdwn syntax"""
@@ -285,8 +284,8 @@ class TestCmdFormatSlackNotification:
         assert "https://github.com/owner/repo/pull/42" in message
         assert "my-project" in message
         assert "Refactor authentication system" in message
-        assert "$0.123456" in message
-        assert "$0.045678" in message
+        assert "$0.12" in message
+        assert "$0.05" in message
 
     def test_cmd_format_slack_notification_calculates_total_cost_correctly(self, mock_gh_actions):
         """Should calculate total cost as sum of main and summary costs"""
@@ -312,9 +311,9 @@ class TestCmdFormatSlackNotification:
         slack_message_call = [c for c in calls if c[0][0] == "slack_message"]
         message = slack_message_call[0][0][1]
 
-        assert "$0.123000" in message  # Main cost
-        assert "$0.456000" in message  # Summary cost
-        assert "$0.579000" in message  # Total (0.123 + 0.456)
+        assert "$0.12" in message  # Main cost
+        assert "$0.46" in message  # Summary cost
+        assert "$0.58" in message  # Total (0.123 + 0.456)
 
     def test_cmd_format_slack_notification_skips_when_no_pr_number(self, mock_gh_actions):
         """Should skip notification and return success when pr_number is empty"""
@@ -430,8 +429,8 @@ class TestCmdFormatSlackNotification:
 
         # Verify trimmed values are used
         assert "#42>" in message  # PR number without spaces
-        assert "$0.123000" in message
-        assert "$0.456000" in message
+        assert "$0.12" in message
+        assert "$0.46" in message
 
     def test_cmd_format_slack_notification_handles_empty_optional_fields(self, mock_gh_actions):
         """Should handle empty optional fields gracefully"""
