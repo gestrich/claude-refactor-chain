@@ -197,76 +197,57 @@ def parse_iso_timestamp(timestamp_str: str) -> datetime:
     return dt
 
 
-class ReviewerCapacityResult:
-    """Result of reviewer capacity check with detailed information"""
+@dataclass
+class CapacityResult:
+    """Result of project capacity check.
 
-    def __init__(self):
-        self.reviewers_status = []  # List of dicts with reviewer details
-        self.selected_reviewer = None
-        self.all_at_capacity = False
+    ClaudeStep allows only 1 open PR per project at a time.
+    """
 
-    def add_reviewer(self, username: str, max_prs: int, open_prs: List[Dict], has_capacity: bool):
-        """Add reviewer status information"""
-        self.reviewers_status.append({
-            "username": username,
-            "max_prs": max_prs,
-            "open_prs": open_prs,  # List of {pr_number, task_index, task_description}
-            "open_count": len(open_prs),
-            "has_capacity": has_capacity
-        })
+    has_capacity: bool
+    assignee: Optional[str]
+    open_prs: List[Dict]
+    project_name: str
+
+    @property
+    def open_count(self) -> int:
+        """Number of currently open PRs"""
+        return len(self.open_prs)
 
     def format_summary(self) -> str:
         """Generate formatted summary for GitHub Actions output"""
-        lines = ["## Reviewer Capacity Check", ""]
+        lines = ["## Capacity Check", ""]
 
-        for reviewer in self.reviewers_status:
-            username = reviewer["username"]
-            max_prs = reviewer["max_prs"]
-            open_count = reviewer["open_count"]
-            open_prs = reviewer["open_prs"]
-            has_capacity = reviewer["has_capacity"]
+        # Project header with status emoji
+        status_emoji = "✅" if self.has_capacity else "❌"
+        lines.append(f"### {status_emoji} **{self.project_name}**")
+        lines.append("")
 
-            # Reviewer header with status emoji
-            status_emoji = "✅" if has_capacity else "❌"
-            lines.append(f"### {status_emoji} **{username}**")
+        # Capacity info
+        lines.append(f"**Max PRs Allowed:** 1")
+        lines.append(f"**Currently Open:** {self.open_count}/1")
+        lines.append("")
+
+        # List open PRs with details
+        if self.open_prs:
+            lines.append("**Open PRs:**")
+            for pr_info in self.open_prs:
+                pr_num = pr_info.get("pr_number", "?")
+                task_desc = pr_info.get("task_description", "Unknown task")
+                lines.append(f"- PR #{pr_num}: {task_desc}")
             lines.append("")
-
-            # Capacity info
-            lines.append(f"**Max PRs Allowed:** {max_prs}")
-            lines.append(f"**Currently Open:** {open_count}/{max_prs}")
-            lines.append("")
-
-            # List open PRs with details
-            if open_prs:
-                lines.append("**Open PRs:**")
-                for pr_info in open_prs:
-                    pr_num = pr_info.get("pr_number", "?")
-                    task_idx = pr_info.get("task_index", "?")
-                    task_desc = pr_info.get("task_description", "Unknown task")
-                    lines.append(f"- PR #{pr_num}: Task {task_idx} - {task_desc}")
-                lines.append("")
-            else:
-                lines.append("**Open PRs:** None")
-                lines.append("")
-
-            # Availability status
-            if has_capacity:
-                available_slots = max_prs - open_count
-                lines.append(f"**Status:** ✅ Available ({available_slots} slot(s) remaining)")
-            else:
-                lines.append(f"**Status:** ❌ At capacity")
-
+        else:
+            lines.append("**Open PRs:** None")
             lines.append("")
 
         # Final decision
         lines.append("---")
         lines.append("")
-        if self.all_at_capacity:
-            lines.append("**Decision:** ⏸️ At capacity - waiting for PRs to be reviewed")
-        elif self.selected_reviewer:
-            lines.append(f"**Decision:** ✅ Selected **{self.selected_reviewer}** for next PR")
+        if not self.has_capacity:
+            lines.append("**Decision:** ⏸️ At capacity - waiting for PR to be reviewed")
+        elif self.assignee:
+            lines.append(f"**Decision:** ✅ Capacity available - assignee: **{self.assignee}**")
         else:
-            # No reviewer selected but capacity available (no reviewers configured)
             lines.append("**Decision:** ✅ Capacity available - PR will be created without assignee")
 
         return "\n".join(lines)
@@ -1026,7 +1007,7 @@ class TaskMetadata:
     task_description: str
     project: str
     branch_name: str
-    reviewer: str
+    assignee: str
     created_at: datetime
     workflow_run_id: int
     pr_number: int
@@ -1074,7 +1055,7 @@ class TaskMetadata:
             task_description=data["task_description"],
             project=data["project"],
             branch_name=data["branch_name"],
-            reviewer=data["reviewer"],
+            assignee=data.get("assignee", data.get("reviewer", "")),
             created_at=created_at,
             workflow_run_id=data["workflow_run_id"],
             pr_number=data["pr_number"],
@@ -1098,7 +1079,7 @@ class TaskMetadata:
             "task_description": self.task_description,
             "project": self.project,
             "branch_name": self.branch_name,
-            "reviewer": self.reviewer,
+            "assignee": self.assignee,
             "created_at": self.created_at.isoformat(),
             "workflow_run_id": self.workflow_run_id,
             "pr_number": self.pr_number,

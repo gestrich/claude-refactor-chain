@@ -1129,7 +1129,7 @@ class TestCostAggregationFromArtifacts:
                     task_description="Task 1",
                     project="test",
                     branch_name="claude-step-test-abc12345",
-                    reviewer="alice",
+                    assignee="alice",
                     created_at=now,
                     workflow_run_id=100,
                     pr_number=10,
@@ -1148,7 +1148,7 @@ class TestCostAggregationFromArtifacts:
                     task_description="Task 2",
                     project="test",
                     branch_name="claude-step-test-def67890",
-                    reviewer="bob",
+                    assignee="bob",
                     created_at=now,
                     workflow_run_id=101,
                     pr_number=11,
@@ -1166,7 +1166,7 @@ class TestCostAggregationFromArtifacts:
                     task_description="Task 3",
                     project="test",
                     branch_name="claude-step-test-ghi11111",
-                    reviewer="charlie",
+                    assignee="charlie",
                     created_at=now,
                     workflow_run_id=102,
                     pr_number=12,
@@ -1206,7 +1206,7 @@ class TestCostAggregationFromArtifacts:
                     task_description="Task 1",
                     project="test",
                     branch_name="claude-step-test-abc12345",
-                    reviewer="alice",
+                    assignee="alice",
                     created_at=now,
                     workflow_run_id=100,
                     pr_number=10,
@@ -1458,11 +1458,7 @@ class TestCollectAllStatistics:
     def test_collect_all_single_project(self):
         """Test collecting stats for a single project"""
         config_content = """
-reviewers:
-  - username: alice
-    maxOpenPRs: 2
-  - username: bob
-    maxOpenPRs: 1
+assignee: alice
         """
         spec_content = "- [x] Task 1\n- [ ] Task 2"
 
@@ -1498,9 +1494,8 @@ reviewers:
         )
         assert len(report_with_reviewers.project_stats) == 1
         assert "project1" in report_with_reviewers.project_stats
-        assert len(report_with_reviewers.team_stats) == 2
+        assert len(report_with_reviewers.team_stats) == 1  # Single assignee
         assert "alice" in report_with_reviewers.team_stats
-        assert "bob" in report_with_reviewers.team_stats
 
     def test_collect_all_no_repository(self):
         """Test that missing GITHUB_REPOSITORY returns empty report"""

@@ -42,7 +42,7 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         branch_name = os.environ.get("BRANCH_NAME", "")
         task = os.environ.get("TASK_DESCRIPTION", "")
         task_index = os.environ.get("TASK_INDEX", "")
-        reviewer = os.environ.get("REVIEWER", "")
+        assignee = os.environ.get("ASSIGNEE", "")
         project = os.environ.get("PROJECT", "")
         spec_path = os.environ.get("SPEC_PATH", "")
         pr_template_path = os.environ.get("PR_TEMPLATE_PATH", "")
@@ -61,12 +61,8 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
 
         # Check if we should skip (no capacity or no task)
         if has_capacity != "true":
-            if reviewer:
-                gh.write_step_summary("⏸️ **Status**: All reviewers at capacity")
-                print("⏸️ All reviewers at capacity - skipping")
-            else:
-                gh.write_step_summary("⏸️ **Status**: Project at capacity (1 open PR limit)")
-                print("⏸️ Project at capacity - skipping")
+            gh.write_step_summary("⏸️ **Status**: Project at capacity (1 open PR limit)")
+            print("⏸️ Project at capacity - skipping")
             return 0
 
         if has_task != "true":
@@ -203,8 +199,8 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
                 "--head", branch_name,
                 "--base", base_branch
             ]
-            if reviewer:
-                pr_create_args.extend(["--assignee", reviewer])
+            if assignee:
+                pr_create_args.extend(["--assignee", assignee])
 
             pr_url = run_gh_command(pr_create_args)
         finally:
@@ -235,10 +231,10 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         gh.write_step_summary("✅ **Status**: PR created successfully")
         gh.write_step_summary("")
         gh.write_step_summary(f"- **PR**: #{pr_number}")
-        if reviewer:
-            gh.write_step_summary(f"- **Reviewer**: {reviewer}")
+        if assignee:
+            gh.write_step_summary(f"- **Assignee**: {assignee}")
         else:
-            gh.write_step_summary("- **Reviewer**: (none assigned)")
+            gh.write_step_summary("- **Assignee**: (none)")
         gh.write_step_summary(f"- **Task**: {task}")
 
         print("\n✅ Finalization complete")

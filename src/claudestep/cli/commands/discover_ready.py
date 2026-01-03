@@ -12,7 +12,7 @@ from claudestep.cli.commands.discover import find_all_projects
 from claudestep.domain.config import validate_spec_format
 from claudestep.domain.project import Project
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
-from claudestep.services.core.reviewer_service import ReviewerService
+from claudestep.services.core.assignee_service import AssigneeService
 from claudestep.services.core.task_service import TaskService
 
 
@@ -25,7 +25,7 @@ def check_project_ready(project_name: str, repo: str) -> bool:
     A project is ready if:
     1. spec.md exists (required)
     2. Spec format is valid (contains checklist items)
-    3. Has capacity (reviewer capacity OR project-level capacity if no reviewers)
+    3. Has capacity (only 1 open PR per project allowed)
     4. Has available tasks
 
     Configuration is optional - projects without configuration.yml use default settings.
@@ -68,19 +68,16 @@ def check_project_ready(project_name: str, repo: str) -> bool:
         # Initialize services
         from claudestep.services.core.pr_service import PRService
         pr_service = PRService(repo)
-        reviewer_service = ReviewerService(repo, pr_service)
+        assignee_service = AssigneeService(repo, pr_service)
         task_service = TaskService(repo, pr_service)
 
-        # Check capacity (reviewer capacity OR project-level capacity if no reviewers)
-        _, capacity_result = reviewer_service.find_available_reviewer(
+        # Check capacity (only 1 open PR per project allowed)
+        capacity_result = assignee_service.check_capacity(
             project_config, label, project_name
         )
 
-        if capacity_result.all_at_capacity:
-            if project_config.reviewers:
-                print(f"  ⏭️  No reviewer capacity")
-            else:
-                print(f"  ⏭️  Project at capacity (1 open PR limit)")
+        if not capacity_result.has_capacity:
+            print(f"  ⏭️  Project at capacity (1 open PR limit)")
             return False
 
         # Load spec and check for available tasks
@@ -99,15 +96,9 @@ def check_project_ready(project_name: str, repo: str) -> bool:
 
         # Get stats for logging
         uncompleted = spec.pending_tasks
+        open_prs = len(capacity_result.open_prs)
 
-        # Get capacity info from result
-        open_prs = sum(r['open_count'] for r in capacity_result.reviewers_status)
-        max_prs = sum(r['max_prs'] for r in capacity_result.reviewers_status)
-
-        if project_config.reviewers:
-            print(f"  ✅ Ready for work ({open_prs}/{max_prs} PRs, {uncompleted} tasks remaining)")
-        else:
-            print(f"  ✅ Ready for work (no reviewers, {uncompleted} tasks remaining)")
+        print(f"  ✅ Ready for work ({open_prs}/1 PRs, {uncompleted} tasks remaining)")
         return True
 
     except Exception as e:

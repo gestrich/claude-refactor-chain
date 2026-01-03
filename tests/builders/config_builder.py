@@ -1,6 +1,6 @@
 """Builder for creating test configuration data"""
 
-from typing import Dict, Any, List
+from typing import Dict, Any, Optional
 
 
 class ConfigBuilder:
@@ -11,52 +11,36 @@ class ConfigBuilder:
 
     Example:
         config = ConfigBuilder()
-            .with_reviewer("alice", max_prs=2)
-            .with_reviewer("bob", max_prs=3)
+            .with_assignee("alice")
             .with_project("my-project")
             .build()
     """
 
     def __init__(self):
         """Initialize builder with default values"""
-        self._reviewers: List[Dict[str, Any]] = []
+        self._assignee: Optional[str] = None
         self._project: str = "sample-project"
         self._custom_fields: Dict[str, Any] = {}
 
-    def with_reviewer(self, username: str, max_prs: int = 2) -> "ConfigBuilder":
-        """Add a reviewer to the configuration
+    def with_assignee(self, username: str) -> "ConfigBuilder":
+        """Set the assignee for the configuration
 
         Args:
-            username: GitHub username of the reviewer
-            max_prs: Maximum number of open PRs allowed (default: 2)
+            username: GitHub username of the assignee
 
         Returns:
             Self for method chaining
         """
-        self._reviewers.append({
-            "username": username,
-            "maxOpenPRs": max_prs
-        })
+        self._assignee = username
         return self
 
-    def with_reviewers(self, *reviewers: tuple) -> "ConfigBuilder":
-        """Add multiple reviewers at once
-
-        Args:
-            *reviewers: Tuples of (username, max_prs)
+    def with_no_assignee(self) -> "ConfigBuilder":
+        """Clear the assignee (for testing no assignee)
 
         Returns:
             Self for method chaining
-
-        Example:
-            builder.with_reviewers(
-                ("alice", 2),
-                ("bob", 3),
-                ("charlie", 1)
-            )
         """
-        for username, max_prs in reviewers:
-            self.with_reviewer(username, max_prs)
+        self._assignee = None
         return self
 
     def with_project(self, project_name: str) -> "ConfigBuilder":
@@ -86,15 +70,6 @@ class ConfigBuilder:
         self._custom_fields[key] = value
         return self
 
-    def with_no_reviewers(self) -> "ConfigBuilder":
-        """Clear all reviewers (for testing empty reviewer list)
-
-        Returns:
-            Self for method chaining
-        """
-        self._reviewers = []
-        return self
-
     def build(self) -> Dict[str, Any]:
         """Build and return the configuration dictionary
 
@@ -102,9 +77,11 @@ class ConfigBuilder:
             Complete configuration dictionary ready for use in tests
         """
         config = {
-            "reviewers": self._reviewers,
             "project": self._project
         }
+
+        if self._assignee:
+            config["assignee"] = self._assignee
 
         # Merge any custom fields
         config.update(self._custom_fields)
@@ -112,32 +89,33 @@ class ConfigBuilder:
         return config
 
     @staticmethod
-    def single_reviewer(username: str = "alice", max_prs: int = 2) -> Dict[str, Any]:
-        """Quick helper for creating a config with a single reviewer
+    def with_default_assignee(username: str = "alice") -> Dict[str, Any]:
+        """Quick helper for creating a config with an assignee
 
         Args:
             username: GitHub username (default: "alice")
-            max_prs: Maximum open PRs (default: 2)
 
         Returns:
-            Configuration dictionary with one reviewer
+            Configuration dictionary with assignee
         """
-        return ConfigBuilder().with_reviewer(username, max_prs).build()
+        return ConfigBuilder().with_assignee(username).build()
 
     @staticmethod
     def default() -> Dict[str, Any]:
         """Quick helper for creating a default configuration
 
-        Creates a configuration with three reviewers:
-        - alice (max 2 PRs)
-        - bob (max 3 PRs)
-        - charlie (max 1 PR)
+        Creates a configuration with assignee alice.
 
         Returns:
             Default configuration dictionary
         """
-        return (ConfigBuilder()
-                .with_reviewer("alice", 2)
-                .with_reviewer("bob", 3)
-                .with_reviewer("charlie", 1)
-                .build())
+        return ConfigBuilder().with_assignee("alice").build()
+
+    @staticmethod
+    def empty() -> Dict[str, Any]:
+        """Quick helper for creating a configuration with no assignee
+
+        Returns:
+            Configuration dictionary without assignee
+        """
+        return ConfigBuilder().with_no_assignee().build()

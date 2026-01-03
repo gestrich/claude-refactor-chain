@@ -83,7 +83,7 @@ def main():
             task_hash=os.environ.get("TASK_HASH", ""),
             project=os.environ.get("PROJECT", ""),
             branch_name=os.environ.get("BRANCH_NAME", ""),
-            reviewer=os.environ.get("REVIEWER", ""),
+            assignee=os.environ.get("ASSIGNEE", ""),
             run_id=os.environ.get("GITHUB_RUN_ID", ""),
         )
     elif args.command == "format-slack-notification":

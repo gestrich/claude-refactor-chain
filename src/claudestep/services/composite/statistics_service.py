@@ -74,7 +74,7 @@ class StatisticsService:
 
         # Use base branch from instance variable
         base_branch = self.base_branch
-        all_reviewers = set()
+        all_assignees = set()
         project_configs = []  # List of ProjectConfiguration objects
 
         if config_path:
@@ -88,12 +88,12 @@ class StatisticsService:
                 # load_configuration returns default config if file not found
                 config = self._load_project_config(project.name, base_branch)
 
-                reviewers = config.get_reviewer_usernames()
+                if config.assignee:
+                    all_assignees.add(config.assignee)
                 project_configs.append(config)
-                all_reviewers.update(reviewers)
 
-                if not reviewers:
-                    print("  (no reviewers configured - using default config)")
+                if not config.assignee:
+                    print("  (no assignee configured - using default config)")
 
             except Exception as e:
                 print(f"Error loading config: {e}")
@@ -121,16 +121,16 @@ class StatisticsService:
                     # load_configuration returns default config if file not found
                     config = self._load_project_config(project_name, base_branch)
 
-                    reviewers = config.get_reviewer_usernames()
+                    if config.assignee:
+                        all_assignees.add(config.assignee)
                     project_configs.append(config)
-                    all_reviewers.update(reviewers)
 
                 except Exception as e:
                     print(f"Warning: Failed to load project {project_name}: {e}")
                     continue
 
         print(f"\nProcessing {len(project_configs)} project(s)...")
-        print(f"Tracking {len(all_reviewers)} unique reviewer(s)")
+        print(f"Tracking {len(all_assignees)} unique assignee(s)")
 
         # Collect project statistics
         for config in project_configs:
@@ -147,19 +147,19 @@ class StatisticsService:
 
         # Collect team member statistics across all projects (only if enabled)
         if show_reviewer_stats:
-            if all_reviewers:
+            if all_assignees:
                 try:
                     team_stats = self.collect_team_member_stats(
-                        list(all_reviewers), days_back, label
+                        list(all_assignees), days_back, label
                     )
                     for username, stats in team_stats.items():
                         report.add_team_member(stats)
                 except Exception as e:
                     print(f"Error collecting team member stats: {e}")
             else:
-                print("No reviewers configured - skipping team member statistics")
+                print("No assignees configured - skipping team member statistics")
         else:
-            print("Reviewer statistics disabled - skipping team member collection")
+            print("Team member statistics disabled - skipping collection")
 
         return report
 
@@ -335,12 +335,12 @@ class StatisticsService:
         return total_cost
 
     def collect_team_member_stats(
-        self, reviewers: List[str], days_back: int = DEFAULT_STATS_DAYS_BACK, label: str = DEFAULT_PR_LABEL
+        self, assignees: List[str], days_back: int = DEFAULT_STATS_DAYS_BACK, label: str = DEFAULT_PR_LABEL
     ) -> Dict[str, TeamMemberStats]:
         """Collect PR statistics for team members from GitHub API
 
         Args:
-            reviewers: List of GitHub usernames to track
+            assignees: List of GitHub usernames to track
             days_back: Number of days to look back
             label: GitHub label for filtering PRs
 
@@ -349,11 +349,11 @@ class StatisticsService:
         """
         stats_dict = {}
 
-        # Initialize stats for all reviewers
-        for username in reviewers:
+        # Initialize stats for all assignees
+        for username in assignees:
             stats_dict[username] = TeamMemberStats(username)
 
-        print(f"Collecting team member statistics for {len(reviewers)} reviewer(s)...")
+        print(f"Collecting team member statistics for {len(assignees)} assignee(s)...")
 
         # Calculate cutoff date
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_back)

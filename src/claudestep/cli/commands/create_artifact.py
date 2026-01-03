@@ -25,7 +25,7 @@ def cmd_create_artifact(
     task_hash: str,
     project: str,
     branch_name: str,
-    reviewer: str,
+    assignee: str,
     run_id: str,
 ) -> int:
     """
@@ -42,7 +42,7 @@ def cmd_create_artifact(
         task_hash: Task hash (for artifact naming)
         project: Project name
         branch_name: Branch name
-        reviewer: Reviewer username
+        assignee: Assignee username
         run_id: Workflow run ID
 
     Outputs:
@@ -119,7 +119,7 @@ def cmd_create_artifact(
             task_description=task,
             project=project,
             branch_name=branch_name,
-            reviewer=reviewer or "",
+            assignee=assignee or "",
             created_at=now,
             workflow_run_id=int(run_id) if run_id else 0,
             pr_number=int(pr_number),

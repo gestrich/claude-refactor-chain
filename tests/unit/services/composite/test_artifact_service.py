@@ -16,7 +16,7 @@ from claudestep.services.composite.artifact_service import (
     find_in_progress_tasks,
     find_project_artifacts,
     get_artifact_metadata,
-    get_reviewer_assignments,
+    get_assignee_assignments,
     parse_task_index_from_name,
 )
 from claudestep.domain.models import AITask
@@ -34,7 +34,7 @@ class TestTaskMetadata:
             "task_description": "Add authentication",
             "project": "my-project",
             "branch_name": "claude-step-my-project-5",
-            "reviewer": "alice",
+            "assignee": "alice",
             "created_at": "2025-01-15T10:30:00Z",
             "workflow_run_id": 12345,
             "pr_number": 42,
@@ -51,7 +51,7 @@ class TestTaskMetadata:
         assert metadata.task_description == "Add authentication"
         assert metadata.project == "my-project"
         assert metadata.branch_name == "claude-step-my-project-5"
-        assert metadata.reviewer == "alice"
+        assert metadata.assignee == "alice"
         assert metadata.workflow_run_id == 12345
         assert metadata.pr_number == 42
         assert metadata.main_task_cost_usd == 1.25
@@ -66,7 +66,7 @@ class TestTaskMetadata:
             "task_description": "Test",
             "project": "test",
             "branch_name": "test-branch",
-            "reviewer": "alice",
+            "assignee": "alice",
             "created_at": "2025-12-27T15:30:00Z",
             "workflow_run_id": 123,
             "pr_number": 1,
@@ -89,7 +89,7 @@ class TestTaskMetadata:
             "task_description": "Test",
             "project": "test",
             "branch_name": "test-branch",
-            "reviewer": "alice",
+            "assignee": "alice",
             "created_at": "2025-12-27T15:30:00Z",
             "workflow_run_id": 123,
             "pr_number": 1,
@@ -112,7 +112,7 @@ class TestTaskMetadata:
             "task_description": "Add feature",
             "project": "my-project",
             "branch_name": "claude-step-my-project-abc12345",
-            "reviewer": "alice",
+            "assignee": "alice",
             "created_at": "2025-12-27T15:30:00Z",
             "workflow_run_id": 123,
             "pr_number": 42,
@@ -159,7 +159,7 @@ class TestTaskMetadata:
             task_description="Test",
             project="test",
             branch_name="test-branch",
-            reviewer="alice",
+            assignee="alice",
             created_at=now,
             workflow_run_id=123,
             pr_number=1,
@@ -184,7 +184,7 @@ class TestTaskMetadata:
             task_description="Test",
             project="test",
             branch_name="test-branch",
-            reviewer="alice",
+            assignee="alice",
             created_at=now,
             workflow_run_id=123,
             pr_number=42,
@@ -215,7 +215,7 @@ class TestTaskMetadata:
             task_description="Implement authentication",
             project="auth-project",
             branch_name="claude-step-auth-project-a1b2c3d4",
-            reviewer="bob",
+            assignee="bob",
             created_at=now,
             workflow_run_id=99999,
             pr_number=123,
@@ -256,7 +256,7 @@ class TestProjectArtifact:
             task_description="Test",
             project="test",
             branch_name="test-branch",
-            reviewer="alice",
+            assignee="alice",
             created_at=datetime.now(timezone.utc),
             workflow_run_id=123,
             pr_number=1,
@@ -439,7 +439,7 @@ class TestFindProjectArtifacts:
             "task_description": "Test task",
             "project": "test",
             "branch_name": "claude-step-test-1",
-            "reviewer": "alice",
+            "assignee": "alice",
             "created_at": "2025-12-27T15:30:00Z",
             "workflow_run_id": 100,
             "pr_number": 42,
@@ -457,7 +457,7 @@ class TestFindProjectArtifacts:
         assert len(result) == 1
         assert result[0].metadata is not None
         assert result[0].metadata.task_index == 1
-        assert result[0].metadata.reviewer == "alice"
+        assert result[0].metadata.assignee == "alice"
         mock_download.assert_called_once_with("owner/repo", 1)
 
     @patch("claudestep.services.composite.artifact_service.gh_api_call")
@@ -590,7 +590,7 @@ class TestGetArtifactMetadata:
             "task_description": "Test task",
             "project": "test",
             "branch_name": "claude-step-test-5",
-            "reviewer": "bob",
+            "assignee": "bob",
             "created_at": "2025-12-27T10:00:00Z",
             "workflow_run_id": 200,
             "pr_number": 10,
@@ -602,7 +602,7 @@ class TestGetArtifactMetadata:
         # Assert
         assert result is not None
         assert result.task_index == 5
-        assert result.reviewer == "bob"
+        assert result.assignee == "bob"
         mock_download.assert_called_once_with("owner/repo", 42)
 
     @patch("claudestep.services.composite.artifact_service.download_artifact_json")
@@ -712,14 +712,14 @@ class TestFindInProgressTasks:
         assert result == set()
 
 
-class TestGetReviewerAssignments:
-    """Test suite for get_reviewer_assignments convenience function"""
+class TestGetAssigneeAssignments:
+    """Test suite for get_assignee_assignments convenience function"""
 
     @patch("claudestep.services.composite.artifact_service.find_project_artifacts")
-    def test_get_reviewer_assignments_returns_pr_to_reviewer_mapping(
+    def test_get_assignee_assignments_returns_pr_to_assignee_mapping(
         self, mock_find_artifacts
     ):
-        """Should return dictionary mapping PR numbers to reviewers"""
+        """Should return dictionary mapping PR numbers to assignees"""
         # Arrange
         mock_find_artifacts.return_value = [
             ProjectArtifact(
@@ -731,7 +731,7 @@ class TestGetReviewerAssignments:
                     task_description="Task 1",
                     project="test",
                     branch_name="claude-step-test-1",
-                    reviewer="alice",
+                    assignee="alice",
                     created_at=datetime.now(timezone.utc),
                     workflow_run_id=100,
                     pr_number=10,
@@ -746,7 +746,7 @@ class TestGetReviewerAssignments:
                     task_description="Task 2",
                     project="test",
                     branch_name="claude-step-test-2",
-                    reviewer="bob",
+                    assignee="bob",
                     created_at=datetime.now(timezone.utc),
                     workflow_run_id=101,
                     pr_number=11,
@@ -755,7 +755,7 @@ class TestGetReviewerAssignments:
         ]
 
         # Act
-        result = get_reviewer_assignments(repo="owner/repo", project="test")
+        result = get_assignee_assignments(repo="owner/repo", project="test")
 
         # Assert
         assert result == {10: "alice", 11: "bob"}
@@ -768,7 +768,7 @@ class TestGetReviewerAssignments:
         )
 
     @patch("claudestep.services.composite.artifact_service.find_project_artifacts")
-    def test_get_reviewer_assignments_filters_artifacts_without_metadata(
+    def test_get_assignee_assignments_filters_artifacts_without_metadata(
         self, mock_find_artifacts
     ):
         """Should exclude artifacts where metadata download failed"""
@@ -783,7 +783,7 @@ class TestGetReviewerAssignments:
                     task_description="Task 1",
                     project="test",
                     branch_name="claude-step-test-1",
-                    reviewer="alice",
+                    assignee="alice",
                     created_at=datetime.now(timezone.utc),
                     workflow_run_id=100,
                     pr_number=10,
@@ -798,13 +798,13 @@ class TestGetReviewerAssignments:
         ]
 
         # Act
-        result = get_reviewer_assignments(repo="owner/repo", project="test")
+        result = get_assignee_assignments(repo="owner/repo", project="test")
 
         # Assert
         assert result == {10: "alice"}  # Only artifact with metadata
 
     @patch("claudestep.services.composite.artifact_service.find_project_artifacts")
-    def test_get_reviewer_assignments_returns_empty_dict_when_no_artifacts(
+    def test_get_assignee_assignments_returns_empty_dict_when_no_artifacts(
         self, mock_find_artifacts
     ):
         """Should return empty dictionary when no artifacts found"""
@@ -812,7 +812,7 @@ class TestGetReviewerAssignments:
         mock_find_artifacts.return_value = []
 
         # Act
-        result = get_reviewer_assignments(repo="owner/repo", project="test")
+        result = get_assignee_assignments(repo="owner/repo", project="test")
 
         # Assert
         assert result == {}

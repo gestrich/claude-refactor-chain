@@ -8,14 +8,14 @@ from claudestep.services.core import (
     PRService,
     TaskService,
     ProjectService,
-    ReviewerService,
+    AssigneeService,
 )
 from claudestep.services.composite import (
     StatisticsService,
     find_project_artifacts,
     get_artifact_metadata,
     find_in_progress_tasks,
-    get_reviewer_assignments,
+    get_assignee_assignments,
     ProjectArtifact,
     TaskMetadata,
 )
@@ -25,13 +25,13 @@ __all__ = [
     "PRService",
     "TaskService",
     "ProjectService",
-    "ReviewerService",
+    "AssigneeService",
     # Composite
     "StatisticsService",
     "find_project_artifacts",
     "get_artifact_metadata",
     "find_in_progress_tasks",
-    "get_reviewer_assignments",
+    "get_assignee_assignments",
     "ProjectArtifact",
     "TaskMetadata",
 ]

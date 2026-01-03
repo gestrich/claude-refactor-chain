@@ -184,10 +184,10 @@ def find_in_progress_tasks(
     return {a.task_index for a in artifacts if a.task_index is not None}
 
 
-def get_reviewer_assignments(
+def get_assignee_assignments(
     repo: str, project: str, label: str = "claudestep"
 ) -> dict[int, str]:
-    """Get mapping of PR numbers to assigned reviewers.
+    """Get mapping of PR numbers to assigned assignees.
 
     Args:
         repo: GitHub repository
@@ -195,7 +195,7 @@ def get_reviewer_assignments(
         label: GitHub label for filtering
 
     Returns:
-        Dict mapping PR number -> reviewer username
+        Dict mapping PR number -> assignee username
     """
     artifacts = find_project_artifacts(
         repo=repo,
@@ -206,7 +206,7 @@ def get_reviewer_assignments(
     )
 
     return {
-        a.metadata.pr_number: a.metadata.reviewer
+        a.metadata.pr_number: a.metadata.assignee
         for a in artifacts
         if a.metadata and a.metadata.pr_number
     }

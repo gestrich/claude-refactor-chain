@@ -31,11 +31,8 @@ class TestProjectRepositoryLoadConfiguration:
         repo = ProjectRepository("owner/repo")
         project = Project("my-project")
         yaml_content = """
-reviewers:
-  - username: alice
-    maxOpenPRs: 2
-  - username: bob
-    maxOpenPRs: 3
+assignee: alice
+baseBranch: develop
 """
         mock_get_file.return_value = yaml_content
 
@@ -46,8 +43,8 @@ reviewers:
         assert config is not None
         assert isinstance(config, ProjectConfiguration)
         assert config.project == project
-        assert len(config.reviewers) == 2
-        assert config.reviewers[0].username == "alice"
+        assert config.assignee == "alice"
+        assert config.base_branch == "develop"
         mock_get_file.assert_called_once_with(
             "owner/repo",
             "main",
@@ -68,7 +65,7 @@ reviewers:
         # Assert - returns default config, not None
         assert config is not None
         assert config.project == project
-        assert config.reviewers == []
+        assert config.assignee is None
         assert config.base_branch is None
         mock_get_file.assert_called_once_with(
             "owner/repo",
@@ -82,7 +79,7 @@ reviewers:
         # Arrange
         repo = ProjectRepository("owner/repo")
         project = Project("my-project")
-        yaml_content = "reviewers: []"
+        yaml_content = "assignee: bob"
         mock_get_file.return_value = yaml_content
 
         # Act
@@ -102,7 +99,7 @@ reviewers:
         # Arrange
         repo = ProjectRepository("owner/repo")
         project = Project("my-project", base_path="custom/path/my-project")
-        yaml_content = "reviewers: []"
+        yaml_content = "assignee: alice"
         mock_get_file.return_value = yaml_content
 
         # Act
@@ -117,12 +114,12 @@ reviewers:
         )
 
     @patch('claudestep.infrastructure.github.operations.get_file_from_branch')
-    def test_load_configuration_handles_empty_reviewers(self, mock_get_file):
-        """Should handle configuration with empty reviewers list"""
+    def test_load_configuration_handles_empty_config(self, mock_get_file):
+        """Should handle configuration without assignee"""
         # Arrange
         repo = ProjectRepository("owner/repo")
         project = Project("my-project")
-        yaml_content = "reviewers: []"
+        yaml_content = "baseBranch: main"
         mock_get_file.return_value = yaml_content
 
         # Act
@@ -130,7 +127,7 @@ reviewers:
 
         # Assert
         assert config is not None
-        assert config.reviewers == []
+        assert config.assignee is None
 
 
 class TestProjectRepositoryLoadConfigurationIfExists:
@@ -143,9 +140,7 @@ class TestProjectRepositoryLoadConfigurationIfExists:
         repo = ProjectRepository("owner/repo")
         project = Project("my-project")
         yaml_content = """
-reviewers:
-  - username: alice
-    maxOpenPRs: 2
+assignee: alice
 """
         mock_get_file.return_value = yaml_content
 
@@ -154,8 +149,7 @@ reviewers:
 
         # Assert
         assert config is not None
-        assert len(config.reviewers) == 1
-        assert config.reviewers[0].username == "alice"
+        assert config.assignee == "alice"
 
     @patch('claudestep.infrastructure.github.operations.get_file_from_branch')
     def test_load_configuration_if_exists_returns_none_when_not_found(self, mock_get_file):
@@ -311,7 +305,7 @@ class TestProjectRepositoryLoadProjectFull:
         # Mock responses for config and spec
         def side_effect(repo_name, branch, path):
             if "configuration.yml" in path:
-                return "reviewers:\n  - username: alice\n    maxOpenPRs: 2"
+                return "assignee: alice"
             elif "spec.md" in path:
                 return "- [ ] Task 1\n- [x] Task 2"
             return None
@@ -329,8 +323,7 @@ class TestProjectRepositoryLoadProjectFull:
         assert project.name == "my-project"
 
         assert isinstance(config, ProjectConfiguration)
-        assert len(config.reviewers) == 1
-        assert config.reviewers[0].username == "alice"
+        assert config.assignee == "alice"
 
         assert isinstance(spec, SpecContent)
         assert spec.total_tasks == 2
@@ -358,7 +351,7 @@ class TestProjectRepositoryLoadProjectFull:
         project, config, spec = result
 
         assert project.name == "my-project"
-        assert config.reviewers == []  # Default config has no reviewers
+        assert config.assignee is None  # Default config has no assignee
         assert config.base_branch is None
         assert spec.total_tasks == 2
 
@@ -371,7 +364,7 @@ class TestProjectRepositoryLoadProjectFull:
         # Mock: config exists, spec doesn't
         def side_effect(repo_name, branch, path):
             if "configuration.yml" in path:
-                return "reviewers: []"
+                return "assignee: alice"
             return None
 
         mock_get_file.side_effect = side_effect
@@ -390,7 +383,7 @@ class TestProjectRepositoryLoadProjectFull:
 
         def side_effect(repo_name, branch, path):
             if "configuration.yml" in path:
-                return "reviewers: []"
+                return "assignee: alice"
             elif "spec.md" in path:
                 return "- [ ] Task 1"
             return None
@@ -415,7 +408,7 @@ class TestProjectRepositoryLoadProjectFull:
 
         def side_effect(repo_name, branch, path):
             if "configuration.yml" in path:
-                return "reviewers: []"
+                return "assignee: alice"
             elif "spec.md" in path:
                 return "- [ ] Task 1"
             return None
@@ -442,16 +435,10 @@ class TestProjectRepositoryIntegration:
         repo = ProjectRepository("acme/web-app")
 
         realistic_config = """
-reviewers:
-  - username: dev1
-    maxOpenPRs: 2
-  - username: dev2
-    maxOpenPRs: 3
-  - username: dev3
-    maxOpenPRs: 1
-settings:
-  auto_merge: true
-  pr_template: standard
+assignee: dev1
+baseBranch: develop
+allowedTools: Read,Write,Edit,Bash
+stalePRDays: 14
 """
 
         realistic_spec = """# Web Application Refactoring
@@ -494,11 +481,10 @@ Ensure backward compatibility with existing sessions.
         assert project.config_path == "claude-step/auth-refactor/configuration.yml"
 
         # Config assertions
-        assert len(config.reviewers) == 3
-        reviewer_names = config.get_reviewer_usernames()
-        assert reviewer_names == ["dev1", "dev2", "dev3"]
-        dev2 = config.get_reviewer("dev2")
-        assert dev2.max_open_prs == 3
+        assert config.assignee == "dev1"
+        assert config.base_branch == "develop"
+        assert config.allowed_tools == "Read,Write,Edit,Bash"
+        assert config.stale_pr_days == 14
 
         # Spec assertions
         assert spec.total_tasks == 7
@@ -521,12 +507,12 @@ Ensure backward compatibility with existing sessions.
         def side_effect(repo_name, branch, path):
             if "project-a" in path:
                 if "configuration.yml" in path:
-                    return "reviewers:\n  - username: alice"
+                    return "assignee: alice"
                 elif "spec.md" in path:
                     return "- [ ] Task A"
             elif "project-b" in path:
                 if "configuration.yml" in path:
-                    return "reviewers:\n  - username: bob"
+                    return "assignee: bob"
                 elif "spec.md" in path:
                     return "- [ ] Task B1\n- [ ] Task B2"
             return None
@@ -541,11 +527,11 @@ Ensure backward compatibility with existing sessions.
         assert result_a is not None
         project_a, config_a, spec_a = result_a
         assert project_a.name == "project-a"
-        assert config_a.reviewers[0].username == "alice"
+        assert config_a.assignee == "alice"
         assert spec_a.total_tasks == 1
 
         assert result_b is not None
         project_b, config_b, spec_b = result_b
         assert project_b.name == "project-b"
-        assert config_b.reviewers[0].username == "bob"
+        assert config_b.assignee == "bob"
         assert spec_b.total_tasks == 2

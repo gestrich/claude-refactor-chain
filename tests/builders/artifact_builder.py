@@ -12,7 +12,7 @@ class TaskMetadata:
     task_description: str
     project: str
     branch_name: str
-    reviewer: str
+    assignee: str
     created_at: datetime
     workflow_run_id: int
     pr_number: int
@@ -47,7 +47,7 @@ class TaskMetadataBuilder:
         metadata = TaskMetadataBuilder()
             .with_task(3, "Implement feature")
             .with_project("my-project")
-            .with_reviewer("alice")
+            .with_assignee("alice")
             .build()
     """
 
@@ -57,7 +57,7 @@ class TaskMetadataBuilder:
         self._task_description: str = "Default task"
         self._project: str = "sample-project"
         self._branch_name: str = "claude-step-sample-project-1"
-        self._reviewer: str = "alice"
+        self._assignee: str = "alice"
         self._created_at: datetime = datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
         self._workflow_run_id: int = 123456789
         self._pr_number: int = 100
@@ -97,16 +97,16 @@ class TaskMetadataBuilder:
         self._branch_name = f"claude-step-{project}-{self._task_index}"
         return self
 
-    def with_reviewer(self, reviewer: str) -> "TaskMetadataBuilder":
-        """Set reviewer username
+    def with_assignee(self, assignee: str) -> "TaskMetadataBuilder":
+        """Set assignee username
 
         Args:
-            reviewer: Reviewer username
+            assignee: Assignee username
 
         Returns:
             Self for method chaining
         """
-        self._reviewer = reviewer
+        self._assignee = assignee
         return self
 
     def with_branch_name(self, branch_name: str) -> "TaskMetadataBuilder":
@@ -187,7 +187,7 @@ class TaskMetadataBuilder:
             task_description=self._task_description,
             project=self._project,
             branch_name=self._branch_name,
-            reviewer=self._reviewer,
+            assignee=self._assignee,
             created_at=self._created_at,
             workflow_run_id=self._workflow_run_id,
             pr_number=self._pr_number,

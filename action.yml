@@ -88,15 +88,15 @@ outputs:
     description: 'URL of created PR (empty if none created)'
     value: ${{ steps.finalize.outputs.pr_url }}
 
-  # Reviewer and task outputs
-  reviewer:
-    description: 'Assigned reviewer username (empty if none assigned)'
-    value: ${{ steps.prepare.outputs.reviewer }}
+  # Assignee and task outputs
+  assignee:
+    description: 'Assigned GitHub username (empty if none assigned)'
+    value: ${{ steps.prepare.outputs.assignee }}
   task_completed:
     description: 'Task description that was completed (empty if none)'
     value: ${{ steps.prepare.outputs.task_description }}
   has_capacity:
-    description: 'Whether a reviewer had capacity (true/false)'
+    description: 'Whether project has capacity for a new PR (true/false)'
     value: ${{ steps.prepare.outputs.has_capacity }}
   all_tasks_done:
     description: 'Whether all tasks are complete (true/false)'
@@ -212,7 +212,7 @@ runs:
         GH_TOKEN: ${{ inputs.github_token }}
         BRANCH_NAME: ${{ steps.prepare.outputs.branch_name }}
         LABEL: ${{ steps.prepare.outputs.label }}
-        REVIEWER: ${{ steps.prepare.outputs.reviewer }}
+        ASSIGNEE: ${{ steps.prepare.outputs.assignee }}
         TASK_DESCRIPTION: ${{ steps.prepare.outputs.task_description }}
         TASK_INDEX: ${{ steps.prepare.outputs.task_index }}
         PROJECT: ${{ steps.prepare.outputs.project_name }}
@@ -352,7 +352,7 @@ runs:
         TASK_HASH: ${{ steps.prepare.outputs.task_hash }}
         PROJECT: ${{ steps.prepare.outputs.project_name }}
         BRANCH_NAME: ${{ steps.prepare.outputs.branch_name }}
-        REVIEWER: ${{ steps.prepare.outputs.reviewer }}
+        ASSIGNEE: ${{ steps.prepare.outputs.assignee }}
         GITHUB_RUN_ID: ${{ github.run_id }}
         ACTION_PATH: ${{ github.action_path }}
       run: |

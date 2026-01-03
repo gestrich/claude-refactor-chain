@@ -6,7 +6,6 @@ does not implement business logic directly.
 """
 
 import argparse
-import json
 import os
 
 from claudestep.domain.config import load_config, load_config_from_string, validate_spec_format, validate_spec_format_from_string
@@ -19,7 +18,7 @@ from claudestep.infrastructure.github.operations import ensure_label_exists, fil
 from claudestep.infrastructure.repositories.project_repository import ProjectRepository
 from claudestep.services.core.pr_service import PRService
 from claudestep.services.core.project_service import ProjectService
-from claudestep.services.core.reviewer_service import ReviewerService
+from claudestep.services.core.assignee_service import AssigneeService
 from claudestep.services.core.task_service import TaskService
 
 
@@ -51,7 +50,7 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper, default_allow
         pr_service = PRService(repo)
         project_service = ProjectService(repo)
         task_service = TaskService(repo, pr_service)
-        reviewer_service = ReviewerService(repo, pr_service)
+        assignee_service = AssigneeService(repo, pr_service)
 
         # === STEP 1: Detect Project ===
         print("=== Step 1/6: Detecting project ===")
@@ -139,37 +138,33 @@ Please merge your spec.md file to the '{default_base_branch}' branch before runn
 
         validate_spec_format_from_string(spec.content, project.spec_path)
 
-        if config.reviewers:
-            print(f"✅ Configuration loaded: label={label}, reviewers={len(config.reviewers)}")
+        if config.assignee:
+            print(f"✅ Configuration loaded: label={label}, assignee={config.assignee}")
         else:
-            print(f"✅ Configuration loaded: label={label}, no reviewers (using project-level capacity)")
+            print(f"✅ Configuration loaded: label={label}, no assignee configured")
 
-        # === STEP 3: Check Reviewer Capacity ===
-        print("\n=== Step 3/6: Checking reviewer capacity ===")
+        # === STEP 3: Check Capacity ===
+        print("\n=== Step 3/6: Checking capacity ===")
 
-        selected_reviewer, capacity_result = reviewer_service.find_available_reviewer(config, label, detected_project)
+        capacity_result = assignee_service.check_capacity(config, label, detected_project)
 
         summary = capacity_result.format_summary()
         gh.write_step_summary(summary)
         print("\n" + summary)
 
-        # Check capacity - note that selected_reviewer can be None with capacity available
-        # (when no reviewers are configured, we use project-level capacity)
-        if capacity_result.all_at_capacity:
+        # Check capacity
+        if not capacity_result.has_capacity:
             gh.write_output("has_capacity", "false")
-            gh.write_output("reviewer", "")
-            if config.reviewers:
-                gh.set_notice("All reviewers at capacity, skipping PR creation")
-            else:
-                gh.set_notice("Project at capacity (1 open PR limit), skipping PR creation")
+            gh.write_output("assignee", "")
+            gh.set_notice("Project at capacity (1 open PR limit), skipping PR creation")
             return 0  # Not an error, just no capacity
 
         gh.write_output("has_capacity", "true")
-        gh.write_output("reviewer", selected_reviewer or "")  # Empty string if no reviewer
-        if selected_reviewer:
-            print(f"✅ Selected reviewer: {selected_reviewer}")
+        gh.write_output("assignee", capacity_result.assignee or "")  # Empty string if no assignee
+        if capacity_result.assignee:
+            print(f"✅ Capacity available - assignee: {capacity_result.assignee}")
         else:
-            print("✅ Capacity available (no reviewer - PR will be created without assignee)")
+            print("✅ Capacity available (no assignee configured)")
 
         # === STEP 4: Find Next Task ===
         print("\n=== Step 4/6: Finding next task ===")
@@ -271,7 +266,6 @@ Now complete the task '{task}' following all the details and instructions in the
         gh.write_output("base_branch", base_branch)
         gh.write_output("allowed_tools", allowed_tools)
         gh.write_output("label", label)
-        gh.write_output("reviewers_json", json.dumps([{"username": r.username, "maxOpenPRs": r.max_open_prs} for r in config.reviewers]))
         gh.write_output("slack_webhook_url", slack_webhook_url)
         gh.write_output("task_description", task)
         gh.write_output("task_index", str(task_index))

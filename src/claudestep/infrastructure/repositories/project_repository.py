@@ -24,7 +24,7 @@ class ProjectRepository:
         """Load and parse project configuration from GitHub
 
         If configuration.yml doesn't exist, returns default configuration
-        (no reviewers, no base branch override). This allows projects to work
+        (no assignee, no base branch override). This allows projects to work
         with sensible defaults without requiring a configuration file.
 
         Args:

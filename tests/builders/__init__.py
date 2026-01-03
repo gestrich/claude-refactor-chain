@@ -6,8 +6,7 @@ with sensible defaults.
 
 Example usage:
     config = ConfigBuilder()
-        .with_reviewer("alice", max_prs=2)
-        .with_reviewer("bob", max_prs=1)
+        .with_assignee("alice")
         .build()
 """
 

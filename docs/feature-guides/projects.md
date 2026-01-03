@@ -156,22 +156,14 @@ The configuration file is **optional**. Without it, ClaudeStep uses these defaul
 ### Basic Structure
 
 ```yaml
-reviewers:
-  - username: alice
-    maxOpenPRs: 2
-  - username: bob
-    maxOpenPRs: 1
+assignee: alice
 ```
 
 ### Full Schema
 
 ```yaml
-# Reviewer configuration
-reviewers:
-  - username: alice        # GitHub username (required)
-    maxOpenPRs: 2          # Max open PRs for this reviewer (required)
-  - username: bob
-    maxOpenPRs: 1
+# Optional: GitHub username to assign PRs to
+assignee: alice
 
 # Optional: Override base branch for this project
 baseBranch: develop
@@ -187,9 +179,7 @@ stalePRDays: 7
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `reviewers` | array | No | List of reviewer configurations |
-| `reviewers[].username` | string | Yes | GitHub username |
-| `reviewers[].maxOpenPRs` | number | Yes | Maximum open PRs for this reviewer |
+| `assignee` | string | No | GitHub username to assign PRs to |
 | `baseBranch` | string | No | Override base branch (defaults to workflow context) |
 | `allowedTools` | string | No | Override allowed tools (defaults to workflow input) |
 | `stalePRDays` | number | No | Days before a PR is considered stale (default: 7) |
@@ -201,10 +191,7 @@ The `stalePRDays` setting controls when PRs are flagged as stale in statistics r
 ```yaml
 # Flag PRs as stale after 14 days (default is 7)
 stalePRDays: 14
-
-reviewers:
-  - username: alice
-    maxOpenPRs: 2
+assignee: alice
 ```
 
 Stale PRs appear in statistics reports with warnings:
@@ -213,17 +200,14 @@ Stale PRs appear in statistics reports with warnings:
 
 This helps identify PRs that may be stuck or need attention.
 
-### Reviewer Assignment
+### Capacity Management
 
-When ClaudeStep creates a PR:
-1. Checks each reviewer's current open PR count
-2. Assigns to the first reviewer with capacity (open PRs < maxOpenPRs)
-3. If no reviewer has capacity, skips PR creation
+ClaudeStep enforces a simple rule: **one open PR per project at a time**. This ensures:
+- Focus on completing one task before starting the next
+- Clean merge history without conflicts
+- Clear ownership of what's currently in progress
 
-**Scaling with reviewers:**
-- More reviewers = more parallel progress
-- Higher `maxOpenPRs` = more PRs per reviewer
-- Each reviewer gets a new PR when they merge theirs
+When the open PR is merged (or closed), ClaudeStep automatically creates a PR for the next task.
 
 ### Base Branch Override
 
@@ -232,10 +216,7 @@ Use `baseBranch` when a project targets a different branch:
 ```yaml
 # This project targets 'develop' instead of 'main'
 baseBranch: develop
-
-reviewers:
-  - username: alice
-    maxOpenPRs: 1
+assignee: alice
 ```
 
 ### Tool Permissions
@@ -256,10 +237,7 @@ If your tasks require running tests, builds, or other shell commands, add them t
 ```yaml
 # Full Bash access for this project
 allowedTools: Read,Write,Edit,Bash
-
-reviewers:
-  - username: alice
-    maxOpenPRs: 1
+assignee: alice
 ```
 
 **Granular Bash permissions:**
@@ -487,11 +465,7 @@ See `docs/auth-rfc.md` for the full design.
 
 **configuration.yml:**
 ```yaml
-reviewers:
-  - username: alice
-    maxOpenPRs: 2
-  - username: bob
-    maxOpenPRs: 1
+assignee: alice
 ```
 
 **pr-template.md:**

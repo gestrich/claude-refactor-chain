@@ -6,7 +6,7 @@ import pytest
 
 from claudestep.cli.commands.prepare import cmd_prepare
 from claudestep.domain.project import Project
-from claudestep.domain.project_configuration import ProjectConfiguration, Reviewer
+from claudestep.domain.project_configuration import ProjectConfiguration
 from claudestep.domain.spec_content import SpecContent
 
 
@@ -46,7 +46,7 @@ class TestPrepareBaseBranchResolution:
         """Fixture providing config with baseBranch override"""
         return ProjectConfiguration(
             project=Project("test-project"),
-            reviewers=[Reviewer(username="reviewer1", max_open_prs=3)],
+            assignee="reviewer1",
             base_branch="develop"
         )
 
@@ -55,7 +55,7 @@ class TestPrepareBaseBranchResolution:
         """Fixture providing config without baseBranch"""
         return ProjectConfiguration(
             project=Project("test-project"),
-            reviewers=[Reviewer(username="reviewer1", max_open_prs=3)],
+            assignee="reviewer1",
             base_branch=None
         )
 
@@ -72,7 +72,7 @@ class TestPrepareBaseBranchResolution:
              patch("claudestep.cli.commands.prepare.PRService") as mock_pr_service_class, \
              patch("claudestep.cli.commands.prepare.ProjectService"), \
              patch("claudestep.cli.commands.prepare.TaskService") as mock_task_service_class, \
-             patch("claudestep.cli.commands.prepare.ReviewerService") as mock_reviewer_service_class, \
+             patch("claudestep.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
              patch("claudestep.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudestep.cli.commands.prepare.ensure_label_exists"), \
              patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"), \
@@ -99,13 +99,14 @@ class TestPrepareBaseBranchResolution:
             mock_task_service.find_next_available_task.return_value = (1, "Task 1", "abc123")
             mock_task_service_class.return_value = mock_task_service
 
-            # Mock ReviewerService
-            mock_reviewer_service = Mock()
+            # Mock AssigneeService
+            mock_assignee_service = Mock()
             mock_capacity_result = Mock()
-            mock_capacity_result.format_summary.return_value = "## Reviewer Capacity Check\n✅ reviewer1 (0/3)"
-            mock_capacity_result.all_at_capacity = False  # Has capacity
-            mock_reviewer_service.find_available_reviewer.return_value = ("reviewer1", mock_capacity_result)
-            mock_reviewer_service_class.return_value = mock_reviewer_service
+            mock_capacity_result.format_summary.return_value = "## Capacity Check\n✅ test-project (0/1)"
+            mock_capacity_result.has_capacity = True
+            mock_capacity_result.assignee = "reviewer1"
+            mock_assignee_service.check_capacity.return_value = mock_capacity_result
+            mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
             result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
@@ -133,7 +134,7 @@ class TestPrepareBaseBranchResolution:
              patch("claudestep.cli.commands.prepare.PRService") as mock_pr_service_class, \
              patch("claudestep.cli.commands.prepare.ProjectService"), \
              patch("claudestep.cli.commands.prepare.TaskService") as mock_task_service_class, \
-             patch("claudestep.cli.commands.prepare.ReviewerService") as mock_reviewer_service_class, \
+             patch("claudestep.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
              patch("claudestep.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudestep.cli.commands.prepare.ensure_label_exists"), \
              patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"), \
@@ -160,13 +161,14 @@ class TestPrepareBaseBranchResolution:
             mock_task_service.find_next_available_task.return_value = (1, "Task 1", "abc123")
             mock_task_service_class.return_value = mock_task_service
 
-            # Mock ReviewerService
-            mock_reviewer_service = Mock()
+            # Mock AssigneeService
+            mock_assignee_service = Mock()
             mock_capacity_result = Mock()
-            mock_capacity_result.format_summary.return_value = "## Reviewer Capacity Check\n✅ reviewer1 (0/3)"
-            mock_capacity_result.all_at_capacity = False  # Has capacity
-            mock_reviewer_service.find_available_reviewer.return_value = ("reviewer1", mock_capacity_result)
-            mock_reviewer_service_class.return_value = mock_reviewer_service
+            mock_capacity_result.format_summary.return_value = "## Capacity Check\n✅ test-project (0/1)"
+            mock_capacity_result.has_capacity = True
+            mock_capacity_result.assignee = "reviewer1"
+            mock_assignee_service.check_capacity.return_value = mock_capacity_result
+            mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
             result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
@@ -195,7 +197,7 @@ class TestPrepareBaseBranchResolution:
              patch("claudestep.cli.commands.prepare.PRService") as mock_pr_service_class, \
              patch("claudestep.cli.commands.prepare.ProjectService"), \
              patch("claudestep.cli.commands.prepare.TaskService") as mock_task_service_class, \
-             patch("claudestep.cli.commands.prepare.ReviewerService") as mock_reviewer_service_class, \
+             patch("claudestep.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
              patch("claudestep.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudestep.cli.commands.prepare.ensure_label_exists"), \
              patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"), \
@@ -222,13 +224,14 @@ class TestPrepareBaseBranchResolution:
             mock_task_service.find_next_available_task.return_value = (1, "Task 1", "abc123")
             mock_task_service_class.return_value = mock_task_service
 
-            # Mock ReviewerService
-            mock_reviewer_service = Mock()
+            # Mock AssigneeService
+            mock_assignee_service = Mock()
             mock_capacity_result = Mock()
-            mock_capacity_result.format_summary.return_value = "## Reviewer Capacity Check\n✅ reviewer1 (0/3)"
-            mock_capacity_result.all_at_capacity = False  # Has capacity
-            mock_reviewer_service.find_available_reviewer.return_value = ("reviewer1", mock_capacity_result)
-            mock_reviewer_service_class.return_value = mock_reviewer_service
+            mock_capacity_result.format_summary.return_value = "## Capacity Check\n✅ test-project (0/1)"
+            mock_capacity_result.has_capacity = True
+            mock_capacity_result.assignee = "reviewer1"
+            mock_assignee_service.check_capacity.return_value = mock_capacity_result
+            mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
             result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
@@ -265,7 +268,7 @@ class TestPrepareBaseBranchResolution:
              patch("claudestep.cli.commands.prepare.PRService") as mock_pr_service_class, \
              patch("claudestep.cli.commands.prepare.ProjectService"), \
              patch("claudestep.cli.commands.prepare.TaskService") as mock_task_service_class, \
-             patch("claudestep.cli.commands.prepare.ReviewerService") as mock_reviewer_service_class, \
+             patch("claudestep.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
              patch("claudestep.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudestep.cli.commands.prepare.ensure_label_exists"), \
              patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"), \
@@ -292,13 +295,14 @@ class TestPrepareBaseBranchResolution:
             mock_task_service.find_next_available_task.return_value = (1, "Task 1", "abc123")
             mock_task_service_class.return_value = mock_task_service
 
-            # Mock ReviewerService
-            mock_reviewer_service = Mock()
+            # Mock AssigneeService
+            mock_assignee_service = Mock()
             mock_capacity_result = Mock()
-            mock_capacity_result.format_summary.return_value = "## Reviewer Capacity Check\n✅ reviewer1 (0/3)"
-            mock_capacity_result.all_at_capacity = False  # Has capacity
-            mock_reviewer_service.find_available_reviewer.return_value = ("reviewer1", mock_capacity_result)
-            mock_reviewer_service_class.return_value = mock_reviewer_service
+            mock_capacity_result.format_summary.return_value = "## Capacity Check\n✅ test-project (0/1)"
+            mock_capacity_result.has_capacity = True
+            mock_capacity_result.assignee = "reviewer1"
+            mock_assignee_service.check_capacity.return_value = mock_capacity_result
+            mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
             result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
@@ -348,7 +352,7 @@ class TestPrepareAllowedToolsResolution:
         """Fixture providing config with allowedTools override"""
         return ProjectConfiguration(
             project=Project("test-project"),
-            reviewers=[Reviewer(username="reviewer1", max_open_prs=3)],
+            assignee="reviewer1",
             allowed_tools="Read,Write,Edit,Bash(npm test:*)"
         )
 
@@ -357,7 +361,7 @@ class TestPrepareAllowedToolsResolution:
         """Fixture providing config without allowedTools"""
         return ProjectConfiguration(
             project=Project("test-project"),
-            reviewers=[Reviewer(username="reviewer1", max_open_prs=3)],
+            assignee="reviewer1",
             allowed_tools=None
         )
 
@@ -374,7 +378,7 @@ class TestPrepareAllowedToolsResolution:
              patch("claudestep.cli.commands.prepare.PRService") as mock_pr_service_class, \
              patch("claudestep.cli.commands.prepare.ProjectService"), \
              patch("claudestep.cli.commands.prepare.TaskService") as mock_task_service_class, \
-             patch("claudestep.cli.commands.prepare.ReviewerService") as mock_reviewer_service_class, \
+             patch("claudestep.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
              patch("claudestep.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudestep.cli.commands.prepare.ensure_label_exists"), \
              patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"), \
@@ -401,13 +405,14 @@ class TestPrepareAllowedToolsResolution:
             mock_task_service.find_next_available_task.return_value = (1, "Task 1", "abc123")
             mock_task_service_class.return_value = mock_task_service
 
-            # Mock ReviewerService
-            mock_reviewer_service = Mock()
+            # Mock AssigneeService
+            mock_assignee_service = Mock()
             mock_capacity_result = Mock()
-            mock_capacity_result.format_summary.return_value = "## Reviewer Capacity Check\n✅ reviewer1 (0/3)"
-            mock_capacity_result.all_at_capacity = False
-            mock_reviewer_service.find_available_reviewer.return_value = ("reviewer1", mock_capacity_result)
-            mock_reviewer_service_class.return_value = mock_reviewer_service
+            mock_capacity_result.format_summary.return_value = "## Capacity Check\n✅ test-project (0/1)"
+            mock_capacity_result.has_capacity = True
+            mock_capacity_result.assignee = "reviewer1"
+            mock_assignee_service.check_capacity.return_value = mock_capacity_result
+            mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act - pass workflow default, but config has override
             result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
@@ -435,7 +440,7 @@ class TestPrepareAllowedToolsResolution:
              patch("claudestep.cli.commands.prepare.PRService") as mock_pr_service_class, \
              patch("claudestep.cli.commands.prepare.ProjectService"), \
              patch("claudestep.cli.commands.prepare.TaskService") as mock_task_service_class, \
-             patch("claudestep.cli.commands.prepare.ReviewerService") as mock_reviewer_service_class, \
+             patch("claudestep.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
              patch("claudestep.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudestep.cli.commands.prepare.ensure_label_exists"), \
              patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"), \
@@ -462,13 +467,14 @@ class TestPrepareAllowedToolsResolution:
             mock_task_service.find_next_available_task.return_value = (1, "Task 1", "abc123")
             mock_task_service_class.return_value = mock_task_service
 
-            # Mock ReviewerService
-            mock_reviewer_service = Mock()
+            # Mock AssigneeService
+            mock_assignee_service = Mock()
             mock_capacity_result = Mock()
-            mock_capacity_result.format_summary.return_value = "## Reviewer Capacity Check\n✅ reviewer1 (0/3)"
-            mock_capacity_result.all_at_capacity = False
-            mock_reviewer_service.find_available_reviewer.return_value = ("reviewer1", mock_capacity_result)
-            mock_reviewer_service_class.return_value = mock_reviewer_service
+            mock_capacity_result.format_summary.return_value = "## Capacity Check\n✅ test-project (0/1)"
+            mock_capacity_result.has_capacity = True
+            mock_capacity_result.assignee = "reviewer1"
+            mock_assignee_service.check_capacity.return_value = mock_capacity_result
+            mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
             result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
