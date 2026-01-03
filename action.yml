@@ -339,11 +339,32 @@ runs:
             ]
           }
 
+    - name: Create task metadata artifact
+      id: create_artifact
+      if: steps.finalize.outputs.pr_number != ''
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      env:
+        COST_BREAKDOWN: ${{ steps.post_pr_comment.outputs.cost_breakdown }}
+        PR_NUMBER: ${{ steps.finalize.outputs.pr_number }}
+        TASK_DESCRIPTION: ${{ steps.prepare.outputs.task_description }}
+        TASK_INDEX: ${{ steps.prepare.outputs.task_index }}
+        TASK_HASH: ${{ steps.prepare.outputs.task_hash }}
+        PROJECT: ${{ steps.prepare.outputs.project_name }}
+        BRANCH_NAME: ${{ steps.prepare.outputs.branch_name }}
+        REVIEWER: ${{ steps.prepare.outputs.reviewer }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"
+        python3 -m claudestep create-artifact
+      continue-on-error: true
+
     - name: Upload task metadata artifact
-      if: steps.finalize.outputs.artifact_path != ''
+      if: steps.create_artifact.outputs.artifact_path != ''
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.finalize.outputs.artifact_name }}
-        path: ${{ steps.finalize.outputs.artifact_path }}
+        name: ${{ steps.create_artifact.outputs.artifact_name }}
+        path: ${{ steps.create_artifact.outputs.artifact_path }}
         retention-days: 90
         if-no-files-found: warn

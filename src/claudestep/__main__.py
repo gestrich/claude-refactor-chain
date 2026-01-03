@@ -10,6 +10,7 @@ import os
 import sys
 
 from claudestep.cli.commands.auto_start import cmd_auto_start, cmd_auto_start_summary
+from claudestep.cli.commands.create_artifact import cmd_create_artifact
 from claudestep.cli.commands.discover import main as cmd_discover
 from claudestep.cli.commands.discover_ready import main as cmd_discover_ready
 from claudestep.cli.commands.finalize import cmd_finalize
@@ -71,6 +72,19 @@ def main():
             repo=os.environ.get("GITHUB_REPOSITORY", ""),
             run_id=os.environ.get("GITHUB_RUN_ID", ""),
             task=os.environ.get("TASK_DESCRIPTION", ""),
+        )
+    elif args.command == "create-artifact":
+        return cmd_create_artifact(
+            gh=gh,
+            cost_breakdown_json=os.environ.get("COST_BREAKDOWN", ""),
+            pr_number=os.environ.get("PR_NUMBER", ""),
+            task=os.environ.get("TASK_DESCRIPTION", ""),
+            task_index=os.environ.get("TASK_INDEX", ""),
+            task_hash=os.environ.get("TASK_HASH", ""),
+            project=os.environ.get("PROJECT", ""),
+            branch_name=os.environ.get("BRANCH_NAME", ""),
+            reviewer=os.environ.get("REVIEWER", ""),
+            run_id=os.environ.get("GITHUB_RUN_ID", ""),
         )
     elif args.command == "format-slack-notification":
         return cmd_format_slack_notification(

@@ -167,8 +167,6 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
             gh.set_warning("No changes made, skipping PR creation")
             gh.write_output("pr_number", "")
             gh.write_output("pr_url", "")
-            gh.write_output("artifact_path", "")
-            gh.write_output("artifact_name", "")
             gh.write_step_summary("ℹ️ **Status**: No changes to commit")
             return 0
 
