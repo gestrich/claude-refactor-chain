@@ -20,6 +20,7 @@ from claudestep.cli.commands.prepare import cmd_prepare
 from claudestep.cli.commands.prepare_summary import cmd_prepare_summary
 from claudestep.cli.commands.statistics import cmd_statistics
 from claudestep.cli.parser import create_parser
+from claudestep.domain.constants import DEFAULT_ALLOWED_TOOLS
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 
 
@@ -45,10 +46,7 @@ def main():
         return cmd_prepare(
             args,
             gh,
-            default_allowed_tools=os.environ.get(
-                "CLAUDE_ALLOWED_TOOLS",
-                "Read,Write,Edit,Bash(git add:*),Bash(git commit:*)"
-            )
+            default_allowed_tools=os.environ.get("CLAUDE_ALLOWED_TOOLS", DEFAULT_ALLOWED_TOOLS)
         )
     elif args.command == "finalize":
         return cmd_finalize(args, gh)

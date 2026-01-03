@@ -16,5 +16,10 @@ DEFAULT_METADATA_BRANCH = "claudestep-metadata"
 # Default statistics lookback period (days)
 DEFAULT_STATS_DAYS_BACK = 30
 
+# Default allowed tools for Claude Code execution
+# Minimal permissions: file operations + git staging/committing (required by ClaudeStep prompt)
+# Users can override via CLAUDE_ALLOWED_TOOLS env var or project's allowedTools config
+DEFAULT_ALLOWED_TOOLS = "Read,Write,Edit,Bash(git add:*),Bash(git commit:*)"
+
 # PR Summary file path (used by action.yml and commands)
 PR_SUMMARY_FILE_PATH = "/tmp/pr-summary.md"
