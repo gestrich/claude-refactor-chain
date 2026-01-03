@@ -236,6 +236,46 @@ class TestProjectStats:
         assert "█" in summary  # Progress bar
         assert "70%" in summary
 
+    def test_has_remaining_tasks_true_when_pending_and_no_in_progress(self):
+        """Should return True when there are pending tasks but no open PRs"""
+        stats = ProjectStats("my-project", "/path/to/spec.md")
+        stats.total_tasks = 10
+        stats.completed_tasks = 5
+        stats.in_progress_tasks = 0  # No open PRs
+        stats.pending_tasks = 5      # Still have work to do
+
+        assert stats.has_remaining_tasks is True
+
+    def test_has_remaining_tasks_false_when_has_in_progress(self):
+        """Should return False when there are open PRs in progress"""
+        stats = ProjectStats("my-project", "/path/to/spec.md")
+        stats.total_tasks = 10
+        stats.completed_tasks = 5
+        stats.in_progress_tasks = 2  # PRs are open
+        stats.pending_tasks = 3
+
+        assert stats.has_remaining_tasks is False
+
+    def test_has_remaining_tasks_false_when_all_done(self):
+        """Should return False when all tasks are complete"""
+        stats = ProjectStats("my-project", "/path/to/spec.md")
+        stats.total_tasks = 10
+        stats.completed_tasks = 10
+        stats.in_progress_tasks = 0
+        stats.pending_tasks = 0
+
+        assert stats.has_remaining_tasks is False
+
+    def test_has_remaining_tasks_false_when_no_pending(self):
+        """Should return False when there are no pending tasks"""
+        stats = ProjectStats("my-project", "/path/to/spec.md")
+        stats.total_tasks = 5
+        stats.completed_tasks = 3
+        stats.in_progress_tasks = 2  # All remaining tasks are in progress
+        stats.pending_tasks = 0
+
+        assert stats.has_remaining_tasks is False
+
 
 class TestStatisticsReport:
     """Test StatisticsReport model"""
@@ -262,6 +302,127 @@ class TestStatisticsReport:
         report.add_project(stats)
         assert "my-project" in report.project_stats
         assert report.project_stats["my-project"] == stats
+
+    def test_projects_needing_attention_empty(self):
+        """Should return empty list when no projects need attention"""
+        report = StatisticsReport()
+
+        # Project with open PRs and no stale
+        healthy = ProjectStats("healthy-project", "/path/spec.md")
+        healthy.total_tasks = 10
+        healthy.completed_tasks = 5
+        healthy.in_progress_tasks = 2  # Has open PRs
+        healthy.pending_tasks = 3
+        healthy.stale_pr_count = 0
+        report.add_project(healthy)
+
+        result = report.projects_needing_attention()
+        assert result == []
+
+    def test_projects_needing_attention_stale_prs(self):
+        """Should include projects with stale PRs"""
+        report = StatisticsReport()
+
+        # Project with stale PRs
+        stale = ProjectStats("stale-project", "/path/spec.md")
+        stale.total_tasks = 10
+        stale.completed_tasks = 5
+        stale.in_progress_tasks = 2
+        stale.pending_tasks = 3
+        stale.stale_pr_count = 1  # Has stale PR
+        report.add_project(stale)
+
+        result = report.projects_needing_attention()
+        assert len(result) == 1
+        assert result[0].project_name == "stale-project"
+
+    def test_projects_needing_attention_no_open_prs(self):
+        """Should include projects with remaining tasks but no open PRs"""
+        report = StatisticsReport()
+
+        # Project with no open PRs but pending tasks
+        idle = ProjectStats("idle-project", "/path/spec.md")
+        idle.total_tasks = 10
+        idle.completed_tasks = 5
+        idle.in_progress_tasks = 0  # No open PRs
+        idle.pending_tasks = 5      # Tasks waiting
+        idle.stale_pr_count = 0
+        report.add_project(idle)
+
+        result = report.projects_needing_attention()
+        assert len(result) == 1
+        assert result[0].project_name == "idle-project"
+
+    def test_projects_needing_attention_both_conditions(self):
+        """Should include projects that meet either stale or no-PRs condition"""
+        report = StatisticsReport()
+
+        # Healthy project
+        healthy = ProjectStats("healthy", "/path/spec.md")
+        healthy.total_tasks = 10
+        healthy.completed_tasks = 5
+        healthy.in_progress_tasks = 2
+        healthy.pending_tasks = 3
+        healthy.stale_pr_count = 0
+        report.add_project(healthy)
+
+        # Project with stale PRs
+        stale = ProjectStats("stale", "/path/spec.md")
+        stale.total_tasks = 10
+        stale.completed_tasks = 5
+        stale.in_progress_tasks = 2
+        stale.pending_tasks = 3
+        stale.stale_pr_count = 2
+        report.add_project(stale)
+
+        # Project with no open PRs
+        idle = ProjectStats("idle", "/path/spec.md")
+        idle.total_tasks = 10
+        idle.completed_tasks = 5
+        idle.in_progress_tasks = 0
+        idle.pending_tasks = 5
+        idle.stale_pr_count = 0
+        report.add_project(idle)
+
+        result = report.projects_needing_attention()
+        assert len(result) == 2
+        project_names = [p.project_name for p in result]
+        assert "idle" in project_names
+        assert "stale" in project_names
+        assert "healthy" not in project_names
+
+    def test_projects_needing_attention_sorted_by_name(self):
+        """Should return projects sorted alphabetically by name"""
+        report = StatisticsReport()
+
+        # Add projects out of order
+        for name in ["zebra", "alpha", "middle"]:
+            project = ProjectStats(name, "/path/spec.md")
+            project.pending_tasks = 5
+            project.in_progress_tasks = 0  # No open PRs
+            report.add_project(project)
+
+        result = report.projects_needing_attention()
+        assert len(result) == 3
+        assert result[0].project_name == "alpha"
+        assert result[1].project_name == "middle"
+        assert result[2].project_name == "zebra"
+
+    def test_projects_needing_attention_completed_projects_excluded(self):
+        """Should not include completed projects even with no open PRs"""
+        report = StatisticsReport()
+
+        # Completed project
+        complete = ProjectStats("complete", "/path/spec.md")
+        complete.total_tasks = 10
+        complete.completed_tasks = 10
+        complete.in_progress_tasks = 0
+        complete.pending_tasks = 0  # No pending tasks
+        complete.stale_pr_count = 0
+        report.add_project(complete)
+
+        result = report.projects_needing_attention()
+        assert result == []
 
     def test_format_for_slack_empty(self):
         """Test Slack formatting with no data"""

@@ -107,7 +107,7 @@ class ProjectStats:
   - Create `OpenPRInfo` for each open PR
   - Count stale PRs
 
-- [ ] Phase 4: Add "no open PRs" warning
+- [x] Phase 4: Add "no open PRs" warning
 
 Alert when a project has remaining tasks but no open PRs.
 

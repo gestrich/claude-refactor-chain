@@ -354,6 +354,18 @@ class ProjectStats:
             return 0.0
         return (self.completed_tasks / self.total_tasks) * 100
 
+    @property
+    def has_remaining_tasks(self) -> bool:
+        """Check if project has remaining tasks but no open PRs.
+
+        This indicates a project that may need attention - there's work
+        to be done but no PRs in progress.
+
+        Returns:
+            True if pending_tasks > 0 and in_progress_tasks == 0
+        """
+        return self.pending_tasks > 0 and self.in_progress_tasks == 0
+
     def format_progress_bar(self, width: int = 10) -> str:
         """Generate Unicode progress bar
 
@@ -425,6 +437,22 @@ class StatisticsReport:
     def add_project(self, stats: ProjectStats):
         """Add project statistics"""
         self.project_stats[stats.project_name] = stats
+
+    def projects_needing_attention(self) -> List[ProjectStats]:
+        """Get projects that need attention.
+
+        A project needs attention if:
+        - It has stale PRs (stale_pr_count > 0), OR
+        - It has remaining tasks but no open PRs (has_remaining_tasks is True)
+
+        Returns:
+            List of ProjectStats for projects needing attention, sorted by project name
+        """
+        needing_attention = []
+        for stats in self.project_stats.values():
+            if stats.stale_pr_count > 0 or stats.has_remaining_tasks:
+                needing_attention.append(stats)
+        return sorted(needing_attention, key=lambda s: s.project_name)
 
     def format_leaderboard(self, for_slack: bool = False) -> str:
         """Format leaderboard showing top contributors with rankings
