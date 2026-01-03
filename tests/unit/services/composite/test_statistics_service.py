@@ -425,6 +425,36 @@ class TestStatisticsReport:
         result = report.projects_needing_attention()
         assert result == []
 
+    def test_projects_needing_attention_orphaned_prs(self):
+        """Should include projects with orphaned PRs"""
+        report = StatisticsReport()
+
+        # Project with orphaned PRs but otherwise healthy
+        project = ProjectStats("orphaned-project", "/path/spec.md")
+        project.total_tasks = 10
+        project.completed_tasks = 5
+        project.in_progress_tasks = 2  # Has open PRs
+        project.pending_tasks = 3
+        project.stale_pr_count = 0
+
+        # Add orphaned PR
+        orphaned_pr = GitHubPullRequest(
+            number=99,
+            title="Orphaned PR",
+            state="open",
+            head_ref_name="claude-step-project-deadbeef",
+            labels=["claudestep"],
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+        )
+        project.orphaned_prs.append(orphaned_pr)
+        report.add_project(project)
+
+        result = report.projects_needing_attention()
+        assert len(result) == 1
+        assert result[0].project_name == "orphaned-project"
+
     def test_format_for_slack_empty(self):
         """Test Slack formatting with no data"""
         report = StatisticsReport()
@@ -482,6 +512,50 @@ class TestStatisticsReport:
         slack_msg = report.format_for_slack()
         assert "Branch: dev" in slack_msg
         assert "2025-01-01" in slack_msg  # Timestamp still present
+
+    def test_format_for_slack_orphaned_prs_in_warnings(self):
+        """Test that orphaned PRs appear in the warnings section"""
+        report = StatisticsReport()
+        report.generated_at = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+        # Add project with orphaned PRs
+        project = ProjectStats("test-project", "/path/spec.md")
+        project.total_tasks = 10
+        project.completed_tasks = 5
+        project.in_progress_tasks = 2
+
+        # Add orphaned PR (merged)
+        orphaned_merged = GitHubPullRequest(
+            number=42,
+            title="Orphaned Merged PR",
+            state="closed",
+            merged_at=datetime.now(timezone.utc),
+            head_ref_name="claude-step-project-deadbeef",
+            labels=["claudestep"],
+            created_at=datetime.now(timezone.utc),
+            assignees=[],
+        )
+        # Add orphaned PR (open)
+        orphaned_open = GitHubPullRequest(
+            number=43,
+            title="Orphaned Open PR",
+            state="open",
+            head_ref_name="claude-step-project-abcd1234",
+            labels=["claudestep"],
+            created_at=datetime.now(timezone.utc) - timedelta(days=5),
+            merged_at=None,
+            assignees=[],
+        )
+        project.orphaned_prs.append(orphaned_merged)
+        project.orphaned_prs.append(orphaned_open)
+        report.add_project(project)
+
+        slack_msg = report.format_for_slack()
+        assert "Needs Attention" in slack_msg
+        # Only open orphaned PRs appear in Slack (merged ones don't need action)
+        assert "#42" not in slack_msg  # Merged orphaned PR not shown
+        assert "#43" in slack_msg  # Open orphaned PR shown
+        assert "orphaned" in slack_msg
 
         # Without base_branch
         report_no_branch = StatisticsReport()
@@ -885,8 +959,9 @@ class TestStatusColumnAndWarnings:
         report.add_project(project)
 
         slack_msg = report.format_for_slack()
-        assert "⚠️ Projects Needing Attention" in slack_msg
-        assert "PR #123 stale" in slack_msg
+        assert "Needs Attention" in slack_msg
+        assert "#123" in slack_msg
+        assert "stale" in slack_msg
         assert "alice" in slack_msg
 
     def test_warnings_section_with_no_prs(self):
@@ -903,7 +978,7 @@ class TestStatusColumnAndWarnings:
         report.add_project(project)
 
         slack_msg = report.format_for_slack()
-        assert "⚠️ Projects Needing Attention" in slack_msg
+        assert "Needs Attention" in slack_msg
         assert "No open PRs (17 tasks remaining)" in slack_msg
 
     def test_no_warnings_section_for_healthy_projects(self):
@@ -953,12 +1028,13 @@ class TestStatusColumnAndWarnings:
 
         # With 7-day threshold: PR is not stale (5 < 7)
         slack_msg_7 = report.format_for_slack(stale_pr_days=7)
-        # The PR won't appear in stale warnings because is_stale(7) returns False
-        assert "PR #99 stale" not in slack_msg_7
+        # The PR appears but without "stale" indicator in the Needs Attention section
+        # (Note: Status column in table may still show stale based on stale_pr_count)
+        assert "#99 (5d, bob)" in slack_msg_7  # PR shown but no stale indicator
 
         # With 3-day threshold: PR is stale (5 >= 3)
         slack_msg_3 = report.format_for_slack(stale_pr_days=3)
-        assert "PR #99 stale" in slack_msg_3
+        assert "#99 (5d, bob, stale)" in slack_msg_3  # PR shown with stale indicator
 
 
 class TestCostExtraction:

@@ -91,6 +91,7 @@ class GitHubPullRequest:
     assignees: List[GitHubUser]
     labels: List[str] = field(default_factory=list)
     head_ref_name: Optional[str] = None  # Branch name
+    url: Optional[str] = None  # PR URL (e.g., https://github.com/owner/repo/pull/123)
 
     @classmethod
     def from_dict(cls, data: dict) -> 'GitHubPullRequest':
@@ -147,6 +148,9 @@ class GitHubPullRequest:
         # Get branch name if available
         head_ref_name = data.get("headRefName")
 
+        # Get PR URL if available
+        url = data.get("url")
+
         return cls(
             number=data["number"],
             title=data["title"],
@@ -155,7 +159,8 @@ class GitHubPullRequest:
             merged_at=merged_at,
             assignees=assignees,
             labels=labels,
-            head_ref_name=head_ref_name
+            head_ref_name=head_ref_name,
+            url=url
         )
 
     def is_merged(self) -> bool:

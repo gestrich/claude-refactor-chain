@@ -543,14 +543,18 @@ class StatisticsReport:
 
         A project needs attention if:
         - It has stale PRs (stale_pr_count > 0), OR
-        - It has remaining tasks but no open PRs (has_remaining_tasks is True)
+        - It has remaining tasks but no open PRs (has_remaining_tasks is True), OR
+        - It has open orphaned PRs (PRs whose tasks were removed from spec)
+
+        Note: Merged orphaned PRs don't require attention (shown in workflow report only).
 
         Returns:
             List of ProjectStats for projects needing attention, sorted by project name
         """
         needing_attention = []
         for stats in self.project_stats.values():
-            if stats.stale_pr_count > 0 or stats.has_remaining_tasks:
+            has_open_orphaned_prs = any(pr.is_open() for pr in stats.orphaned_prs)
+            if stats.stale_pr_count > 0 or stats.has_remaining_tasks or has_open_orphaned_prs:
                 needing_attention.append(stats)
         return sorted(needing_attention, key=lambda s: s.project_name)
 
@@ -637,7 +641,12 @@ class StatisticsReport:
         return ""
 
     def _format_warnings_section(self, fmt: MarkdownFormatter, stale_pr_days: int = 7) -> str:
-        """Format detailed warnings section for projects needing attention.
+        """Format actionable items section for projects needing attention.
+
+        Shows all open PRs that need action, with clickable links and status indicators:
+        - Stale PRs (open too long)
+        - Orphaned PRs (task removed from spec)
+        - Projects with no open PRs but pending tasks
 
         Args:
             fmt: Markdown formatter instance
@@ -651,32 +660,46 @@ class StatisticsReport:
             return ""
 
         lines = []
-        lines.append(fmt.header("⚠️ Projects Needing Attention", level=2))
-        lines.append("```")
-
-        table = TableFormatter(
-            headers=["Project", "Issue"],
-            align=['left', 'left']
-        )
+        lines.append(fmt.header("⚠️ Needs Attention", level=2))
 
         for stats in projects:
-            issues = []
-            # Check for stale PRs first
-            if stats.stale_pr_count > 0:
-                # Get details of stale PRs
-                for pr in stats.open_prs:
-                    if pr.is_stale(stale_pr_days):
-                        assignee = pr.first_assignee or "unassigned"
-                        issues.append(f"PR #{pr.number} stale ({pr.days_open}d, {assignee})")
-            # Then check for no open PRs
+            project_items = []
+
+            # Collect all open PRs with their status indicators
+            for pr in stats.open_prs:
+                indicators = []
+                if pr.is_stale(stale_pr_days):
+                    indicators.append("stale")
+                assignee = pr.first_assignee or "unassigned"
+
+                # Format PR link
+                if pr.url:
+                    pr_link = f"<{pr.url}|#{pr.number}>"
+                else:
+                    pr_link = f"#{pr.number}"
+
+                status_parts = [f"{pr.days_open}d", assignee]
+                if indicators:
+                    status_parts.extend(indicators)
+
+                project_items.append(f"• {pr_link} ({', '.join(status_parts)})")
+
+            # Add open orphaned PRs (only open ones need attention)
+            for pr in stats.orphaned_prs:
+                if pr.is_open():
+                    if pr.url:
+                        pr_link = f"<{pr.url}|#{pr.number}>"
+                    else:
+                        pr_link = f"#{pr.number}"
+                    project_items.append(f"• {pr_link} ({pr.days_open}d, orphaned)")
+
+            # Add warning if no open PRs but tasks remain
             if stats.has_remaining_tasks:
-                issues.append(f"No open PRs ({stats.pending_tasks} tasks remaining)")
+                project_items.append(f"• No open PRs ({stats.pending_tasks} tasks remaining)")
 
-            for issue in issues:
-                table.add_row([stats.project_name[:20], issue])
-
-        lines.append(table.format())
-        lines.append("```")
+            if project_items:
+                lines.append(f"*{stats.project_name}*")
+                lines.extend(project_items)
 
         return "\n".join(lines)
 

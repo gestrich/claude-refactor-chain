@@ -323,7 +323,7 @@ def list_pull_requests(
         "--repo", repo,
         "--state", state,
         "--limit", str(limit),
-        "--json", "number,title,state,createdAt,mergedAt,assignees,labels,headRefName"
+        "--json", "number,title,state,createdAt,mergedAt,assignees,labels,headRefName,url"
     ]
 
     # Add label filter if specified
