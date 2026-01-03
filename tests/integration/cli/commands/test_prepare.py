@@ -1,4 +1,4 @@
-"""Integration tests for the prepare command - baseBranch configuration"""
+"""Integration tests for the prepare command - baseBranch and allowedTools configuration"""
 
 from unittest.mock import Mock, patch
 
@@ -310,3 +310,176 @@ class TestPrepareBaseBranchResolution:
         output_calls = {call[0][0]: call[0][1] for call in mock_github_helper.write_output.call_args_list}
         assert "base_branch" in output_calls
         assert output_calls["base_branch"] == "develop"  # Config override value
+
+
+class TestPrepareAllowedToolsResolution:
+    """Test suite for allowedTools resolution in prepare command"""
+
+    @pytest.fixture
+    def mock_github_helper(self):
+        """Fixture providing mocked GitHubActionsHelper"""
+        mock = Mock()
+        mock.write_output = Mock()
+        mock.write_step_summary = Mock()
+        mock.set_error = Mock()
+        mock.set_notice = Mock()
+        return mock
+
+    @pytest.fixture
+    def mock_args(self):
+        """Fixture providing mocked argparse.Namespace"""
+        return Mock()
+
+    @pytest.fixture
+    def sample_spec(self):
+        """Fixture providing sample spec content"""
+        return SpecContent(
+            project=Project("test-project"),
+            content="""# Test Spec
+
+## Tasks
+- [ ] Task 1
+- [ ] Task 2
+"""
+        )
+
+    @pytest.fixture
+    def sample_config_with_allowed_tools(self):
+        """Fixture providing config with allowedTools override"""
+        return ProjectConfiguration(
+            project=Project("test-project"),
+            reviewers=[Reviewer(username="reviewer1", max_open_prs=3)],
+            allowed_tools="Read,Write,Edit,Bash(npm test:*)"
+        )
+
+    @pytest.fixture
+    def sample_config_without_allowed_tools(self):
+        """Fixture providing config without allowedTools"""
+        return ProjectConfiguration(
+            project=Project("test-project"),
+            reviewers=[Reviewer(username="reviewer1", max_open_prs=3)],
+            allowed_tools=None
+        )
+
+    def test_prepare_uses_config_allowed_tools_when_set(
+        self, mock_github_helper, mock_args, sample_spec, sample_config_with_allowed_tools, capsys, monkeypatch
+    ):
+        """Should use allowedTools from config when it is set"""
+        # Arrange
+        monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+        monkeypatch.setenv("PROJECT_NAME", "test-project")
+        monkeypatch.setenv("BASE_BRANCH", "main")
+
+        with patch("claudestep.cli.commands.prepare.ProjectRepository") as mock_repo_class, \
+             patch("claudestep.cli.commands.prepare.PRService") as mock_pr_service_class, \
+             patch("claudestep.cli.commands.prepare.ProjectService"), \
+             patch("claudestep.cli.commands.prepare.TaskService") as mock_task_service_class, \
+             patch("claudestep.cli.commands.prepare.ReviewerService") as mock_reviewer_service_class, \
+             patch("claudestep.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
+             patch("claudestep.cli.commands.prepare.ensure_label_exists"), \
+             patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"), \
+             patch("claudestep.cli.commands.prepare.run_git_command"):
+
+            # Mock file existence checks
+            mock_file_exists.return_value = True
+
+            # Mock ProjectRepository
+            mock_repo = Mock()
+            mock_repo.load_configuration.return_value = sample_config_with_allowed_tools
+            mock_repo.load_spec.return_value = sample_spec
+            mock_repo_class.return_value = mock_repo
+
+            # Mock PRService
+            mock_pr_service = Mock()
+            mock_pr_service.format_branch_name.return_value = "claude-step-test-project-abc123"
+            mock_pr_service_class.return_value = mock_pr_service
+
+            # Mock TaskService
+            mock_task_service = Mock()
+            mock_task_service.detect_orphaned_prs.return_value = []
+            mock_task_service.get_in_progress_tasks.return_value = set()
+            mock_task_service.find_next_available_task.return_value = (1, "Task 1", "abc123")
+            mock_task_service_class.return_value = mock_task_service
+
+            # Mock ReviewerService
+            mock_reviewer_service = Mock()
+            mock_capacity_result = Mock()
+            mock_capacity_result.format_summary.return_value = "## Reviewer Capacity Check\n✅ reviewer1 (0/3)"
+            mock_capacity_result.all_at_capacity = False
+            mock_reviewer_service.find_available_reviewer.return_value = ("reviewer1", mock_capacity_result)
+            mock_reviewer_service_class.return_value = mock_reviewer_service
+
+            # Act - pass workflow default, but config has override
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+
+        # Assert
+        assert result == 0
+
+        # Verify allowed_tools output uses config override
+        mock_github_helper.write_output.assert_any_call("allowed_tools", "Read,Write,Edit,Bash(npm test:*)")
+
+        # Verify console output shows override
+        captured = capsys.readouterr()
+        assert "Allowed tools: Read,Write,Edit,Bash(npm test:*) (overridden from default)" in captured.out
+
+    def test_prepare_uses_default_allowed_tools_when_config_not_set(
+        self, mock_github_helper, mock_args, sample_spec, sample_config_without_allowed_tools, capsys, monkeypatch
+    ):
+        """Should use default allowedTools when config doesn't specify one"""
+        # Arrange
+        monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+        monkeypatch.setenv("PROJECT_NAME", "test-project")
+        monkeypatch.setenv("BASE_BRANCH", "main")
+
+        with patch("claudestep.cli.commands.prepare.ProjectRepository") as mock_repo_class, \
+             patch("claudestep.cli.commands.prepare.PRService") as mock_pr_service_class, \
+             patch("claudestep.cli.commands.prepare.ProjectService"), \
+             patch("claudestep.cli.commands.prepare.TaskService") as mock_task_service_class, \
+             patch("claudestep.cli.commands.prepare.ReviewerService") as mock_reviewer_service_class, \
+             patch("claudestep.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
+             patch("claudestep.cli.commands.prepare.ensure_label_exists"), \
+             patch("claudestep.cli.commands.prepare.validate_spec_format_from_string"), \
+             patch("claudestep.cli.commands.prepare.run_git_command"):
+
+            # Mock file existence checks
+            mock_file_exists.return_value = True
+
+            # Mock ProjectRepository
+            mock_repo = Mock()
+            mock_repo.load_configuration.return_value = sample_config_without_allowed_tools
+            mock_repo.load_spec.return_value = sample_spec
+            mock_repo_class.return_value = mock_repo
+
+            # Mock PRService
+            mock_pr_service = Mock()
+            mock_pr_service.format_branch_name.return_value = "claude-step-test-project-abc123"
+            mock_pr_service_class.return_value = mock_pr_service
+
+            # Mock TaskService
+            mock_task_service = Mock()
+            mock_task_service.detect_orphaned_prs.return_value = []
+            mock_task_service.get_in_progress_tasks.return_value = set()
+            mock_task_service.find_next_available_task.return_value = (1, "Task 1", "abc123")
+            mock_task_service_class.return_value = mock_task_service
+
+            # Mock ReviewerService
+            mock_reviewer_service = Mock()
+            mock_capacity_result = Mock()
+            mock_capacity_result.format_summary.return_value = "## Reviewer Capacity Check\n✅ reviewer1 (0/3)"
+            mock_capacity_result.all_at_capacity = False
+            mock_reviewer_service.find_available_reviewer.return_value = ("reviewer1", mock_capacity_result)
+            mock_reviewer_service_class.return_value = mock_reviewer_service
+
+            # Act
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+
+        # Assert
+        assert result == 0
+
+        # Verify allowed_tools output uses default
+        mock_github_helper.write_output.assert_any_call("allowed_tools", "Read,Write,Edit")
+
+        # Verify console output shows default (no override message)
+        captured = capsys.readouterr()
+        assert "Allowed tools: Read,Write,Edit" in captured.out
+        assert "overridden" not in captured.out
