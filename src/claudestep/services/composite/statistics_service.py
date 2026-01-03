@@ -8,12 +8,12 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
-from claudestep.domain.constants import DEFAULT_PR_LABEL
+from claudestep.domain.constants import DEFAULT_PR_LABEL, DEFAULT_STALE_PR_DAYS
 from claudestep.domain.project import Project
 from claudestep.domain.project_configuration import ProjectConfiguration
 from claudestep.infrastructure.repositories.project_repository import ProjectRepository
 from claudestep.services.core.pr_service import PRService
-from claudestep.domain.models import ProjectStats, StatisticsReport, TeamMemberStats, PRReference
+from claudestep.domain.models import ProjectPRInfo, ProjectStats, StatisticsReport, TeamMemberStats, PRReference
 
 
 class StatisticsService:
@@ -135,7 +135,9 @@ class StatisticsService:
         for config in project_configs:
             try:
                 project_stats = self.collect_project_stats(
-                    config.project.name, base_branch, label, project=config.project
+                    config.project.name, base_branch, label,
+                    project=config.project,
+                    stale_pr_days=config.get_stale_pr_days()
                 )
                 if project_stats:  # Only add if not None (spec exists in base branch)
                     report.add_project(project_stats)
@@ -162,7 +164,8 @@ class StatisticsService:
 
     def collect_project_stats(
         self, project_name: str, base_branch: str = "main", label: str = DEFAULT_PR_LABEL,
-        project: Optional[Project] = None
+        project: Optional[Project] = None,
+        stale_pr_days: int = DEFAULT_STALE_PR_DAYS
     ) -> ProjectStats:
         """Collect statistics for a single project
 
@@ -171,6 +174,7 @@ class StatisticsService:
             base_branch: Base branch to fetch spec from
             label: GitHub label for filtering
             project: Optional pre-loaded Project instance to avoid re-creating
+            stale_pr_days: Number of days before a PR is considered stale
 
         Returns:
             ProjectStats object, or None if spec files don't exist in base branch
@@ -200,6 +204,16 @@ class StatisticsService:
             open_prs = self.pr_service.get_open_prs_for_project(project_name, label=label)
             stats.in_progress_tasks = len(open_prs)
             print(f"  In-progress: {stats.in_progress_tasks}")
+
+            # Calculate stale PR info for each open PR
+            for pr in open_prs:
+                pr_info = ProjectPRInfo.from_github_pr(pr)
+                stats.open_prs.append(pr_info)
+                if pr_info.is_stale(stale_pr_days):
+                    stats.stale_pr_count += 1
+
+            if stats.stale_pr_count > 0:
+                print(f"  Stale PRs: {stats.stale_pr_count} (>{stale_pr_days} days)")
         except Exception as e:
             print(f"  Error: Failed to get in-progress tasks: {e}")
             stats.in_progress_tasks = 0

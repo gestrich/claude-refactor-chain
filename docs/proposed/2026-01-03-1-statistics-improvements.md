@@ -71,7 +71,7 @@ reviewers:
 stalePRDays: 7
 ```
 
-- [ ] Phase 3: Add stale PR tracking to statistics
+- [x] Phase 3: Add stale PR tracking to statistics
 
 Extend statistics collection to identify stale PRs and include them in reports.
 

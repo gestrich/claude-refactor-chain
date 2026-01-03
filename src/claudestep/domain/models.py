@@ -332,6 +332,72 @@ class TeamMemberStats:
         return f"{prefix} {username:<15} {self.merged_count:>3} {self.open_count:>3}"
 
 
+@dataclass
+class ProjectPRInfo:
+    """Information about a PR for statistics display
+
+    Represents any PR state (open, closed, merged) with computed properties
+    for days open based on the PR's lifecycle.
+    """
+
+    pr_number: int
+    title: str
+    state: str  # "open", "closed", "merged"
+    assignee: Optional[str]  # First assignee username, or None
+    created_at: datetime
+    closed_at: Optional[datetime]  # merged_at or closed_at
+
+    @property
+    def days_open(self) -> int:
+        """Calculate days the PR was/is open
+
+        For open PRs: created_at through now
+        For closed/merged PRs: created_at through closed_at
+        """
+        if self.state == "open":
+            end_time = datetime.now(timezone.utc)
+        else:
+            end_time = self.closed_at if self.closed_at else datetime.now(timezone.utc)
+        return (end_time - self.created_at).days
+
+    def is_stale(self, stale_pr_days: int) -> bool:
+        """Check if PR is stale based on threshold
+
+        Args:
+            stale_pr_days: Number of days before a PR is considered stale
+
+        Returns:
+            True if PR has been open >= stale_pr_days
+        """
+        return self.days_open >= stale_pr_days
+
+    @classmethod
+    def from_github_pr(cls, pr: 'GitHubPullRequest') -> 'ProjectPRInfo':
+        """Create ProjectPRInfo from a GitHubPullRequest
+
+        Args:
+            pr: GitHub pull request domain model
+
+        Returns:
+            ProjectPRInfo instance
+        """
+        # Get first assignee if any
+        assignee = pr.assignees[0].login if pr.assignees else None
+
+        return cls(
+            pr_number=pr.number,
+            title=pr.title,
+            state=pr.state,
+            assignee=assignee,
+            created_at=pr.created_at,
+            closed_at=pr.merged_at,  # merged_at is the close time for merged PRs
+        )
+
+
+# Backwards compatibility alias
+OpenPRInfo = ProjectPRInfo
+
+
 class ProjectStats:
     """Statistics for a single project"""
 
@@ -343,6 +409,8 @@ class ProjectStats:
         self.in_progress_tasks = 0
         self.pending_tasks = 0
         self.total_cost_usd = 0.0
+        self.open_prs: List[ProjectPRInfo] = []
+        self.stale_pr_count: int = 0
 
     @property
     def completion_percentage(self) -> float:

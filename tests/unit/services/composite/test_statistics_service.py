@@ -755,7 +755,7 @@ class TestCollectProjectStats:
     def test_collect_stats_success(self):
         """Test successful project stats collection"""
         from datetime import datetime, timezone
-        from claudestep.domain.github_models import GitHubPullRequest
+        from claudestep.domain.github_models import GitHubPullRequest, GitHubUser
 
         spec_content = """
 - [x] Task 1
@@ -771,7 +771,7 @@ class TestCollectProjectStats:
             state="open",
             created_at=datetime.now(timezone.utc),
             merged_at=None,
-            assignees=["alice"],
+            assignees=[GitHubUser(login="alice")],
             labels=["claudestep"],
             head_ref_name="claude-step-test-project-1a2b3c4d"
         )
@@ -940,3 +940,264 @@ reviewers:
         report = service.collect_all_statistics("/nonexistent/config.yml")
 
         assert len(report.project_stats) == 0
+
+
+class TestProjectPRInfo:
+    """Tests for ProjectPRInfo dataclass and stale PR tracking"""
+
+    def test_from_github_pr_creates_info(self):
+        """Should create ProjectPRInfo from GitHubPullRequest"""
+        from datetime import datetime, timezone, timedelta
+        from claudestep.domain.github_models import GitHubPullRequest, GitHubUser
+        from claudestep.domain.models import ProjectPRInfo
+
+        # Arrange - PR created 3 days ago
+        created_at = datetime.now(timezone.utc) - timedelta(days=3)
+        pr = GitHubPullRequest(
+            number=42,
+            title="Add new feature",
+            state="open",
+            created_at=created_at,
+            merged_at=None,
+            assignees=[GitHubUser(login="alice")],
+            labels=["claudestep"],
+            head_ref_name="claude-step-test-1a2b3c4d"
+        )
+
+        # Act
+        info = ProjectPRInfo.from_github_pr(pr)
+
+        # Assert
+        assert info.pr_number == 42
+        assert info.title == "Add new feature"
+        assert info.state == "open"
+        assert info.assignee == "alice"
+        assert info.created_at == created_at
+        assert info.days_open == 3
+        assert info.is_stale(stale_pr_days=7) is False  # 3 < 7 days
+
+    def test_from_github_pr_identifies_stale_pr(self):
+        """Should mark PR as stale when days_open >= stale_pr_days"""
+        from datetime import datetime, timezone, timedelta
+        from claudestep.domain.github_models import GitHubPullRequest, GitHubUser
+        from claudestep.domain.models import ProjectPRInfo
+
+        # Arrange - PR created 10 days ago
+        created_at = datetime.now(timezone.utc) - timedelta(days=10)
+        pr = GitHubPullRequest(
+            number=123,
+            title="Old PR",
+            state="open",
+            created_at=created_at,
+            merged_at=None,
+            assignees=[GitHubUser(login="bob")],
+            labels=["claudestep"],
+            head_ref_name="claude-step-test-5e6f7a8b"
+        )
+
+        # Act
+        info = ProjectPRInfo.from_github_pr(pr)
+
+        # Assert
+        assert info.days_open == 10
+        assert info.is_stale(stale_pr_days=7) is True
+
+    def test_from_github_pr_with_no_assignee(self):
+        """Should handle PR with no assignees"""
+        from datetime import datetime, timezone
+        from claudestep.domain.github_models import GitHubPullRequest
+        from claudestep.domain.models import ProjectPRInfo
+
+        # Arrange - PR with no assignees
+        pr = GitHubPullRequest(
+            number=99,
+            title="Unassigned PR",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[],
+            labels=["claudestep"],
+            head_ref_name="claude-step-test-9c0d1e2f"
+        )
+
+        # Act
+        info = ProjectPRInfo.from_github_pr(pr)
+
+        # Assert
+        assert info.assignee is None
+
+    def test_from_github_pr_uses_first_assignee(self):
+        """Should use first assignee when multiple are present"""
+        from datetime import datetime, timezone
+        from claudestep.domain.github_models import GitHubPullRequest, GitHubUser
+        from claudestep.domain.models import ProjectPRInfo
+
+        # Arrange - PR with multiple assignees
+        pr = GitHubPullRequest(
+            number=77,
+            title="Multi-assignee PR",
+            state="open",
+            created_at=datetime.now(timezone.utc),
+            merged_at=None,
+            assignees=[GitHubUser(login="alice"), GitHubUser(login="bob")],
+            labels=["claudestep"],
+            head_ref_name="claude-step-test-3g4h5i6j"
+        )
+
+        # Act
+        info = ProjectPRInfo.from_github_pr(pr)
+
+        # Assert
+        assert info.assignee == "alice"
+
+    def test_days_open_for_merged_pr(self):
+        """Should calculate days_open from created_at to merged_at for merged PRs"""
+        from datetime import datetime, timezone, timedelta
+        from claudestep.domain.github_models import GitHubPullRequest, GitHubUser
+        from claudestep.domain.models import ProjectPRInfo
+
+        # Arrange - PR created 10 days ago, merged 5 days ago
+        created_at = datetime.now(timezone.utc) - timedelta(days=10)
+        merged_at = datetime.now(timezone.utc) - timedelta(days=5)
+        pr = GitHubPullRequest(
+            number=88,
+            title="Merged PR",
+            state="merged",
+            created_at=created_at,
+            merged_at=merged_at,
+            assignees=[GitHubUser(login="charlie")],
+            labels=["claudestep"],
+            head_ref_name="claude-step-test-m1n2o3p4"
+        )
+
+        # Act
+        info = ProjectPRInfo.from_github_pr(pr)
+
+        # Assert - days_open should be 5 (created to merged), not 10 (created to now)
+        assert info.state == "merged"
+        assert info.days_open == 5
+
+
+class TestStalePRTracking:
+    """Tests for stale PR tracking in collect_project_stats"""
+
+    def test_collect_stats_tracks_stale_prs(self):
+        """Should track stale PRs and populate open_prs list"""
+        from datetime import datetime, timezone, timedelta
+        from claudestep.domain.github_models import GitHubPullRequest, GitHubUser
+
+        spec_content = "- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3"
+
+        # Create PRs with different ages
+        pr_fresh = GitHubPullRequest(
+            number=1,
+            title="Fresh PR",
+            state="open",
+            created_at=datetime.now(timezone.utc) - timedelta(days=2),
+            merged_at=None,
+            assignees=[GitHubUser(login="alice")],
+            labels=["claudestep"],
+            head_ref_name="claude-step-test-a1b2c3d4"
+        )
+        pr_stale = GitHubPullRequest(
+            number=2,
+            title="Stale PR",
+            state="open",
+            created_at=datetime.now(timezone.utc) - timedelta(days=10),
+            merged_at=None,
+            assignees=[GitHubUser(login="bob")],
+            labels=["claudestep"],
+            head_ref_name="claude-step-test-e5f6g7h8"
+        )
+
+        # Mock PROperationsService
+        mock_pr_service = Mock()
+        mock_pr_service.get_open_prs_for_project.return_value = [pr_fresh, pr_stale]
+
+        # Mock ProjectRepository
+        mock_repo = Mock()
+        from claudestep.domain.project import Project
+        from claudestep.domain.spec_content import SpecContent
+
+        project = Project("test-project")
+        mock_repo.load_spec.return_value = SpecContent(project, spec_content)
+
+        # Create service and test with 7-day stale threshold
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        stats = service.collect_project_stats("test-project", "main", "claudestep", stale_pr_days=7)
+
+        # Assert
+        assert len(stats.open_prs) == 2
+        assert stats.stale_pr_count == 1
+        assert stats.in_progress_tasks == 2
+
+        # Verify PR info
+        fresh_info = next(p for p in stats.open_prs if p.pr_number == 1)
+        stale_info = next(p for p in stats.open_prs if p.pr_number == 2)
+
+        assert fresh_info.is_stale(7) is False
+        assert fresh_info.assignee == "alice"
+        assert stale_info.is_stale(7) is True
+        assert stale_info.assignee == "bob"
+
+    def test_collect_stats_custom_stale_threshold(self):
+        """Should respect custom stale_pr_days threshold"""
+        from datetime import datetime, timezone, timedelta
+        from claudestep.domain.github_models import GitHubPullRequest, GitHubUser
+
+        spec_content = "- [ ] Task 1"
+
+        # PR that's 5 days old
+        pr = GitHubPullRequest(
+            number=1,
+            title="5 day old PR",
+            state="open",
+            created_at=datetime.now(timezone.utc) - timedelta(days=5),
+            merged_at=None,
+            assignees=[GitHubUser(login="charlie")],
+            labels=["claudestep"],
+            head_ref_name="claude-step-test-i9j0k1l2"
+        )
+
+        mock_pr_service = Mock()
+        mock_pr_service.get_open_prs_for_project.return_value = [pr]
+
+        mock_repo = Mock()
+        from claudestep.domain.project import Project
+        from claudestep.domain.spec_content import SpecContent
+
+        project = Project("test-project")
+        mock_repo.load_spec.return_value = SpecContent(project, spec_content)
+
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+
+        # With 7-day threshold: not stale
+        stats_7 = service.collect_project_stats("test-project", "main", "claudestep", stale_pr_days=7)
+        assert stats_7.stale_pr_count == 0
+        assert stats_7.open_prs[0].is_stale(7) is False
+
+        # With 3-day threshold: stale
+        stats_3 = service.collect_project_stats("test-project", "main", "claudestep", stale_pr_days=3)
+        assert stats_3.stale_pr_count == 1
+        assert stats_3.open_prs[0].is_stale(3) is True
+
+    def test_collect_stats_no_open_prs(self):
+        """Should handle case with no open PRs"""
+        spec_content = "- [x] Task 1\n- [ ] Task 2"
+
+        mock_pr_service = Mock()
+        mock_pr_service.get_open_prs_for_project.return_value = []
+
+        mock_repo = Mock()
+        from claudestep.domain.project import Project
+        from claudestep.domain.spec_content import SpecContent
+
+        project = Project("test-project")
+        mock_repo.load_spec.return_value = SpecContent(project, spec_content)
+
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        stats = service.collect_project_stats("test-project", "main", "claudestep")
+
+        assert len(stats.open_prs) == 0
+        assert stats.stale_pr_count == 0
+        assert stats.in_progress_tasks == 0
