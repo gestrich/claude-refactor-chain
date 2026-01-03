@@ -103,6 +103,7 @@ def format_pr_notification(
         Formatted Slack message in mrkdwn
     """
     # Build the message with Slack mrkdwn formatting
+    # Keep it concise - detailed per-model breakdown is in the PR comment
     lines = [
         "🎉 *New PR Created*",
         "",
@@ -110,28 +111,7 @@ def format_pr_notification(
         f"*Project:* `{project_name}`",
         f"*Task:* {task}",
         "",
-        "*💰 Cost Breakdown:*",
-        "```",
-        f"Main task:      {format_usd(cost_breakdown.main_cost)}",
-        f"PR summary:     {format_usd(cost_breakdown.summary_cost)}",
-        "─────────────────────────────",
-        f"Total:          {format_usd(cost_breakdown.total_cost)}",
-        "```",
+        f"*💰 Cost:* {format_usd(cost_breakdown.total_cost)}",
     ]
-
-    # Add per-model breakdown if available (using typed ModelUsage fields)
-    models = cost_breakdown.get_aggregated_models()
-    if models:
-        lines.append("")
-        lines.append("*📊 Per-Model Usage:*")
-        lines.append("```")
-        for model in models:
-            # Use typed fields directly instead of dict .get() access
-            calculated_cost = model.calculate_cost()
-            # Truncate long model names for display
-            display_name = model.model[:30] if len(model.model) > 30 else model.model
-            lines.append(f"{display_name}")
-            lines.append(f"  Cost: {format_usd(calculated_cost)} | In: {model.input_tokens:,} | Out: {model.output_tokens:,}")
-        lines.append("```")
 
     return "\n".join(lines)

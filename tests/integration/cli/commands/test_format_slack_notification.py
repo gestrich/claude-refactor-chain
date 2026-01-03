@@ -59,8 +59,8 @@ class TestFormatPrNotification:
         assert "*Project:* `my-project`" in result
         assert "*Task:* Refactor authentication system" in result
 
-    def test_format_pr_notification_includes_cost_breakdown(self):
-        """Should include detailed cost breakdown in code block"""
+    def test_format_pr_notification_includes_total_cost(self):
+        """Should include total cost in concise format"""
         # Arrange
         cost_breakdown = CostBreakdown(
             main_cost=0.123456,
@@ -78,11 +78,7 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        assert "*💰 Cost Breakdown:*" in result
-        assert "```" in result
-        assert "Main task:      $0.12" in result
-        assert "PR summary:     $0.05" in result
-        assert "Total:          $0.17" in result  # 0.123456 + 0.045678
+        assert "*💰 Cost:* $0.17" in result  # Total cost only (0.123456 + 0.045678)
 
     def test_format_pr_notification_uses_two_decimal_places(self):
         """Should display costs with 2 decimal places (cents)"""
@@ -103,8 +99,7 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        assert "$0.00" in result  # Both round to $0.00
-        assert "Total:          $0.00" in result
+        assert "*💰 Cost:* $0.00" in result
 
     def test_format_pr_notification_handles_zero_costs(self):
         """Should format zero costs correctly"""
@@ -122,10 +117,7 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        assert "$0.00" in result
-        assert "Main task:      $0.00" in result
-        assert "PR summary:     $0.00" in result
-        assert "Total:          $0.00" in result
+        assert "*💰 Cost:* $0.00" in result
 
     def test_format_pr_notification_handles_large_costs(self):
         """Should format large cost values correctly"""
@@ -146,9 +138,7 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        assert "$123.46" in result
-        assert "$45.68" in result
-        assert "$169.14" in result  # Total
+        assert "*💰 Cost:* $169.14" in result  # Total only
 
     def test_format_pr_notification_formats_pr_link_as_slack_mrkdwn(self):
         """Should format PR link using Slack mrkdwn syntax"""
@@ -169,8 +159,8 @@ class TestFormatPrNotification:
         # Slack mrkdwn link format: <URL|Text>
         assert "<https://github.com/owner/repo/pull/99|#99>" in result
 
-    def test_format_pr_notification_includes_separator_line(self):
-        """Should include visual separator in cost breakdown"""
+    def test_format_pr_notification_is_concise(self):
+        """Should be concise without detailed breakdowns (those go in PR comment)"""
         # Arrange
         cost_breakdown = CostBreakdown(main_cost=1.0, summary_cost=2.0)
 
@@ -184,11 +174,15 @@ class TestFormatPrNotification:
             repo="owner/repo"
         )
 
-        # Assert
-        assert "─────────────────────────────" in result
+        # Assert - should NOT have detailed breakdown
+        assert "```" not in result  # No code blocks
+        assert "Main task:" not in result  # No line-by-line breakdown
+        assert "Per-Model" not in result  # No model details
+        # Should have total cost
+        assert "*💰 Cost:* $3.00" in result
 
-    def test_format_pr_notification_includes_model_breakdown(self):
-        """Should include per-model breakdown when models are present"""
+    def test_format_pr_notification_does_not_include_model_breakdown(self):
+        """Should NOT include per-model breakdown (that goes in PR comment)"""
         # Arrange
         cost_breakdown = CostBreakdown(
             main_cost=0.01,
@@ -214,11 +208,11 @@ class TestFormatPrNotification:
             repo="owner/repo"
         )
 
-        # Assert
-        assert "*📊 Per-Model Usage:*" in result
-        assert "claude-3-haiku-20240307" in result
-        assert "1,000" in result
-        assert "500" in result
+        # Assert - model breakdown should NOT be in Slack message
+        assert "*📊 Per-Model Usage:*" not in result
+        assert "claude-3-haiku-20240307" not in result
+        # Just the total cost
+        assert "*💰 Cost:* $0.01" in result
 
 
 class TestCmdFormatSlackNotification:
@@ -271,7 +265,7 @@ class TestCmdFormatSlackNotification:
         assert "my-project" in message
 
     def test_cmd_format_slack_notification_includes_all_required_fields_in_message(self, mock_gh_actions, default_params):
-        """Should include PR number, URL, project, task, and costs in message"""
+        """Should include PR number, URL, project, task, and total cost in message"""
         # Act
         cmd_format_slack_notification(gh=mock_gh_actions, **default_params)
 
@@ -284,8 +278,7 @@ class TestCmdFormatSlackNotification:
         assert "https://github.com/owner/repo/pull/42" in message
         assert "my-project" in message
         assert "Refactor authentication system" in message
-        assert "$0.12" in message
-        assert "$0.05" in message
+        assert "$0.17" in message  # Total cost
 
     def test_cmd_format_slack_notification_calculates_total_cost_correctly(self, mock_gh_actions):
         """Should calculate total cost as sum of main and summary costs"""
@@ -311,9 +304,7 @@ class TestCmdFormatSlackNotification:
         slack_message_call = [c for c in calls if c[0][0] == "slack_message"]
         message = slack_message_call[0][0][1]
 
-        assert "$0.12" in message  # Main cost
-        assert "$0.46" in message  # Summary cost
-        assert "$0.58" in message  # Total (0.123 + 0.456)
+        assert "$0.58" in message  # Total only (0.123 + 0.456)
 
     def test_cmd_format_slack_notification_skips_when_no_pr_number(self, mock_gh_actions):
         """Should skip notification and return success when pr_number is empty"""
@@ -429,8 +420,7 @@ class TestCmdFormatSlackNotification:
 
         # Verify trimmed values are used
         assert "#42>" in message  # PR number without spaces
-        assert "$0.12" in message
-        assert "$0.46" in message
+        assert "$0.58" in message  # Total cost
 
     def test_cmd_format_slack_notification_handles_empty_optional_fields(self, mock_gh_actions):
         """Should handle empty optional fields gracefully"""
@@ -536,8 +526,8 @@ class TestCmdFormatSlackNotification:
         assert "=== Slack Notification Message ===" in captured.out
         assert "🎉 *New PR Created*" in captured.out
 
-    def test_cmd_format_slack_notification_with_model_breakdown(self, mock_gh_actions):
-        """Should include per-model breakdown from cost_breakdown_json"""
+    def test_cmd_format_slack_notification_does_not_include_model_breakdown(self, mock_gh_actions):
+        """Should NOT include per-model breakdown (that goes in PR comment)"""
         # Arrange
         cost_breakdown_json = make_cost_breakdown_json(
             main_cost=0.01,
@@ -571,5 +561,8 @@ class TestCmdFormatSlackNotification:
         calls = mock_gh_actions.write_output.call_args_list
         slack_message_call = [c for c in calls if c[0][0] == "slack_message"]
         message = slack_message_call[0][0][1]
-        assert "*📊 Per-Model Usage:*" in message
-        assert "claude-3-haiku-20240307" in message
+        # Detailed model breakdown should NOT be in Slack message
+        assert "*📊 Per-Model Usage:*" not in message
+        assert "claude-3-haiku-20240307" not in message
+        # Just total cost
+        assert "$0.01" in message or "$0.02" in message  # Total is main + summary
