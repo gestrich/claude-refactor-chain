@@ -1,0 +1,333 @@
+# Troubleshooting
+
+This guide covers common issues and solutions when using ClaudeStep.
+
+## Table of Contents
+
+- [First Task Not Starting](#first-task-not-starting)
+- [PR Merge Doesn't Trigger Next Task](#pr-merge-doesnt-trigger-next-task)
+- [Spec File Not Found](#spec-file-not-found)
+- [Workflow Permissions Issues](#workflow-permissions-issues)
+- [Claude Code GitHub App Not Installed](#claude-code-github-app-not-installed)
+- [API Rate Limits](#api-rate-limits)
+- [Orphaned PR Warnings](#orphaned-pr-warnings)
+- [No Reviewer Has Capacity](#no-reviewer-has-capacity)
+- [Workflow Runs But No PR Created](#workflow-runs-but-no-pr-created)
+
+---
+
+## First Task Not Starting
+
+**Symptom:** You added a project but no PR was created.
+
+**Cause:** The first task for a new project cannot auto-trigger—there's no previous PR to merge.
+
+### Solution
+
+**Option 1: Use a labeled PR (Recommended)**
+
+1. Create a PR that adds your spec files
+2. Add the `claudestep` label to the PR
+3. Merge the PR
+
+ClaudeStep detects the merge and creates the first task PR.
+
+**Option 2: Manual trigger**
+
+1. Go to **Actions** → **ClaudeStep** → **Run workflow**
+2. Select your branch (usually `main`)
+3. Enter your project name (e.g., `my-refactor`)
+4. Click **Run workflow**
+
+Subsequent tasks will auto-trigger when you merge PRs.
+
+---
+
+## PR Merge Doesn't Trigger Next Task
+
+**Symptom:** You merged a ClaudeStep PR but no new PR was created.
+
+### Check 1: Verify the Label
+
+The PR must have the `claudestep` label. PRs created by ClaudeStep get this automatically, but if someone removed it:
+
+1. Check the merged PR for the `claudestep` label
+2. If missing, use manual trigger for the next task
+
+### Check 2: Verify It Was Merged
+
+The PR must be **merged**, not just closed:
+
+- ✅ "Merged" status triggers next task
+- ❌ "Closed" without merge does not trigger
+
+Check the PR page—it should say "merged" with a purple icon, not "closed" with a red icon.
+
+### Check 3: Check Workflow Logs
+
+1. Go to **Actions** → **ClaudeStep**
+2. Find the run triggered by your merge
+3. Look for skip reasons or errors:
+   - "PR does not have claudestep label"
+   - "PR was closed without merging"
+   - "No tasks remaining"
+
+### Check 4: Verify Tasks Remain
+
+If all tasks are complete (`- [x]`), there's nothing left to do:
+
+```markdown
+- [x] Task 1  ← All complete
+- [x] Task 2
+- [x] Task 3
+```
+
+Add more tasks or start a new project.
+
+---
+
+## Spec File Not Found
+
+**Error:**
+```
+Error: spec.md not found in branch 'main'
+Required file:
+  - claude-step/my-project/spec.md
+
+Please merge your spec.md file to the 'main' branch before running ClaudeStep.
+```
+
+### Solution
+
+ClaudeStep fetches spec files from your base branch via the GitHub API. They must be committed and pushed:
+
+1. Verify the file exists locally:
+   ```bash
+   ls claude-step/my-project/spec.md
+   ```
+
+2. Check if it's committed:
+   ```bash
+   git status
+   ```
+
+3. Push to your base branch:
+   ```bash
+   git add claude-step/my-project/spec.md
+   git commit -m "Add spec.md"
+   git push origin main
+   ```
+
+4. Re-run the workflow
+
+**Note:** The `configuration.yml` file is optional—only `spec.md` is required.
+
+---
+
+## Workflow Permissions Issues
+
+**Error:**
+```
+Error: GitHub Actions is not permitted to create pull requests
+```
+
+### Solution
+
+1. Go to **Settings** → **Actions** → **General**
+2. Scroll to **Workflow permissions**
+3. Check **"Allow GitHub Actions to create and approve pull requests"**
+4. Click **Save**
+5. Re-run the workflow
+
+---
+
+## Claude Code GitHub App Not Installed
+
+**Error:**
+```
+Error: Claude Code GitHub App is not installed
+```
+
+### Solution
+
+1. Open a terminal in your repository
+2. Run Claude Code:
+   ```bash
+   claude-code
+   ```
+3. Execute the install command:
+   ```
+   /install-github-app
+   ```
+4. Follow the prompts to install the app
+5. Re-run the workflow
+
+---
+
+## API Rate Limits
+
+**Error:**
+```
+Error: GitHub API rate limit exceeded
+```
+
+### Solution
+
+GitHub has rate limits on API calls. If exceeded:
+
+1. **Wait** - Rate limits reset hourly
+2. **Reduce concurrency** - Run fewer projects simultaneously
+3. **Space out merges** - Don't merge many PRs at once
+
+For high-volume usage, consider GitHub Enterprise (higher rate limits).
+
+---
+
+## Orphaned PR Warnings
+
+**Warning:**
+```
+⚠️  Warning: Found 2 orphaned PR(s):
+  - PR #123 (claude-step-auth-39b1209d) - task hash no longer matches any task
+  - PR #125 (claude-step-auth-a8f3c2d1) - task hash no longer matches any task
+```
+
+### Cause
+
+Orphaned PRs occur when:
+- You changed a task description while a PR was open
+- You deleted a task that had an open PR
+
+The PR references a task hash that no longer exists in `spec.md`.
+
+### Solution
+
+1. **Review each orphaned PR** - Click the link to see what it contains
+2. **Close the PR** - The work is for an outdated task
+3. **Wait for new PR** - ClaudeStep creates a new PR for the current task
+
+See [Projects Guide - Modifying Tasks](./projects.md#modifying-tasks) for how to avoid orphaned PRs.
+
+---
+
+## No Reviewer Has Capacity
+
+**Message:**
+```
+No reviewer has capacity. Skipping PR creation.
+```
+
+### Cause
+
+All configured reviewers have reached their `maxOpenPRs` limit.
+
+### Solution
+
+**Option 1: Merge existing PRs**
+
+Review and merge open PRs to free up capacity.
+
+**Option 2: Increase capacity**
+
+Edit `configuration.yml` to increase `maxOpenPRs`:
+
+```yaml
+reviewers:
+  - username: alice
+    maxOpenPRs: 3  # Increased from 2
+```
+
+**Option 3: Add more reviewers**
+
+```yaml
+reviewers:
+  - username: alice
+    maxOpenPRs: 2
+  - username: bob
+    maxOpenPRs: 2
+  - username: charlie  # New reviewer
+    maxOpenPRs: 2
+```
+
+**Option 4: Remove configuration**
+
+If you don't need reviewer assignment, delete `configuration.yml`. PRs will be created without an assignee.
+
+---
+
+## Workflow Runs But No PR Created
+
+**Symptom:** Workflow completes successfully but no PR appears.
+
+### Check 1: Review Workflow Output
+
+1. Go to **Actions** → find the workflow run
+2. Expand the ClaudeStep step
+3. Look for outputs:
+   - `skipped: true` - Check `skip_reason`
+   - `all_steps_done: true` - All tasks complete
+   - `has_capacity: false` - No reviewer available
+
+### Check 2: Verify Unchecked Tasks Exist
+
+Ensure `spec.md` has at least one unchecked task:
+
+```markdown
+- [x] Completed task
+- [ ] This task should get a PR  ← Unchecked
+```
+
+### Check 3: Check for Errors
+
+Look for error messages in the workflow logs. Common issues:
+- API failures
+- Permission denied
+- File not found
+
+### Check 4: Verify Branch Exists
+
+ClaudeStep creates a branch before the PR. Check if the branch was created:
+
+```bash
+git fetch origin
+git branch -r | grep claude-step
+```
+
+If the branch exists but no PR, there may have been an error during PR creation.
+
+---
+
+## Getting More Help
+
+If you can't resolve an issue:
+
+1. **Check workflow logs** - Detailed error messages are in Actions
+2. **Search existing issues** - [github.com/gestrich/claude-step/issues](https://github.com/gestrich/claude-step/issues)
+3. **Open a new issue** - Include:
+   - Error message
+   - Workflow file (sanitize secrets)
+   - Steps to reproduce
+   - Relevant workflow run logs
+
+---
+
+## Quick Reference
+
+| Symptom | Likely Cause | Quick Fix |
+|---------|--------------|-----------|
+| First task not starting | Manual trigger needed | Actions → Run workflow |
+| Merge doesn't trigger | Missing label or closed without merge | Check label, verify merged |
+| Spec not found | Not pushed to base branch | `git push origin main` |
+| Can't create PRs | Permissions not enabled | Settings → Actions → Allow PRs |
+| App not installed | Claude Code GitHub App missing | `/install-github-app` |
+| Rate limit | Too many API calls | Wait 1 hour |
+| Orphaned PRs | Task description changed | Close old PR |
+| No capacity | All reviewers at limit | Merge PRs or add reviewers |
+
+---
+
+## Next Steps
+
+- [How It Works](./how-it-works.md) - Understand the core concepts
+- [Setup Guide](./setup.md) - Initial configuration
+- [Projects Guide](./projects.md) - Project configuration details
