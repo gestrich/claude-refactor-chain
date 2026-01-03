@@ -425,10 +425,11 @@ class ProjectStats:
 class StatisticsReport:
     """Aggregated statistics report for all projects and team members"""
 
-    def __init__(self):
+    def __init__(self, base_branch: Optional[str] = None):
         self.team_stats = {}      # username -> TeamMemberStats
         self.project_stats = {}   # project_name -> ProjectStats
         self.generated_at = None  # datetime
+        self.base_branch = base_branch  # Branch used to fetch specs
 
     def add_team_member(self, stats: TeamMemberStats):
         """Add team member statistics"""
@@ -584,14 +585,12 @@ class StatisticsReport:
         self,
         show_reviewer_stats: bool = False,
         stale_pr_days: int = 7,
-        base_branch: Optional[str] = None
     ) -> str:
         """Complete report in Slack mrkdwn format with tables
 
         Args:
             show_reviewer_stats: Whether to include the reviewer leaderboard (default: False)
             stale_pr_days: Threshold for stale PR warnings (default: 7 days)
-            base_branch: Base branch name to display in report header (optional)
         """
         fmt = MarkdownFormatter(for_slack=True)
         lines = []
@@ -606,8 +605,8 @@ class StatisticsReport:
             from datetime import datetime
             timestamp = self.generated_at.strftime("%Y-%m-%d %H:%M UTC")
             metadata_parts.append(f"Generated: {timestamp}")
-        if base_branch:
-            metadata_parts.append(f"Branch: {base_branch}")
+        if self.base_branch:
+            metadata_parts.append(f"Branch: {self.base_branch}")
         if metadata_parts:
             lines.append(fmt.italic(" • ".join(metadata_parts)))
             lines.append("")
@@ -704,6 +703,11 @@ class StatisticsReport:
         """Brief summary for PR notifications"""
         lines = []
 
+        # Include branch context if available
+        if self.base_branch:
+            lines.append(f"*Branch: {self.base_branch}*")
+            lines.append("")
+
         # Only include project progress, not full team stats
         if self.project_stats:
             # If single project, show details
@@ -727,6 +731,7 @@ class StatisticsReport:
 
         data = {
             "generated_at": self.generated_at.isoformat() if self.generated_at else None,
+            "base_branch": self.base_branch,
             "projects": {},
             "team_members": {}
         }

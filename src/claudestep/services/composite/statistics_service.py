@@ -64,7 +64,7 @@ class StatisticsService:
         Returns:
             Complete StatisticsReport
         """
-        report = StatisticsReport()
+        report = StatisticsReport(base_branch=self.base_branch)
         report.generated_at = datetime.now(timezone.utc)
 
         if not self.repo:

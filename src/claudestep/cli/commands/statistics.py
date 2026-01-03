@@ -74,7 +74,6 @@ def cmd_statistics(
         if format_type == "slack":
             slack_text = report.format_for_slack(
                 show_reviewer_stats=show_reviewer_stats,
-                base_branch=base_branch
             )
             gh.write_output("slack_message", slack_text)
             gh.write_output("has_statistics", "true")
