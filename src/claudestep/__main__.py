@@ -43,10 +43,12 @@ def main():
     elif args.command == "discover-ready":
         return cmd_discover_ready()
     elif args.command == "prepare":
+        # Use env var if set and non-empty, otherwise fall back to constant
+        env_allowed_tools = os.environ.get("CLAUDE_ALLOWED_TOOLS", "")
         return cmd_prepare(
             args,
             gh,
-            default_allowed_tools=os.environ.get("CLAUDE_ALLOWED_TOOLS", DEFAULT_ALLOWED_TOOLS)
+            default_allowed_tools=env_allowed_tools if env_allowed_tools else DEFAULT_ALLOWED_TOOLS
         )
     elif args.command == "finalize":
         return cmd_finalize(args, gh)

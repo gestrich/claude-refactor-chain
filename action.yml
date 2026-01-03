@@ -39,10 +39,9 @@ inputs:
     required: false
     default: 'claude-sonnet-4-5'
   claude_allowed_tools:
-    # Note: Keep default in sync with DEFAULT_ALLOWED_TOOLS in src/claudestep/domain/constants.py
-    description: 'Comma-separated list of tools Claude can use. Uses minimal permissions by default.'
+    # Default defined in src/claudestep/domain/constants.py (DEFAULT_ALLOWED_TOOLS)
+    description: 'Comma-separated list of tools Claude can use. Defaults to minimal permissions: Read,Write,Edit,Bash(git add:*),Bash(git commit:*)'
     required: false
-    default: 'Read,Write,Edit,Bash(git add:*),Bash(git commit:*)'
   base_branch:
     description: 'Base branch where spec files must exist (fetched via GitHub API) and where pull requests will target'
     required: false
