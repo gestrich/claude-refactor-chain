@@ -2,24 +2,43 @@
 
 User-facing documentation for ClaudeStep features. These guides explain how to use ClaudeStep effectively in your projects.
 
+## Available Guides
+
+| Guide | Description |
+|-------|-------------|
+| [How It Works](./how-it-works.md) | Core mental model: PR chain, task identification, automatic continuation |
+| [Setup](./setup.md) | One-time setup: workflow file, secrets, permissions, Claude Code app |
+| [Projects](./projects.md) | Creating projects: spec.md, configuration.yml, modifying tasks |
+| [Notifications](./notifications.md) | Slack notifications, PR summaries, statistics reports |
+| [Troubleshooting](./troubleshooting.md) | Common issues and solutions |
+
+## Reading Order
+
+**New to ClaudeStep?** Start here:
+
+1. **[How It Works](./how-it-works.md)** - Understand the core concepts
+2. **[Setup](./setup.md)** - Configure your repository
+3. **[Projects](./projects.md)** - Create your first project
+
+**Already set up?** Jump to what you need:
+
+- **[Notifications](./notifications.md)** - Add Slack alerts and statistics
+- **[Troubleshooting](./troubleshooting.md)** - Fix common problems
+
 ## What Belongs Here
 
 Documentation that helps users:
-- Get started with ClaudeStep
-- Configure and customize behavior
-- Use specific features
-- Follow best practices
+- Understand how ClaudeStep works
+- Set up and configure ClaudeStep
+- Create and manage projects
+- Enable notifications and visibility
 - Troubleshoot common issues
 
 ## What Doesn't Belong Here
 
-- Technical implementation details (see [feature-architecture](../feature-architecture/))
-- Architecture patterns and conventions (see [general-architecture](../general-architecture/))
-- Implementation specs and plans (see [specs](../specs/))
-
-## Available Guides
-
-Currently being organized. Guides will be moved here from `user-guides/` in subsequent phases.
+- Technical implementation details → see [feature-architecture](../feature-architecture/)
+- Architecture patterns and conventions → see [general-architecture](../general-architecture/)
+- Implementation specs and plans → see [proposed](../proposed/) or [completed](../completed/)
 
 ## Writing Feature Guides
 
