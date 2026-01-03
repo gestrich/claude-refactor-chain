@@ -2,15 +2,15 @@
 
 import os
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from claudestep.domain.cost_breakdown import CostBreakdown
 
 
 @dataclass
 class SummaryFile:
-    """Domain model for PR summary file content."""
+    """Domain model for PR summary file content.
+
+    This class handles parsing of AI-generated summary files.
+    Formatting is handled by PullRequestCreatedReport.
+    """
 
     content: str | None
 
@@ -40,31 +40,3 @@ class SummaryFile:
     def has_content(self) -> bool:
         """Check if summary has content."""
         return self.content is not None and bool(self.content.strip())
-
-    def format_with_cost(
-        self,
-        cost_breakdown: 'CostBreakdown',
-        repo: str,
-        run_id: str
-    ) -> str:
-        """Combine summary and cost into unified PR comment.
-
-        Args:
-            cost_breakdown: Cost breakdown information
-            repo: Repository name (owner/repo)
-            run_id: Workflow run ID
-
-        Returns:
-            Formatted markdown comment
-        """
-        # Start with summary if available
-        parts = []
-        if self.has_content:
-            parts.append(self.content)
-            parts.append("\n---\n")
-
-        # Add cost breakdown
-        cost_section = cost_breakdown.format_for_github(repo, run_id)
-        parts.append(cost_section)
-
-        return "".join(parts)

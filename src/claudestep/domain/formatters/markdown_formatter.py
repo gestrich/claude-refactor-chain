@@ -19,7 +19,6 @@ from claudestep.domain.formatters.report_elements import (
     Divider,
 )
 from claudestep.domain.formatters.report_formatter import ReportFormatter
-from claudestep.domain.formatters.table_formatter import TableFormatter
 
 
 class MarkdownReportFormatter(ReportFormatter):
@@ -83,27 +82,38 @@ class MarkdownReportFormatter(ReportFormatter):
         return f"{item.bullet} {content}"
 
     def format_table(self, table: Table) -> str:
-        """Format table using TableFormatter.
+        """Format table using GitHub-flavored markdown table syntax.
 
-        Note: For markdown we don't wrap in code blocks since
-        the TableFormatter produces nice box-drawing tables.
+        Uses pipe-separated columns with proper alignment syntax.
 
         Args:
             table: Table to format
 
         Returns:
-            Formatted table string
+            Markdown table string
         """
-        # Build table using existing TableFormatter
-        formatter = TableFormatter(
-            headers=[col.header for col in table.columns],
-            align=[col.align for col in table.columns],
-        )
+        lines = []
 
+        # Header row
+        header_cells = [col.header for col in table.columns]
+        lines.append("| " + " | ".join(header_cells) + " |")
+
+        # Alignment row
+        align_cells = []
+        for col in table.columns:
+            if col.align == "right":
+                align_cells.append("-" * 10 + ":")
+            elif col.align == "center":
+                align_cells.append(":" + "-" * 9 + ":")
+            else:  # left (default)
+                align_cells.append("-" * 11)
+        lines.append("|" + "|".join(align_cells) + "|")
+
+        # Data rows
         for row in table.rows:
-            formatter.add_row(list(row.cells))
+            lines.append("| " + " | ".join(row.cells) + " |")
 
-        return formatter.format()
+        return "\n".join(lines)
 
     def format_progress_bar(self, progress_bar: ProgressBar) -> str:
         """Format progress bar with filled/empty blocks.

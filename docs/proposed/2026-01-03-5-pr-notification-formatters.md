@@ -44,7 +44,7 @@ Update `src/claudestep/cli/commands/format_slack_notification.py`:
 - Use `PullRequestCreatedReport` and `SlackReportFormatter`
 - Keep `format_pr_notification()` as thin wrapper for backward compatibility
 
-- [ ] Phase 4: Refactor PR comment posting
+- [x] Phase 4: Refactor PR comment posting
 
 Update `src/claudestep/cli/commands/post_pr_comment.py`:
 - Use `PullRequestCreatedReport.build_comment_elements()` with `MarkdownReportFormatter`

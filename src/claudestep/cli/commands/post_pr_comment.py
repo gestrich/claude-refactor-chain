@@ -10,7 +10,9 @@ import subprocess
 import tempfile
 
 from claudestep.domain.cost_breakdown import CostBreakdown
+from claudestep.domain.formatters import MarkdownReportFormatter
 from claudestep.domain.formatting import format_usd
+from claudestep.domain.pr_created_report import PullRequestCreatedReport
 from claudestep.domain.summary_file import SummaryFile
 from claudestep.infrastructure.github.actions import GitHubActionsHelper
 
@@ -74,8 +76,21 @@ def cmd_post_pr_comment(
         # Use domain models for parsing and formatting
         summary = SummaryFile.from_file(summary_file_path)
 
-        # Use domain model for formatting
-        comment = summary.format_with_cost(cost_breakdown, repo, run_id)
+        # Create report and format comment using domain model
+        pr_url = f"https://github.com/{repo}/pull/{pr_number}"
+        report = PullRequestCreatedReport(
+            pr_number=pr_number,
+            pr_url=pr_url,
+            project_name="",  # Not shown in PR comment
+            task=task,
+            cost_breakdown=cost_breakdown,
+            repo=repo,
+            run_id=run_id,
+            summary_content=summary.content if summary.has_content else None,
+        )
+
+        formatter = MarkdownReportFormatter()
+        comment = formatter.format(report.build_comment_elements())
 
         # Write comment to temporary file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
@@ -100,15 +115,8 @@ def cmd_post_pr_comment(
             print(f"   - Total: {format_usd(cost_breakdown.total_cost)}")
 
             # Write workflow summary to GITHUB_STEP_SUMMARY
-            _write_workflow_summary(
-                gh=gh,
-                pr_number=pr_number,
-                pr_url=f"https://github.com/{repo}/pull/{pr_number}",
-                task=task,
-                cost_breakdown=cost_breakdown,
-                repo=repo,
-                run_id=run_id,
-            )
+            workflow_summary = formatter.format(report.build_workflow_summary_elements())
+            gh.write_step_summary(workflow_summary)
 
             gh.write_output("comment_posted", "true")
             return 0
@@ -122,60 +130,3 @@ def cmd_post_pr_comment(
     except Exception as e:
         gh.set_error(f"Error posting PR comment: {str(e)}")
         return 1
-
-
-def _write_workflow_summary(
-    gh: GitHubActionsHelper,
-    pr_number: str,
-    pr_url: str,
-    task: str,
-    cost_breakdown: CostBreakdown,
-    repo: str,
-    run_id: str,
-) -> None:
-    """Write cost summary to GITHUB_STEP_SUMMARY for workflow visibility.
-
-    Args:
-        gh: GitHub Actions helper for writing step summary
-        pr_number: Pull request number
-        pr_url: Full URL to the pull request
-        task: Task description
-        cost_breakdown: Cost breakdown with per-model data
-        repo: Repository in format owner/repo
-        run_id: Workflow run ID
-    """
-    workflow_url = f"https://github.com/{repo}/actions/runs/{run_id}"
-
-    lines = [
-        "## ✅ ClaudeStep Complete",
-        "",
-        f"**PR:** [#{pr_number}]({pr_url})",
-    ]
-
-    if task:
-        lines.append(f"**Task:** {task}")
-
-    lines.extend([
-        "",
-        "### 💰 Cost Summary",
-        "",
-        "| Component | Cost (USD) |",
-        "|-----------|------------|",
-        f"| Main refactoring task | {format_usd(cost_breakdown.main_cost)} |",
-        f"| PR summary generation | {format_usd(cost_breakdown.summary_cost)} |",
-        f"| **Total** | **{format_usd(cost_breakdown.total_cost)}** |",
-        "",
-    ])
-
-    # Add per-model breakdown if available
-    model_breakdown = cost_breakdown.format_model_breakdown()
-    if model_breakdown:
-        lines.append(model_breakdown)
-        lines.append("")
-
-    lines.extend([
-        "---",
-        f"*[View workflow run]({workflow_url})*",
-    ])
-
-    gh.write_step_summary("\n".join(lines))

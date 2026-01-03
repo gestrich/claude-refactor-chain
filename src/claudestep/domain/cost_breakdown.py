@@ -6,7 +6,6 @@ import os
 from dataclasses import dataclass, field
 from typing import Self
 
-from claudestep.domain.formatting import format_usd
 
 logger = logging.getLogger(__name__)
 
@@ -437,45 +436,6 @@ class CostBreakdown:
 
         return list(aggregated.values())
 
-    def format_model_breakdown(self) -> str:
-        """Format per-model cost breakdown as markdown table.
-
-        Returns:
-            Formatted markdown string with model breakdown table,
-            or empty string if no models.
-        """
-        models = self.get_aggregated_models()
-        if not models:
-            return ""
-
-        lines = [
-            "### Per-Model Breakdown",
-            "",
-            "| Model | Input | Output | Cache R | Cache W | Cost |",
-            "|-------|-------|--------|---------|---------|------|",
-        ]
-
-        for model in models:
-            calculated_cost = model.calculate_cost()
-            lines.append(
-                f"| {model.model} | {self._format_token_count(model.input_tokens)} | "
-                f"{self._format_token_count(model.output_tokens)} | "
-                f"{self._format_token_count(model.cache_read_tokens)} | "
-                f"{self._format_token_count(model.cache_write_tokens)} | "
-                f"{format_usd(calculated_cost)} |"
-            )
-
-        # Add totals row
-        lines.append(
-            f"| **Total** | **{self._format_token_count(self.input_tokens)}** | "
-            f"**{self._format_token_count(self.output_tokens)}** | "
-            f"**{self._format_token_count(self.cache_read_tokens)}** | "
-            f"**{self._format_token_count(self.cache_write_tokens)}** | "
-            f"**{format_usd(self.total_cost)}** |"
-        )
-
-        return "\n".join(lines)
-
     def to_model_breakdown_json(self) -> list[dict]:
         """Convert per-model breakdown to JSON-serializable format.
 
@@ -559,40 +519,3 @@ class CostBreakdown:
             main_models=models,
             summary_models=[],
         )
-
-    @staticmethod
-    def _format_token_count(count: int) -> str:
-        """Format token count with thousands separator."""
-        return f"{count:,}"
-
-    def format_for_github(self, repo: str, run_id: str) -> str:
-        """Format cost breakdown as markdown table for GitHub PR comment.
-
-        Args:
-            repo: Repository name (owner/repo)
-            run_id: Workflow run ID
-
-        Returns:
-            Formatted markdown string
-        """
-        workflow_url = f"https://github.com/{repo}/actions/runs/{run_id}"
-
-        # Build per-model breakdown section
-        model_section = self.format_model_breakdown()
-        if model_section:
-            model_section = "\n" + model_section + "\n"
-
-        cost_section = f"""## 💰 Cost Breakdown
-
-This PR was generated using Claude Code with the following costs:
-
-| Component | Cost (USD) |
-|-----------|------------|
-| Main refactoring task | {format_usd(self.main_cost)} |
-| PR summary generation | {format_usd(self.summary_cost)} |
-| **Total** | **{format_usd(self.total_cost)}** |
-{model_section}
----
-*Cost tracking by ClaudeStep • [View workflow run]({workflow_url})*
-"""
-        return cost_section
