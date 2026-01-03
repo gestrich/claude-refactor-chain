@@ -43,7 +43,8 @@ python -m claudestep statistics \
   --base-branch main \                       # Base branch to fetch specs from (default: main)
   --config-path <path> \                     # Optional: path to specific project config
   --days-back 30 \                           # Days to look back for statistics (default: 30)
-  --format slack                             # Output format: slack or json (default: slack)
+  --format slack \                           # Output format: slack or json (default: slack)
+  --show-reviewer-stats                      # Include reviewer leaderboard (default: off)
 ```
 
 ### Parameters
@@ -65,17 +66,21 @@ python -m claudestep statistics \
   - `slack`: Human-readable format with tables and progress bars
   - `json`: Machine-readable JSON format
 
+- `--show-reviewer-stats`: Include reviewer leaderboard in output (default: off)
+  - When enabled, shows a table ranking reviewers by merged PR count
+
 ### Output
 
 The command generates:
 
 1. **Slack-formatted report** (if format is `slack`):
-   - Leaderboard showing team member activity
-   - Project progress with task counts and completion percentages
+   - Project progress with task counts, completion percentages, and status warnings
+   - Projects needing attention section (if any issues exist)
+   - Reviewer leaderboard (if `--show-reviewer-stats` is enabled)
    - Visual progress bars and tables
 
 2. **JSON statistics** (always generated):
-   - Project statistics (total tasks, completed, in-progress, pending)
+   - Project statistics (total tasks, completed, in-progress, pending, stale PR count)
    - Team member statistics (merged PRs, open PRs)
    - Timestamps and metadata
 
@@ -103,19 +108,23 @@ Collecting statistics for project: e2e-test-project
 Projects found: 1
 Team members tracked: 1
 
+*📊 Project Progress*
+┌──────────────────┬──────┬────────┬───────┬─────────────────┬──────┬────────┐
+│ Project          │ Open │ Merged │ Total │ Progress        │ Cost │ Status │
+├──────────────────┼──────┼────────┼───────┼─────────────────┼──────┼────────┤
+│ e2e-test-project │    2 │      1 │   310 │ ░░░░░░░░░░   0% │    - │        │
+└──────────────────┴──────┴────────┴───────┴─────────────────┴──────┴────────┘
+```
+
+With `--show-reviewer-stats`, the leaderboard appears before project progress:
+
+```
 *🏆 Leaderboard*
 ┌──────┬──────────┬──────┬────────┐
 │ Rank │ Username │ Open │ Merged │
 ├──────┼──────────┼──────┼────────┤
 │ 🥇   │ gestrich │    1 │      2 │
 └──────┴──────────┴──────┴────────┘
-
-*📊 Project Progress*
-┌──────────────────┬──────┬────────┬───────┬─────────────────┬──────┐
-│ Project          │ Open │ Merged │ Total │ Progress        │ Cost │
-├──────────────────┼──────┼────────┼───────┼─────────────────┼──────┤
-│ e2e-test-project │    2 │      1 │   310 │ ░░░░░░░░░░   0% │    - │
-└──────────────────┴──────┴────────┴───────┴─────────────────┴──────┘
 ```
 
 ## Other Commands

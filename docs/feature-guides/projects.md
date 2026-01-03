@@ -178,6 +178,9 @@ baseBranch: develop
 
 # Optional: Override allowed tools for this project
 allowedTools: Read,Write,Edit,Bash
+
+# Optional: Days before a PR is considered stale (for statistics)
+stalePRDays: 7
 ```
 
 ### Field Reference
@@ -189,6 +192,26 @@ allowedTools: Read,Write,Edit,Bash
 | `reviewers[].maxOpenPRs` | number | Yes | Maximum open PRs for this reviewer |
 | `baseBranch` | string | No | Override base branch (defaults to workflow context) |
 | `allowedTools` | string | No | Override allowed tools (defaults to workflow input) |
+| `stalePRDays` | number | No | Days before a PR is considered stale (default: 7) |
+
+### Stale PR Tracking
+
+The `stalePRDays` setting controls when PRs are flagged as stale in statistics reports:
+
+```yaml
+# Flag PRs as stale after 14 days (default is 7)
+stalePRDays: 14
+
+reviewers:
+  - username: alice
+    maxOpenPRs: 2
+```
+
+Stale PRs appear in statistics reports with warnings:
+- The project's **Status** column shows `⚠️ N stale`
+- The **Projects Needing Attention** section lists specific stale PRs with assignee info
+
+This helps identify PRs that may be stuck or need attention.
 
 ### Reviewer Assignment
 
