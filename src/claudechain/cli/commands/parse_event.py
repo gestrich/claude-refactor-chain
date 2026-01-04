@@ -6,8 +6,11 @@ determines if execution should be skipped, and outputs the appropriate
 parameters for subsequent steps.
 """
 
+import json
 import os
-from typing import Optional
+from typing import List, Optional
+
+from claudechain.domain.project import Project
 
 from claudechain.domain.github_event import GitHubEventContext
 from claudechain.infrastructure.github.actions import GitHubActionsHelper
@@ -94,9 +97,10 @@ def cmd_parse_event(
                 gh.write_output("skip_reason", reason)
                 return 0
 
-            # Detect project from changed spec.md files
+            # Detect projects from changed spec.md files
             if repo:
-                resolved_project, _ = _detect_project_from_changed_files(context, repo)
+                detected_projects = _detect_projects_from_changed_files(context, repo)
+                resolved_project = _select_project_and_output_all(gh, detected_projects)
 
             if not resolved_project:
                 reason = "No spec.md changes detected"
@@ -106,9 +110,10 @@ def cmd_parse_event(
                 return 0
 
         elif context.event_name == "push":
-            # Push: detect project from changed files
+            # Push: detect projects from changed files
             if repo:
-                resolved_project, _ = _detect_project_from_changed_files(context, repo)
+                detected_projects = _detect_projects_from_changed_files(context, repo)
+                resolved_project = _select_project_and_output_all(gh, detected_projects)
 
             if not resolved_project:
                 reason = "No spec.md changes detected"
@@ -208,11 +213,49 @@ if __name__ == "__main__":
 # --- Private helper functions ---
 
 
-def _detect_project_from_changed_files(
+def _select_project_and_output_all(
+    gh: GitHubActionsHelper,
+    projects: List[Project],
+) -> Optional[str]:
+    """Select first project to process and output all detected projects as JSON.
+
+    When multiple projects are detected, this function:
+    1. Logs a warning about additional projects
+    2. Outputs the full list as JSON for advanced users who want matrix workflows
+    3. Returns the first project name for processing
+
+    Args:
+        gh: GitHubActionsHelper for writing outputs
+        projects: List of detected Project objects
+
+    Returns:
+        Name of the first project to process, or None if no projects detected
+    """
+    if not projects:
+        gh.write_output("detected_projects", "[]")
+        return None
+
+    # Build JSON array with project info
+    projects_json = json.dumps([
+        {"name": p.name, "base_path": p.base_path}
+        for p in projects
+    ])
+    gh.write_output("detected_projects", projects_json)
+
+    if len(projects) > 1:
+        project_names = [p.name for p in projects]
+        print(f"\n::warning::Multiple projects detected: {project_names}. "
+              f"Processing '{projects[0].name}'. Others require separate workflow runs.")
+        print(f"  Tip: Use the 'detected_projects' output with a matrix strategy for parallel processing.")
+
+    return projects[0].name
+
+
+def _detect_projects_from_changed_files(
     context: GitHubEventContext,
     repo: str,
-) -> tuple[Optional[str], bool]:
-    """Detect project from changed spec.md files.
+) -> List[Project]:
+    """Detect projects from changed spec.md files.
 
     Works for both PR merge events (comparing base..head branches) and push events
     (comparing before..after SHAs). This enables the "changed files" triggering model
@@ -223,13 +266,12 @@ def _detect_project_from_changed_files(
         repo: GitHub repository (owner/name) for API calls
 
     Returns:
-        Tuple of (project_name, detected_from_spec_change)
-        - project_name: Detected project name, or None if not detected
-        - detected_from_spec_change: True if project was detected from spec.md changes
+        List of Project objects for projects with changed spec.md files.
+        Empty list if no spec files were changed or detection failed.
     """
     changed_files_context = context.get_changed_files_context()
     if not changed_files_context:
-        return None, False
+        return []
 
     base_ref, head_ref = changed_files_context
 
@@ -245,14 +287,10 @@ def _detect_project_from_changed_files(
         print(f"  Found {len(changed_files)} changed files")
         projects = ProjectService.detect_projects_from_merge(changed_files)
         if projects:
-            # For now, take the first project (Phase 4 will handle multiple)
-            project_name = projects[0].name
-            print(f"  Detected project from spec.md changes: {project_name}")
-            if len(projects) > 1:
-                print(f"  Note: Multiple projects detected ({[p.name for p in projects]}), processing first one")
-            return project_name, True
+            print(f"  Detected {len(projects)} project(s) from spec.md changes: {[p.name for p in projects]}")
+        return projects
     except Exception as e:
         # Compare API may fail if branch was deleted after merge
         print(f"  Could not detect from changed files: {e}")
 
-    return None, False
+    return []

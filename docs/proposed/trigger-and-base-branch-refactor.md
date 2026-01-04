@@ -256,25 +256,102 @@ def detect_projects_from_merge(changed_files: List[str]) -> List[Project]:
 
 - [ ] Phase 4: Support multiple projects in single PR
 
-**Goal**: When a PR modifies specs for multiple projects, trigger workflow execution for each.
+**Goal**: When a PR modifies specs for multiple projects, the action should process each project sequentially.
 
 **Current limitation**: `detect_project_from_diff()` in `operations.py` raises `ValueError` if multiple projects are detected.
 
 **New behavior**:
 - Detect ALL projects with changed spec files
-- For each project, validate base branch match
-- Execute workflow for each matching project
+- For each project: validate base branch, prepare, execute Claude, finalize
+- Process sequentially within a single action invocation
+- Users call the action once; it handles multiple projects automatically
 
-**Implementation options**:
-1. **Sequential in single run**: Loop through projects in `prepare.py`
-2. **Matrix job**: Output list of projects, use GitHub Actions matrix to run in parallel
+### Constraint
 
-**Recommended**: Option 1 (sequential) for simplicity initially. Can optimize to matrix later if needed.
+**GitHub Actions `uses:` steps cannot be called dynamically or in a loop.** This means we cannot call `anthropics/claude-code-action@v1` multiple times from within a single composite action run. The action processes ONE project per invocation.
 
-**Changes**:
-- `detect_project_from_diff()` returns `List[str]` instead of `str`
-- `parse_event.py` handles list of projects
-- `prepare.py` may need to loop or accept project list
+### Implementation: Single Project + Detection Output
+
+**Default behavior**:
+- Detect all projects with changed spec files
+- Process the first project (alphabetically)
+- Log warning about additional projects
+- Output full list for advanced users who want parallel processing
+
+**Changes to `parse_event.py`**:
+```python
+# Detect all projects
+projects = ProjectService.detect_projects_from_merge(changed_files)
+
+if len(projects) > 1:
+    print(f"::warning::Multiple projects detected: {[p.name for p in projects]}. "
+          f"Processing '{projects[0].name}'. Others require separate workflow runs.")
+
+# Output all detected projects as JSON for matrix workflows
+print(f"detected_projects={json.dumps([{'name': p.name, 'base_branch': ...} for p in projects])}")
+
+# Continue with first project
+project = projects[0]
+```
+
+**New output in `action.yml`**:
+```yaml
+outputs:
+  detected_projects:
+    description: 'JSON array of all detected projects (for matrix workflows)'
+    value: ${{ steps.parse.outputs.detected_projects }}
+```
+
+**Example advanced workflow for parallel multi-project**:
+```yaml
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.cc.outputs.detected_projects }}
+      first_skipped: ${{ steps.cc.outputs.skipped }}
+    steps:
+      - uses: gestrich/claude-chain@main
+        id: cc
+        with:
+          github_event: ${{ toJSON(github.event) }}
+          event_name: ${{ github.event_name }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  # Run remaining projects in parallel (if any beyond the first)
+  execute-additional:
+    needs: detect
+    if: needs.detect.outputs.projects != '[]' && length(fromJSON(needs.detect.outputs.projects)) > 1
+    strategy:
+      matrix:
+        # Skip first project (already processed above)
+        project: ${{ fromJSON(needs.detect.outputs.projects)[1:] }}
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gestrich/claude-chain@main
+        with:
+          project_name: ${{ matrix.project.name }}
+          default_base_branch: ${{ matrix.project.base_branch }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+### Changes Required
+
+| File | Change |
+|------|--------|
+| `parse_event.py` | Detect all projects, warn if multiple, output JSON list |
+| `action.yml` | Add `detected_projects` output |
+| `README.md` | Document single-project default, add advanced multi-project example |
+
+### Behavior Summary
+
+| Scenario | Behavior |
+|----------|----------|
+| Single project changed | Process normally |
+| Multiple projects changed | Process first, warn about others, output full list |
+| User wants parallel | Use matrix workflow with `detected_projects` output |
 
 ---
 

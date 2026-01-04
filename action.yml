@@ -67,6 +67,9 @@ outputs:
   skip_reason:
     description: 'Reason for skipping if skipped (e.g., "No claudechain label", "PR not merged")'
     value: ${{ steps.parse.outputs.skip_reason }}
+  detected_projects:
+    description: 'JSON array of all detected projects. Use with matrix strategy for parallel multi-project processing.'
+    value: ${{ steps.parse.outputs.detected_projects }}
 
   # Resolved configuration outputs
   project_name:
