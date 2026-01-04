@@ -74,6 +74,7 @@ jobs:
           project_name: ${{ github.event.inputs.project_name || '' }}
           claude_allowed_tools: 'Read,Write,Edit,Bash(git add:*),Bash(git commit:*)'  # Configure as needed
           base_branch: 'main'  # Branch your PRs merge into
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}  # Optional
 ```
 
 **Statistics workflow** (`.github/workflows/claudechain-statistics.yml`) - optional, for weekly progress reports:
