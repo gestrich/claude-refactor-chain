@@ -23,7 +23,7 @@ def cmd_parse_event(
     event_name: str,
     event_json: str,
     project_name: Optional[str] = None,
-    default_base_branch: str = "main",
+    default_base_branch: Optional[str] = None,
     pr_label: str = "claudechain",
     repo: Optional[str] = None,
 ) -> int:
@@ -140,20 +140,12 @@ def cmd_parse_event(
             gh.write_output("skip_reason", reason)
             return 0
 
-        # Determine base branch based on event type:
-        # - For pull_request events: use PR's target branch (base_ref) since it's most specific
-        # - For workflow_dispatch/push: use configured default_base_branch if provided
-        if context.event_name == "pull_request":
-            # PR events have a specific target branch - use it
-            try:
-                base_branch = context.get_checkout_ref()
-            except ValueError:
-                base_branch = default_base_branch or "main"
-        elif default_base_branch:
-            # For workflow_dispatch/push, respect explicitly configured default
+        # Determine base branch:
+        # If user configured default_base_branch, always use it (they know what they want)
+        # Otherwise fall back to deriving from event context
+        if default_base_branch:
             base_branch = default_base_branch
         else:
-            # Fall back to deriving from event context
             try:
                 base_branch = context.get_checkout_ref()
             except ValueError:
@@ -192,7 +184,7 @@ def main() -> int:
         EVENT_NAME: GitHub event name
         EVENT_JSON: GitHub event JSON payload
         PROJECT_NAME: Optional project name override
-        DEFAULT_BASE_BRANCH: Default base branch (default: "main")
+        DEFAULT_BASE_BRANCH: Optional base branch override (if not set, derived from event)
         PR_LABEL: Required label for PR events (default: "claudechain")
         GITHUB_REPOSITORY: GitHub repository (owner/name) for API calls
     """
@@ -201,7 +193,7 @@ def main() -> int:
     event_name = os.environ.get("EVENT_NAME", "")
     event_json = os.environ.get("EVENT_JSON", "{}")
     project_name = os.environ.get("PROJECT_NAME", "") or None
-    default_base_branch = os.environ.get("DEFAULT_BASE_BRANCH", "main")
+    default_base_branch = os.environ.get("DEFAULT_BASE_BRANCH", "") or None
     pr_label = os.environ.get("PR_LABEL", "claudechain")
     repo = os.environ.get("GITHUB_REPOSITORY", "") or None
 

@@ -84,30 +84,12 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper, default_allow
         # Use env var if set and non-empty, otherwise fall back to constant
         env_base_branch = os.environ.get("BASE_BRANCH", "")
         default_base_branch = env_base_branch if env_base_branch else DEFAULT_BASE_BRANCH
-        print(f"Validating spec files exist in branch '{default_base_branch}'...")
 
-        # Check if spec.md exists (required) and configuration.yml (optional)
-        spec_exists = file_exists_in_branch(repo, default_base_branch, project.spec_path)
-        config_exists = file_exists_in_branch(repo, default_base_branch, project.config_path)
-
-        if not spec_exists:
-            error_msg = f"""Error: spec.md not found in branch '{default_base_branch}'
-Required file:
-  - {project.spec_path}
-
-Please merge your spec.md file to the '{default_base_branch}' branch before running ClaudeChain."""
-            gh.set_error(error_msg)
-            return 1
-
-        if config_exists:
-            print(f"✅ Spec files validated in branch '{default_base_branch}'")
-        else:
-            print(f"✅ spec.md validated in branch '{default_base_branch}' (using default configuration)")
-
-        # === STEP 2: Load and Validate Configuration ===
+        # === STEP 2: Load Configuration and Resolve Base Branch ===
         print("\n=== Step 2/6: Loading configuration ===")
 
-        # Load configuration using ProjectRepository (returns default if not found)
+        # First, try to load configuration from the default branch to check for overrides
+        # Config might specify a different base branch where the actual spec lives
         config = project_repository.load_configuration(project, default_base_branch)
 
         # Resolve actual base branch (config override or default)
@@ -130,10 +112,25 @@ Please merge your spec.md file to the '{default_base_branch}' branch before runn
         # Ensure label exists
         ensure_label_exists(label, gh)
 
-        # Load and validate spec using ProjectRepository
-        spec = project_repository.load_spec(project, default_base_branch)
+        # Validate spec exists in the resolved base branch
+        print(f"Validating spec files exist in branch '{base_branch}'...")
+        spec_exists = file_exists_in_branch(repo, base_branch, project.spec_path)
+
+        if not spec_exists:
+            error_msg = f"""Error: spec.md not found in branch '{base_branch}'
+Required file:
+  - {project.spec_path}
+
+Please merge your spec.md file to the '{base_branch}' branch before running ClaudeChain."""
+            gh.set_error(error_msg)
+            return 1
+
+        print(f"✅ spec.md validated in branch '{base_branch}'")
+
+        # Load and validate spec from the resolved base branch
+        spec = project_repository.load_spec(project, base_branch)
         if not spec:
-            gh.set_error(f"Failed to load spec file from branch '{default_base_branch}'")
+            gh.set_error(f"Failed to load spec file from branch '{base_branch}'")
             return 1
 
         validate_spec_format_from_string(spec.content, project.spec_path)

@@ -184,10 +184,10 @@ class TestPrepareBaseBranchResolution:
         assert "Base branch: main" in captured.out
         assert "overridden" not in captured.out
 
-    def test_prepare_uses_default_branch_to_load_config_files(
+    def test_prepare_loads_config_from_default_branch_but_spec_from_resolved_branch(
         self, mock_github_helper, mock_args, sample_spec, sample_config_with_base_branch, monkeypatch
     ):
-        """Should use default base branch to locate and load config files"""
+        """Should load config from default branch, but spec from resolved base branch"""
         # Arrange
         monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
         monkeypatch.setenv("PROJECT_NAME", "test-project")
@@ -239,21 +239,21 @@ class TestPrepareBaseBranchResolution:
         # Assert
         assert result == 0
 
-        # Verify file_exists_in_branch was called with default branch (main), not config branch (develop)
-        file_exists_calls = mock_file_exists.call_args_list
-        for call in file_exists_calls:
-            branch_arg = call[0][1]  # Second positional arg is branch
-            assert branch_arg == "main", f"Expected 'main' but got '{branch_arg}'"
-
-        # Verify load_configuration was called with default branch
+        # Verify load_configuration was called with default branch (to discover baseBranch override)
         mock_repo.load_configuration.assert_called_once()
         config_call = mock_repo.load_configuration.call_args
         assert config_call[0][1] == "main"
 
-        # Verify load_spec was called with default branch
+        # Verify load_spec was called with resolved base branch (develop from config)
         mock_repo.load_spec.assert_called_once()
         spec_call = mock_repo.load_spec.call_args
-        assert spec_call[0][1] == "main"
+        assert spec_call[0][1] == "develop"
+
+        # Verify file_exists_in_branch was called with resolved branch (develop)
+        file_exists_calls = mock_file_exists.call_args_list
+        for call in file_exists_calls:
+            branch_arg = call[0][1]  # Second positional arg is branch
+            assert branch_arg == "develop", f"Expected 'develop' but got '{branch_arg}'"
 
     def test_prepare_outputs_base_branch_for_downstream_steps(
         self, mock_github_helper, mock_args, sample_spec, sample_config_with_base_branch, monkeypatch
