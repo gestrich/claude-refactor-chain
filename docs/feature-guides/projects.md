@@ -470,7 +470,7 @@ assignee: alice
 
 **pr-template.md:**
 ```markdown
-## Auth Migration Step
+## Auth Migration Task
 
 {{TASK_DESCRIPTION}}
 
