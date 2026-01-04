@@ -42,10 +42,6 @@ inputs:
     # Default defined in src/claudechain/domain/constants.py (DEFAULT_ALLOWED_TOOLS)
     description: 'Comma-separated list of tools Claude can use. Defaults to minimal permissions: Read,Write,Edit,Bash(git add:*),Bash(git commit:*)'
     required: false
-  base_branch:
-    # Default defined in src/claudechain/domain/constants.py (DEFAULT_BASE_BRANCH)
-    description: 'Base branch where spec files must exist (fetched via GitHub API) and where pull requests will target. Defaults to main.'
-    required: false
   working_directory:
     description: 'Working directory for the action'
     required: false
@@ -78,7 +74,7 @@ outputs:
     value: ${{ steps.parse.outputs.project_name || steps.prepare.outputs.project_name }}
   base_branch:
     description: 'Resolved base branch'
-    value: ${{ steps.parse.outputs.base_branch || inputs.base_branch }}
+    value: ${{ steps.parse.outputs.base_branch || inputs.default_base_branch }}
 
   # PR outputs
   pr_number:
@@ -159,7 +155,7 @@ runs:
         PROJECT_NAME: ${{ steps.parse.outputs.project_name || inputs.project_name }}
         MERGED_PR_NUMBER: ${{ steps.parse.outputs.merged_pr_number || inputs.merged_pr_number }}
         GITHUB_REPOSITORY: ${{ github.repository }}
-        BASE_BRANCH: ${{ steps.parse.outputs.base_branch || inputs.base_branch }}
+        BASE_BRANCH: ${{ steps.parse.outputs.base_branch || inputs.default_base_branch }}
         ACTION_PATH: ${{ github.action_path }}
         SLACK_WEBHOOK_URL: ${{ inputs.slack_webhook_url }}
         PR_LABEL: ${{ inputs.pr_label }}
@@ -221,7 +217,7 @@ runs:
         PR_TEMPLATE_PATH: ${{ steps.prepare.outputs.pr_template_path }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_RUN_ID: ${{ github.run_id }}
-        BASE_BRANCH: ${{ steps.parse.outputs.base_branch || inputs.base_branch }}
+        BASE_BRANCH: ${{ steps.parse.outputs.base_branch || inputs.default_base_branch }}
         HAS_CAPACITY: ${{ steps.prepare.outputs.has_capacity }}
         HAS_TASK: ${{ steps.prepare.outputs.has_task }}
         ACTION_PATH: ${{ github.action_path }}

@@ -364,6 +364,36 @@ class TestCmdParseEvent:
         mock_github_helper.write_output.assert_any_call("checkout_ref", "develop")
         mock_github_helper.write_output.assert_any_call("base_branch", "develop")
 
+    def test_workflow_dispatch_uses_configured_base_branch_not_trigger_branch(
+        self, mock_github_helper, capsys
+    ):
+        """Should use configured default_base_branch, not the branch workflow was triggered from.
+
+        This tests the fix for the bug where workflow_dispatch triggered from 'main'
+        would create PRs targeting 'main' even when default_base_branch was set to
+        a different branch like 'feature-branch'.
+        """
+        # Workflow triggered from 'main' branch
+        event = json.dumps({
+            "ref": "refs/heads/main",
+            "inputs": {}
+        })
+
+        # But user configured default_base_branch to 'feature-branch'
+        result = cmd_parse_event(
+            gh=mock_github_helper,
+            event_name="workflow_dispatch",
+            event_json=event,
+            project_name="my-project",
+            default_base_branch="feature-branch"
+        )
+
+        assert result == 0
+        # checkout_ref comes from the event (where workflow was triggered)
+        mock_github_helper.write_output.assert_any_call("checkout_ref", "main")
+        # But base_branch should use the configured default, not the trigger branch
+        mock_github_helper.write_output.assert_any_call("base_branch", "feature-branch")
+
     # =============================================================================
     # Tests for push events with project detection from changed files
     # =============================================================================

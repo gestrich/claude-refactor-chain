@@ -342,7 +342,7 @@ Please merge your spec files to the 'main' branch before running ClaudeChain.
 - uses: gestrich/claude-chain@v1
   with:
     project_name: 'my-project'
-    base_branch: 'master'  # For repos using 'master' instead of 'main'
+    default_base_branch: 'master'  # For repos using 'master' instead of 'main'
 ```
 
 ## Data Flow

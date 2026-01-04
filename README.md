@@ -75,7 +75,7 @@ jobs:
           event_name: ${{ github.event_name }}
           project_name: ${{ github.event.inputs.project_name || '' }}
           claude_allowed_tools: 'Read,Write,Edit,Bash(git add:*),Bash(git commit:*)'  # Configure as needed
-          base_branch: 'main'  # Branch your PRs merge into
+          default_base_branch: 'main'  # Branch your PRs merge into
           slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}  # Optional
 ```
 

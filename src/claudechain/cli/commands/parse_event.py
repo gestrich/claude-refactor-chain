@@ -140,10 +140,24 @@ def cmd_parse_event(
             gh.write_output("skip_reason", reason)
             return 0
 
-        try:
-            base_branch = context.get_default_base_branch()
-        except ValueError:
+        # Determine base branch based on event type:
+        # - For pull_request events: use PR's target branch (base_ref) since it's most specific
+        # - For workflow_dispatch/push: use configured default_base_branch if provided
+        if context.event_name == "pull_request":
+            # PR events have a specific target branch - use it
+            try:
+                base_branch = context.get_checkout_ref()
+            except ValueError:
+                base_branch = default_base_branch or "main"
+        elif default_base_branch:
+            # For workflow_dispatch/push, respect explicitly configured default
             base_branch = default_base_branch
+        else:
+            # Fall back to deriving from event context
+            try:
+                base_branch = context.get_checkout_ref()
+            except ValueError:
+                base_branch = "main"  # Ultimate fallback
 
         # Output results
         print(f"\n✓ Event parsing complete")

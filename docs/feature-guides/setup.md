@@ -66,7 +66,7 @@ jobs:
           event_name: ${{ github.event_name }}
           project_name: ${{ github.event.inputs.project_name || '' }}
           claude_allowed_tools: 'Read,Write,Edit,Bash(git add:*),Bash(git commit:*)'  # Configure as needed
-          base_branch: 'main'  # Branch your PRs merge into
+          default_base_branch: 'main'  # Branch your PRs merge into
           # slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
 ```
 
@@ -76,7 +76,7 @@ jobs:
 - `github_event` / `event_name` - Passes event context so the action can detect projects automatically
 - `project_name` - Used for manual triggers; auto-detected for PR events
 - `claude_allowed_tools` - Controls which tools Claude can use (see [Tool Permissions](#tool-permissions))
-- `base_branch` - The branch PRs will target (must match the `branches` filter above)
+- `default_base_branch` - The branch PRs will target (must match the `branches` filter above)
 
 ### Standard Workflow (Alternative)
 

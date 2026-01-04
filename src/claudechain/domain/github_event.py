@@ -21,8 +21,7 @@ class GitHubEventContext:
     information from the event payload and provides methods for:
     - Determining if execution should be skipped
     - Finding the appropriate git ref to checkout
-    - Getting context for changed files detection (for push events)
-    - Getting the default base branch from event context
+    - Getting context for changed files detection
 
     Attributes:
         event_name: The GitHub event type (workflow_dispatch, pull_request, push)
@@ -222,27 +221,6 @@ class GitHubEventContext:
             raise ValueError("Workflow dispatch event missing ref")
 
         raise ValueError(f"Unknown event type: {self.event_name}")
-
-    def get_default_base_branch(self) -> str:
-        """Get default base branch from event context.
-
-        Determines the appropriate base branch for PR creation based on
-        the event context. This is where ClaudeChain PRs should target.
-
-        Returns:
-            Branch name to use as base branch for new PRs
-
-        Raises:
-            ValueError: If no base branch can be determined
-
-        Examples:
-            >>> context = GitHubEventContext(event_name="pull_request", base_ref="develop")
-            >>> context.get_default_base_branch()
-            'develop'
-        """
-        # For all event types, we want to target the same branch
-        # that was pushed to or that the workflow was triggered from
-        return self.get_checkout_ref()
 
     def get_changed_files_context(self) -> Optional[Tuple[str, str]]:
         """Get refs for detecting changed files via GitHub Compare API.

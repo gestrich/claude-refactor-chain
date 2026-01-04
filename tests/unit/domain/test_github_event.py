@@ -507,52 +507,6 @@ class TestGitHubEventContextChangedFilesContext:
         assert result is None
 
 
-class TestGitHubEventContextDefaultBaseBranch:
-    """Tests for get_default_base_branch method."""
-
-    def test_default_base_branch_from_push(self):
-        """Should return pushed branch as default base branch."""
-        # Arrange
-        context = GitHubEventContext(
-            event_name="push",
-            ref_name="develop"
-        )
-
-        # Act
-        base = context.get_default_base_branch()
-
-        # Assert
-        assert base == "develop"
-
-    def test_default_base_branch_from_pull_request(self):
-        """Should return PR base branch as default base branch."""
-        # Arrange
-        context = GitHubEventContext(
-            event_name="pull_request",
-            base_ref="staging"
-        )
-
-        # Act
-        base = context.get_default_base_branch()
-
-        # Assert
-        assert base == "staging"
-
-    def test_default_base_branch_from_workflow_dispatch(self):
-        """Should return workflow dispatch ref as default base branch."""
-        # Arrange
-        context = GitHubEventContext(
-            event_name="workflow_dispatch",
-            ref_name="main"
-        )
-
-        # Act
-        base = context.get_default_base_branch()
-
-        # Assert
-        assert base == "main"
-
-
 class TestGitHubEventContextHasLabel:
     """Tests for has_label helper method."""
 
@@ -614,7 +568,6 @@ class TestGitHubEventContextIntegration:
         # Assert - check all derived values
         assert context.should_skip() == (False, "")
         assert context.get_checkout_ref() == "main"
-        assert context.get_default_base_branch() == "main"
         # PR events have changed files context (base/head refs for compare API)
         assert context.get_changed_files_context() == ("main", "claude-chain-auth-refactor-f7c4d3e2")
 
@@ -633,7 +586,6 @@ class TestGitHubEventContextIntegration:
         # Assert
         assert context.should_skip() == (False, "")
         assert context.get_checkout_ref() == "main"
-        assert context.get_default_base_branch() == "main"
         # Push events have changed files context for project detection
         assert context.get_changed_files_context() == ("abc123", "def456")
 
@@ -651,7 +603,6 @@ class TestGitHubEventContextIntegration:
         # Assert
         assert context.should_skip() == (False, "")
         assert context.get_checkout_ref() == "develop"
-        assert context.get_default_base_branch() == "develop"
         assert context.inputs["project_name"] == "database-migration"
         # workflow_dispatch doesn't have changed files context
         assert context.get_changed_files_context() is None
