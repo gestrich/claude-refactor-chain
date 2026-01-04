@@ -33,31 +33,9 @@ Each task is identified by a hash of its description, so you can freely reorder,
 
 **Prerequisite:** [Anthropic API key](https://console.anthropic.com)
 
-### 1. Create a Project
+### 1. Add the Workflow
 
-```bash
-mkdir -p claude-chain/my-refactor
-```
-
-Create `claude-chain/my-refactor/spec.md`:
-
-```markdown
-# My Refactoring Project
-
-Describe what you want to refactor and how to do it.
-
-## Tasks
-
-- [ ] First task to complete
-- [ ] Second task to complete
-- [ ] Third task to complete
-```
-
-Tasks can be organized however you like—grouped under headings, separated by blank lines, or interspersed with other text. Just ensure each task starts with `- [ ]` so ClaudeChain can find it.
-
-### 2. Add the Workflow
-
-Create `.github/workflows/claudechain.yml`:
+Create `.github/workflows/claudechain.yml` and **commit it to your default branch** (required for manual triggers to appear in the Actions UI):
 
 ```yaml
 name: ClaudeChain
@@ -94,11 +72,33 @@ jobs:
           base_branch: 'main'  # Branch your PRs merge into
 ```
 
-### 3. Configure GitHub
+### 2. Configure GitHub
 
 1. **Add secret:** Settings → Secrets & Variables → Actions → Repository Secrets → `ANTHROPIC_API_KEY`
 2. **Enable PRs:** Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"
 3. **Install app:** Run `/install-github-app` in Claude Code. (Optional: To use @claude on PRs)
+
+### 3. Create a Project
+
+```bash
+mkdir -p claude-chain/my-refactor
+```
+
+Create `claude-chain/my-refactor/spec.md`:
+
+```markdown
+# My Refactoring Project
+
+Describe what you want to refactor and how to do it.
+
+## Tasks
+
+- [ ] First task to complete
+- [ ] Second task to complete
+- [ ] Third task to complete
+```
+
+Tasks can be organized however you like—grouped under headings, separated by blank lines, or interspersed with other text. Just ensure each task starts with `- [ ]` so ClaudeChain can find it.
 
 ### 4. Start ClaudeChain
 
