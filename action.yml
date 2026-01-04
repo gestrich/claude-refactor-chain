@@ -120,6 +120,7 @@ runs:
       if: inputs.github_event != ''
       shell: bash
       env:
+        GH_TOKEN: ${{ inputs.github_token }}
         EVENT_NAME: ${{ inputs.event_name }}
         EVENT_JSON: ${{ inputs.github_event }}
         PROJECT_NAME: ${{ inputs.project_name }}
