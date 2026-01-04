@@ -1107,12 +1107,12 @@ This PR was generated using Claude Code with the following costs:
         assert "💰" not in summary
 
 
-class TestCostAggregationFromArtifacts:
-    """Test cost aggregation from artifacts in statistics collection"""
+class TestGetCostsByPR:
+    """Test cost retrieval from artifacts in statistics collection"""
 
     @patch("claudechain.services.composite.statistics_service.find_project_artifacts")
-    def test_aggregate_costs_from_multiple_artifacts(self, mock_find_artifacts):
-        """Should sum costs from all artifacts for a project"""
+    def test_get_costs_by_pr_from_multiple_artifacts(self, mock_find_artifacts):
+        """Should return costs keyed by PR number"""
         from claudechain.services.composite.artifact_service import ProjectArtifact
         from claudechain.domain.models import TaskMetadata, AITask
 
@@ -1178,18 +1178,20 @@ class TestCostAggregationFromArtifacts:
             ),
         ]
 
-        # Create service and test aggregation
+        # Create service and test
         mock_repo = Mock()
         mock_pr_service = Mock()
         service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
 
-        total = service._aggregate_costs_from_artifacts("test", "claudechain")
+        costs_by_pr = service._get_costs_by_pr("test", "claudechain")
 
-        # Assert: 0.15 + 0.02 + 0.25 + 0.50 + 0.03 = 0.95
-        assert total == pytest.approx(0.95, rel=1e-6)
+        # Should return dict keyed by PR number
+        assert costs_by_pr[10] == pytest.approx(0.17, rel=1e-6)  # 0.15 + 0.02
+        assert costs_by_pr[11] == pytest.approx(0.25, rel=1e-6)
+        assert costs_by_pr[12] == pytest.approx(0.53, rel=1e-6)  # 0.50 + 0.03
 
     @patch("claudechain.services.composite.statistics_service.find_project_artifacts")
-    def test_aggregate_costs_handles_missing_metadata(self, mock_find_artifacts):
+    def test_get_costs_by_pr_handles_missing_metadata(self, mock_find_artifacts):
         """Should skip artifacts without metadata (legacy PRs)"""
         from claudechain.services.composite.artifact_service import ProjectArtifact
         from claudechain.domain.models import TaskMetadata, AITask
@@ -1227,23 +1229,24 @@ class TestCostAggregationFromArtifacts:
         mock_pr_service = Mock()
         service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
 
-        total = service._aggregate_costs_from_artifacts("test", "claudechain")
+        costs_by_pr = service._get_costs_by_pr("test", "claudechain")
 
-        # Should only count the first artifact
-        assert total == pytest.approx(0.20, rel=1e-6)
+        # Should only include the first artifact
+        assert len(costs_by_pr) == 1
+        assert costs_by_pr[10] == pytest.approx(0.20, rel=1e-6)
 
     @patch("claudechain.services.composite.statistics_service.find_project_artifacts")
-    def test_aggregate_costs_returns_zero_when_no_artifacts(self, mock_find_artifacts):
-        """Should return 0.0 when no artifacts are found"""
+    def test_get_costs_by_pr_returns_empty_when_no_artifacts(self, mock_find_artifacts):
+        """Should return empty dict when no artifacts are found"""
         mock_find_artifacts.return_value = []
 
         mock_repo = Mock()
         mock_pr_service = Mock()
         service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
 
-        total = service._aggregate_costs_from_artifacts("test", "claudechain")
+        costs_by_pr = service._get_costs_by_pr("test", "claudechain")
 
-        assert total == 0.0
+        assert costs_by_pr == {}
 
 
 class TestCollectTeamMemberStats:
@@ -2094,7 +2097,7 @@ class TestFormatProjectDetails:
         assert result == ""
 
     def test_format_single_project_with_tasks(self):
-        """Should format project with tasks and their statuses"""
+        """Should format project with tasks and their statuses in a table"""
         report = StatisticsReport()
 
         # Create project stats with tasks
@@ -2138,19 +2141,21 @@ class TestFormatProjectDetails:
 
         # Check project header
         assert "my-project (1/3 complete)" in result
-        # Check tasks section
+        # Check tasks section with table format
         assert "### Tasks" in result
-        # Check completed task
-        assert "[x]" in result
-        assert "`Implement feature A`" in result
-        assert "(no PR)" in result
+        # Check table headers
+        assert "| Task |" in result
+        assert "| PR |" in result
+        assert "| Cost |" in result
+        # Check completed task (uses ✓ checkmark in table)
+        assert "✓" in result
+        assert "Implement feature A" in result
         # Check in-progress task
-        assert "[ ]" in result
-        assert "`Implement feature B`" in result
-        assert "PR #42" in result
+        assert "Implement feature B" in result
+        assert "#42" in result
         assert "Open" in result
-        # Check pending task
-        assert "`Implement feature C`" in result
+        # Check pending task (no checkmark, shown with -)
+        assert "Implement feature C" in result
 
     def test_format_project_with_orphaned_prs(self):
         """Should include orphaned PRs section when present"""
@@ -2202,7 +2207,7 @@ class TestFormatProjectDetails:
         assert "PR #28 (Open" in result
 
     def test_format_project_with_merged_pr(self):
-        """Should show Merged state for merged PRs"""
+        """Should show Merged state for merged PRs in table format"""
         report = StatisticsReport()
 
         stats = ProjectStats("my-project", "/path/spec.md")
@@ -2232,11 +2237,11 @@ class TestFormatProjectDetails:
 
         result = report.format_project_details()
 
-        assert "[x]" in result
-        assert "PR #31 (Merged)" in result
+        assert "✓" in result  # Checkmark for completed task
+        assert "#31 (Merged)" in result
 
     def test_format_truncates_long_descriptions(self):
-        """Should truncate task descriptions longer than 60 chars"""
+        """Should truncate task descriptions longer than 50 chars in table format"""
         report = StatisticsReport()
 
         stats = ProjectStats("my-project", "/path/spec.md")
@@ -2257,9 +2262,9 @@ class TestFormatProjectDetails:
 
         result = report.format_project_details()
 
-        # Should be truncated to 60 chars + "..."
-        assert "A" * 60 + "..." in result
-        assert "A" * 61 not in result
+        # Should be truncated to 50 chars + "..." (table format uses 50)
+        assert "A" * 50 + "..." in result
+        assert "A" * 51 + "..." not in result
 
     def test_format_multiple_projects_sorted(self):
         """Should format multiple projects in sorted order"""

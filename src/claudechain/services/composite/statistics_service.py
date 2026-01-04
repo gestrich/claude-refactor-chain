@@ -180,8 +180,11 @@ class StatisticsService:
         )
         print(f"  Merged PRs (last {days_back} days): {len(merged_prs)}")
 
-        # Build task-PR mappings
-        self._build_task_pr_mappings(stats, spec, open_prs, merged_prs)
+        # Fetch costs from artifacts (keyed by PR number)
+        costs_by_pr = self._get_costs_by_pr(project_name, label)
+
+        # Build task-PR mappings (with costs)
+        self._build_task_pr_mappings(stats, spec, open_prs, merged_prs, costs_by_pr)
 
         # Calculate pending tasks
         stats.pending_tasks = max(
@@ -189,23 +192,23 @@ class StatisticsService:
         )
         print(f"  Pending: {stats.pending_tasks}")
 
-        # Aggregate costs from artifacts
-        stats.total_cost_usd = self._aggregate_costs_from_artifacts(
-            project_name, label
-        )
+        # Aggregate total cost from all tasks
+        stats.total_cost_usd = sum(task.cost_usd for task in stats.tasks)
         if stats.total_cost_usd > 0:
             print(f"  Cost: ${stats.total_cost_usd:.2f}")
 
         return stats
 
     def _build_task_pr_mappings(
-        self, stats: ProjectStats, spec, open_prs: List, merged_prs: List
+        self, stats: ProjectStats, spec, open_prs: List, merged_prs: List,
+        costs_by_pr: Dict[int, float]
     ) -> None:
         """Build task-PR mappings and identify orphaned PRs.
 
         For each task in spec.md:
         - Find matching PR by task hash
         - Determine status based on spec checkbox and PR state
+        - Look up cost from artifacts by PR number
         - Create TaskWithPR object
 
         For each PR:
@@ -216,6 +219,7 @@ class StatisticsService:
             spec: SpecContent with parsed tasks
             open_prs: List of open PRs for the project
             merged_prs: List of merged PRs for the project
+            costs_by_pr: Dict mapping PR number -> cost in USD
         """
         from claudechain.domain.github_models import GitHubPullRequest
 
@@ -246,12 +250,18 @@ class StatisticsService:
             else:
                 status = TaskStatus.PENDING
 
+            # Look up cost by PR number
+            cost_usd = 0.0
+            if matching_pr:
+                cost_usd = costs_by_pr.get(matching_pr.number, 0.0)
+
             # Create TaskWithPR
             task_with_pr = TaskWithPR(
                 task_hash=task.task_hash,
                 description=task.description,
                 status=status,
-                pr=matching_pr
+                pr=matching_pr,
+                cost_usd=cost_usd
             )
             stats.tasks.append(task_with_pr)
 
@@ -264,19 +274,20 @@ class StatisticsService:
         if stats.orphaned_prs:
             print(f"  Orphaned PRs: {len(stats.orphaned_prs)}")
 
-    def _aggregate_costs_from_artifacts(
+    def _get_costs_by_pr(
         self, project_name: str, label: str
-    ) -> float:
-        """Aggregate costs from task metadata artifacts.
+    ) -> Dict[int, float]:
+        """Get costs from task metadata artifacts, keyed by PR number.
 
-        Downloads artifacts for the project and sums up costs from TaskMetadata.
+        Downloads artifacts for the project and builds a dict mapping PR number
+        to total cost for that PR.
 
         Args:
             project_name: Name of the project
             label: GitHub label for filtering
 
         Returns:
-            Total cost in USD, or 0.0 if no artifacts found
+            Dict mapping PR number -> cost in USD
         """
         artifacts = find_project_artifacts(
             repo=self.repo,
@@ -286,12 +297,15 @@ class StatisticsService:
             download_metadata=True,
         )
 
-        total_cost = 0.0
+        costs_by_pr: Dict[int, float] = {}
         for artifact in artifacts:
-            if artifact.metadata:
-                total_cost += artifact.metadata.get_total_cost()
+            if artifact.metadata and artifact.metadata.pr_number:
+                pr_number = artifact.metadata.pr_number
+                cost = artifact.metadata.get_total_cost()
+                # Sum costs in case there are multiple artifacts for same PR
+                costs_by_pr[pr_number] = costs_by_pr.get(pr_number, 0.0) + cost
 
-        return total_cost
+        return costs_by_pr
 
     def collect_team_member_stats(
         self, assignees: List[str], days_back: int = DEFAULT_STATS_DAYS_BACK, label: str = DEFAULT_PR_LABEL

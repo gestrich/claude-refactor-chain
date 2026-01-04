@@ -145,6 +145,7 @@ class TaskWithPR:
     description: str
     status: TaskStatus
     pr: Optional[GitHubPullRequest] = None
+    cost_usd: float = 0.0
 
     @property
     def has_pr(self) -> bool:
@@ -718,28 +719,46 @@ class StatisticsReport:
             header_text = f"{project_name} ({stats.completed_tasks}/{stats.total_tasks} complete)"
             project_section = Section(header=Header(header_text, level=2))
 
-            # Tasks section
+            # Tasks section as a table
             if stats.tasks:
-                task_items = []
+                project_section.add(Header("Tasks", level=3))
+
+                # Build table with columns: Status, Task, PR, Cost
+                columns = (
+                    TableColumn(header="", align="center"),  # checkbox
+                    TableColumn(header="Task", align="left"),
+                    TableColumn(header="PR", align="left"),
+                    TableColumn(header="Cost", align="right"),
+                )
+
+                rows = []
+                total_cost = 0.0
                 for task in stats.tasks:
-                    checkbox = "[x]" if task.status == TaskStatus.COMPLETED else "[ ]"
+                    checkbox = "✓" if task.status == TaskStatus.COMPLETED else ""
                     # Truncate long descriptions
-                    desc = task.description[:60] + "..." if len(task.description) > 60 else task.description
+                    desc = task.description[:50] + "..." if len(task.description) > 50 else task.description
 
                     if task.has_pr:
                         pr = task.pr
                         if pr.is_merged():
-                            pr_info = f"PR #{pr.number} (Merged)"
+                            pr_info = f"#{pr.number} (Merged)"
                         elif pr.is_open():
-                            pr_info = f"PR #{pr.number} (Open, {pr.days_open}d)"
+                            pr_info = f"#{pr.number} (Open, {pr.days_open}d)"
                         else:
-                            pr_info = f"PR #{pr.number} (Closed)"
-                        task_items.append(ListItem(f"{checkbox} `{desc}` - {pr_info}"))
+                            pr_info = f"#{pr.number} (Closed)"
                     else:
-                        task_items.append(ListItem(f"{checkbox} `{desc}` - (no PR)"))
+                        pr_info = "-"
 
-                project_section.add(Header("Tasks", level=3))
-                project_section.add(ListBlock(tuple(task_items)))
+                    cost_str = f"${task.cost_usd:.2f}" if task.cost_usd > 0 else "-"
+                    total_cost += task.cost_usd
+
+                    rows.append(TableRow(cells=(checkbox, desc, pr_info, cost_str)))
+
+                # Add total row if there are costs
+                if total_cost > 0:
+                    rows.append(TableRow(cells=("", "", "**Total**", f"**${total_cost:.2f}**")))
+
+                project_section.add(Table(columns=columns, rows=tuple(rows)))
 
             # Orphaned PRs section
             if stats.orphaned_prs:
