@@ -105,8 +105,9 @@ jobs:
 ### 2. Configure GitHub
 
 1. **Add secret:** Settings → Secrets & Variables → Actions → Repository Secrets → `ANTHROPIC_API_KEY`
-2. **Enable PRs:** Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"
-3. **Install app:** Run `/install-github-app` in Claude Code. (Optional: To use @claude on PRs)
+2. **Add secret (optional):** Same path → `SLACK_WEBHOOK_URL` (for notifications)
+3. **Enable PRs:** Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"
+4. **Install app:** Run `/install-github-app` in Claude Code. (Optional: To use @claude on PRs)
 
 ### 3. Create a Project
 
