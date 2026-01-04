@@ -90,13 +90,13 @@ runs:
         webhook-type: incoming-webhook
         payload: |
           {
-            "text": "ClaudeChain Weekly Report",
+            "text": "ClaudeChain Statistics",
             "blocks": [
               {
                 "type": "header",
                 "text": {
                   "type": "plain_text",
-                  "text": "ClaudeChain Weekly Report"
+                  "text": "ClaudeChain Statistics"
                 }
               },
               {
