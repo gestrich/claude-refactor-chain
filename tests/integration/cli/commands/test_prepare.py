@@ -163,14 +163,14 @@ class TestPrepareMergeTargetValidation:
         mock_github_helper.write_output.assert_any_call("has_capacity", "true")
         mock_github_helper.write_output.assert_any_call("has_task", "true")
 
-    def test_prepare_skips_validation_when_no_merge_target_set(
+    def test_prepare_succeeds_when_workflow_dispatch_matches_config(
         self, mock_github_helper, mock_args, sample_spec, sample_config_with_develop_branch, monkeypatch
     ):
-        """Should skip validation when MERGE_TARGET_BRANCH is not set (e.g., workflow_dispatch)"""
+        """Should succeed when workflow_dispatch base_branch matches config baseBranch"""
         # Arrange
         monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
         monkeypatch.setenv("PROJECT_NAME", "test-project")
-        monkeypatch.setenv("BASE_BRANCH", "main")
+        monkeypatch.setenv("BASE_BRANCH", "develop")  # Matches config baseBranch
         # Note: MERGE_TARGET_BRANCH is NOT set (simulating workflow_dispatch)
 
         with patch("claudechain.cli.commands.prepare.ProjectRepository") as mock_repo_class, \
@@ -212,7 +212,7 @@ class TestPrepareMergeTargetValidation:
             # Act
             result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
 
-        # Assert - should succeed (no validation when MERGE_TARGET_BRANCH not set)
+        # Assert - should succeed (base branch matches config)
         assert result == 0
         mock_github_helper.write_output.assert_any_call("has_capacity", "true")
         mock_github_helper.write_output.assert_any_call("has_task", "true")
@@ -303,29 +303,27 @@ class TestPrepareBaseBranchResolution:
     def test_prepare_uses_config_base_branch_when_set(
         self, mock_github_helper, mock_args, sample_spec, sample_config_with_base_branch, capsys, monkeypatch
     ):
-        """Should use baseBranch from config when it is set"""
-        # Arrange
+        """Should use baseBranch from config when it is set (PR merge scenario)"""
+        # Arrange - PR merge scenario where config overrides default
         monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
         monkeypatch.setenv("PROJECT_NAME", "test-project")
         monkeypatch.setenv("BASE_BRANCH", "main")  # Default from workflow
+        # Set MERGE_TARGET_BRANCH to config's baseBranch (simulating PR merged to develop)
+        monkeypatch.setenv("MERGE_TARGET_BRANCH", "develop")
 
         with patch("claudechain.cli.commands.prepare.ProjectRepository") as mock_repo_class, \
              patch("claudechain.cli.commands.prepare.PRService") as mock_pr_service_class, \
              patch("claudechain.cli.commands.prepare.ProjectService"), \
              patch("claudechain.cli.commands.prepare.TaskService") as mock_task_service_class, \
              patch("claudechain.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
-             patch("claudechain.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudechain.cli.commands.prepare.ensure_label_exists"), \
              patch("claudechain.cli.commands.prepare.validate_spec_format_from_string"), \
              patch("claudechain.cli.commands.prepare.run_git_command"):
 
-            # Mock file existence checks
-            mock_file_exists.return_value = True
-
             # Mock ProjectRepository
             mock_repo = Mock()
-            mock_repo.load_configuration.return_value = sample_config_with_base_branch
-            mock_repo.load_spec.return_value = sample_spec
+            mock_repo.load_local_configuration.return_value = sample_config_with_base_branch
+            mock_repo.load_local_spec.return_value = sample_spec
             mock_repo_class.return_value = mock_repo
 
             # Mock PRService
@@ -376,18 +374,14 @@ class TestPrepareBaseBranchResolution:
              patch("claudechain.cli.commands.prepare.ProjectService"), \
              patch("claudechain.cli.commands.prepare.TaskService") as mock_task_service_class, \
              patch("claudechain.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
-             patch("claudechain.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudechain.cli.commands.prepare.ensure_label_exists"), \
              patch("claudechain.cli.commands.prepare.validate_spec_format_from_string"), \
              patch("claudechain.cli.commands.prepare.run_git_command"):
 
-            # Mock file existence checks
-            mock_file_exists.return_value = True
-
             # Mock ProjectRepository
             mock_repo = Mock()
-            mock_repo.load_configuration.return_value = sample_config_without_base_branch
-            mock_repo.load_spec.return_value = sample_spec
+            mock_repo.load_local_configuration.return_value = sample_config_without_base_branch
+            mock_repo.load_local_spec.return_value = sample_spec
             mock_repo_class.return_value = mock_repo
 
             # Mock PRService
@@ -425,11 +419,11 @@ class TestPrepareBaseBranchResolution:
         assert "Base branch: main" in captured.out
         assert "overridden" not in captured.out
 
-    def test_prepare_loads_config_from_default_branch_but_spec_from_resolved_branch(
-        self, mock_github_helper, mock_args, sample_spec, sample_config_with_base_branch, monkeypatch
+    def test_prepare_loads_config_and_spec_from_local_filesystem(
+        self, mock_github_helper, mock_args, sample_spec, sample_config_without_base_branch, monkeypatch
     ):
-        """Should load config from default branch, but spec from resolved base branch"""
-        # Arrange
+        """Should load both config and spec from local filesystem after checkout"""
+        # Arrange - use config without baseBranch to avoid validation mismatch
         monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
         monkeypatch.setenv("PROJECT_NAME", "test-project")
         monkeypatch.setenv("BASE_BRANCH", "main")
@@ -439,18 +433,14 @@ class TestPrepareBaseBranchResolution:
              patch("claudechain.cli.commands.prepare.ProjectService"), \
              patch("claudechain.cli.commands.prepare.TaskService") as mock_task_service_class, \
              patch("claudechain.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
-             patch("claudechain.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudechain.cli.commands.prepare.ensure_label_exists"), \
              patch("claudechain.cli.commands.prepare.validate_spec_format_from_string"), \
              patch("claudechain.cli.commands.prepare.run_git_command"):
 
-            # Mock file existence checks
-            mock_file_exists.return_value = True
-
             # Mock ProjectRepository
             mock_repo = Mock()
-            mock_repo.load_configuration.return_value = sample_config_with_base_branch
-            mock_repo.load_spec.return_value = sample_spec
+            mock_repo.load_local_configuration.return_value = sample_config_without_base_branch
+            mock_repo.load_local_spec.return_value = sample_spec
             mock_repo_class.return_value = mock_repo
 
             # Mock PRService
@@ -480,48 +470,36 @@ class TestPrepareBaseBranchResolution:
         # Assert
         assert result == 0
 
-        # Verify load_configuration was called with default branch (to discover baseBranch override)
-        mock_repo.load_configuration.assert_called_once()
-        config_call = mock_repo.load_configuration.call_args
-        assert config_call[0][1] == "main"
+        # Verify load_local_configuration was called (local filesystem loading)
+        mock_repo.load_local_configuration.assert_called_once()
 
-        # Verify load_spec was called with resolved base branch (develop from config)
-        mock_repo.load_spec.assert_called_once()
-        spec_call = mock_repo.load_spec.call_args
-        assert spec_call[0][1] == "develop"
-
-        # Verify file_exists_in_branch was called with resolved branch (develop)
-        file_exists_calls = mock_file_exists.call_args_list
-        for call in file_exists_calls:
-            branch_arg = call[0][1]  # Second positional arg is branch
-            assert branch_arg == "develop", f"Expected 'develop' but got '{branch_arg}'"
+        # Verify load_local_spec was called (local filesystem loading)
+        mock_repo.load_local_spec.assert_called_once()
 
     def test_prepare_outputs_base_branch_for_downstream_steps(
         self, mock_github_helper, mock_args, sample_spec, sample_config_with_base_branch, monkeypatch
     ):
         """Should output resolved base_branch for use by downstream workflow steps"""
-        # Arrange
+        # Arrange - PR merge scenario
         monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
         monkeypatch.setenv("PROJECT_NAME", "test-project")
         monkeypatch.setenv("BASE_BRANCH", "main")
+        # Set MERGE_TARGET_BRANCH to match config baseBranch
+        monkeypatch.setenv("MERGE_TARGET_BRANCH", "develop")
 
         with patch("claudechain.cli.commands.prepare.ProjectRepository") as mock_repo_class, \
              patch("claudechain.cli.commands.prepare.PRService") as mock_pr_service_class, \
              patch("claudechain.cli.commands.prepare.ProjectService"), \
              patch("claudechain.cli.commands.prepare.TaskService") as mock_task_service_class, \
              patch("claudechain.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
-             patch("claudechain.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudechain.cli.commands.prepare.ensure_label_exists"), \
              patch("claudechain.cli.commands.prepare.validate_spec_format_from_string"), \
              patch("claudechain.cli.commands.prepare.run_git_command"):
 
-            # Mock file existence checks
-            mock_file_exists.return_value = True
-
             # Mock ProjectRepository
             mock_repo = Mock()
-            mock_repo.load_configuration.return_value = sample_config_with_base_branch
-            mock_repo.load_spec.return_value = sample_spec
+            mock_repo.load_local_configuration.return_value = sample_config_with_base_branch
+            mock_repo.load_local_spec.return_value = sample_spec
             mock_repo_class.return_value = mock_repo
 
             # Mock PRService
@@ -620,18 +598,14 @@ class TestPrepareAllowedToolsResolution:
              patch("claudechain.cli.commands.prepare.ProjectService"), \
              patch("claudechain.cli.commands.prepare.TaskService") as mock_task_service_class, \
              patch("claudechain.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
-             patch("claudechain.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudechain.cli.commands.prepare.ensure_label_exists"), \
              patch("claudechain.cli.commands.prepare.validate_spec_format_from_string"), \
              patch("claudechain.cli.commands.prepare.run_git_command"):
 
-            # Mock file existence checks
-            mock_file_exists.return_value = True
-
             # Mock ProjectRepository
             mock_repo = Mock()
-            mock_repo.load_configuration.return_value = sample_config_with_allowed_tools
-            mock_repo.load_spec.return_value = sample_spec
+            mock_repo.load_local_configuration.return_value = sample_config_with_allowed_tools
+            mock_repo.load_local_spec.return_value = sample_spec
             mock_repo_class.return_value = mock_repo
 
             # Mock PRService
@@ -682,18 +656,14 @@ class TestPrepareAllowedToolsResolution:
              patch("claudechain.cli.commands.prepare.ProjectService"), \
              patch("claudechain.cli.commands.prepare.TaskService") as mock_task_service_class, \
              patch("claudechain.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
-             patch("claudechain.cli.commands.prepare.file_exists_in_branch") as mock_file_exists, \
              patch("claudechain.cli.commands.prepare.ensure_label_exists"), \
              patch("claudechain.cli.commands.prepare.validate_spec_format_from_string"), \
              patch("claudechain.cli.commands.prepare.run_git_command"):
 
-            # Mock file existence checks
-            mock_file_exists.return_value = True
-
             # Mock ProjectRepository
             mock_repo = Mock()
-            mock_repo.load_configuration.return_value = sample_config_without_allowed_tools
-            mock_repo.load_spec.return_value = sample_spec
+            mock_repo.load_local_configuration.return_value = sample_config_without_allowed_tools
+            mock_repo.load_local_spec.return_value = sample_spec
             mock_repo_class.return_value = mock_repo
 
             # Mock PRService
