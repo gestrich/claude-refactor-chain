@@ -1181,7 +1181,7 @@ class TestCostAggregationFromArtifacts:
         # Create service and test aggregation
         mock_repo = Mock()
         mock_pr_service = Mock()
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
 
         total = service._aggregate_costs_from_artifacts("test", "claudechain")
 
@@ -1225,7 +1225,7 @@ class TestCostAggregationFromArtifacts:
 
         mock_repo = Mock()
         mock_pr_service = Mock()
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
 
         total = service._aggregate_costs_from_artifacts("test", "claudechain")
 
@@ -1239,7 +1239,7 @@ class TestCostAggregationFromArtifacts:
 
         mock_repo = Mock()
         mock_pr_service = Mock()
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
 
         total = service._aggregate_costs_from_artifacts("test", "claudechain")
 
@@ -1294,7 +1294,7 @@ class TestCollectTeamMemberStats:
         mock_pr_service.get_all_prs.return_value = [pr1, pr2, pr3]
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_team_member_stats(["alice", "bob"], days_back=30)
 
         assert "alice" in stats
@@ -1312,7 +1312,7 @@ class TestCollectTeamMemberStats:
         mock_pr_service.get_all_prs.return_value = []
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_team_member_stats(["alice"])
 
         assert "alice" in stats
@@ -1327,7 +1327,7 @@ class TestCollectTeamMemberStats:
         mock_pr_service.get_all_prs.side_effect = Exception("GitHub API error")
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_team_member_stats(["alice"])
 
         # Should return empty stats but not crash
@@ -1376,7 +1376,7 @@ class TestCollectProjectStats:
         mock_repo.load_spec.return_value = SpecContent(project, spec_content)
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "main", "claudechain")
 
         assert stats.project_name == "test-project"
@@ -1396,7 +1396,7 @@ class TestCollectProjectStats:
         # Mock PROperationsService
         mock_pr_service = Mock()
 
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "main", "claudechain")
 
         assert stats is None
@@ -1418,7 +1418,7 @@ class TestCollectProjectStats:
         mock_repo.load_spec.return_value = SpecContent(project, spec_content)
 
         # Create service and test - exception should propagate
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         with pytest.raises(Exception, match="API error"):
             service.collect_project_stats("test-project", "main", "claudechain")
 
@@ -1439,8 +1439,8 @@ class TestCollectProjectStats:
         project = Project("test-project")
         mock_repo.load_spec.return_value = SpecContent(project, spec_content)
 
-        # Create service with custom base_branch
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="develop")
+        # Create service
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "develop", "claudechain")
 
         # Verify the service uses the custom base_branch
@@ -1479,17 +1479,20 @@ assignee: alice
         mock_repo.load_spec.return_value = SpecContent(project, spec_content)
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
+
+        # Define projects list (caller now provides this)
+        projects = [("project1", "main")]
 
         # Default: show_assignee_stats=False, so team stats not collected
-        report = service.collect_all_statistics("claude-chain/project1/configuration.yml")
+        report = service.collect_all_statistics(projects=projects)
         assert len(report.project_stats) == 1
         assert "project1" in report.project_stats
         assert len(report.team_stats) == 0  # Not collected by default
 
         # With show_assignee_stats=True, team stats are collected
         report_with_reviewers = service.collect_all_statistics(
-            "claude-chain/project1/configuration.yml",
+            projects=projects,
             show_assignee_stats=True
         )
         assert len(report_with_reviewers.project_stats) == 1
@@ -1502,8 +1505,19 @@ assignee: alice
         # Create service with empty repo
         mock_repo = Mock()
         mock_pr_service = Mock()
-        service = StatisticsService("", mock_repo, mock_pr_service, base_branch="main")
-        report = service.collect_all_statistics()
+        service = StatisticsService("", mock_repo, mock_pr_service)
+        report = service.collect_all_statistics(projects=[("project1", "main")])
+
+        assert len(report.project_stats) == 0
+        assert len(report.team_stats) == 0
+
+    def test_collect_all_empty_projects(self):
+        """Test that empty projects list returns empty report"""
+        # Create service
+        mock_repo = Mock()
+        mock_pr_service = Mock()
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
+        report = service.collect_all_statistics(projects=[])
 
         assert len(report.project_stats) == 0
         assert len(report.team_stats) == 0
@@ -1518,8 +1532,8 @@ assignee: alice
         mock_pr_service = Mock()
 
         # Create service and test
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
-        report = service.collect_all_statistics("/nonexistent/config.yml")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
+        report = service.collect_all_statistics(projects=[("nonexistent", "main")])
 
         assert len(report.project_stats) == 0
 
@@ -1686,7 +1700,7 @@ class TestStalePRTracking:
         mock_repo.load_spec.return_value = SpecContent(project, spec_content)
 
         # Create service and test with 7-day stale threshold
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "main", "claudechain", stale_pr_days=7)
 
         # Assert
@@ -1733,7 +1747,7 @@ class TestStalePRTracking:
         project = Project("test-project")
         mock_repo.load_spec.return_value = SpecContent(project, spec_content)
 
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
 
         # With 7-day threshold: not stale
         stats_7 = service.collect_project_stats("test-project", "main", "claudechain", stale_pr_days=7)
@@ -1761,7 +1775,7 @@ class TestStalePRTracking:
         project = Project("test-project")
         mock_repo.load_spec.return_value = SpecContent(project, spec_content)
 
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "main", "claudechain")
 
         assert len(stats.open_prs) == 0
@@ -1804,7 +1818,7 @@ class TestTaskPRMappings:
         mock_repo.load_spec.return_value = spec
 
         # Collect stats
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "main", "claudechain")
 
         # Assert
@@ -1845,7 +1859,7 @@ class TestTaskPRMappings:
         mock_repo.load_spec.return_value = spec
 
         # Collect stats
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "main", "claudechain")
 
         # Assert
@@ -1872,7 +1886,7 @@ class TestTaskPRMappings:
         mock_repo.load_spec.return_value = spec
 
         # Collect stats
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "main", "claudechain")
 
         # Assert
@@ -1911,7 +1925,7 @@ class TestTaskPRMappings:
         mock_repo.load_spec.return_value = spec
 
         # Collect stats
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "main", "claudechain")
 
         # Assert - task A has no PR, orphaned PR detected
@@ -1982,7 +1996,7 @@ class TestTaskPRMappings:
         mock_repo.load_spec.return_value = spec
 
         # Collect stats
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "main", "claudechain")
 
         # Assert task statuses
@@ -2024,7 +2038,7 @@ class TestTaskPRMappings:
         mock_repo.load_spec.return_value = spec
 
         # Collect stats
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "main", "claudechain")
 
         # Assert - status comes from spec checkbox, not PR
@@ -2063,7 +2077,7 @@ class TestTaskPRMappings:
         mock_repo.load_spec.return_value = spec
 
         # Collect stats
-        service = StatisticsService("owner/repo", mock_repo, mock_pr_service, base_branch="main")
+        service = StatisticsService("owner/repo", mock_repo, mock_pr_service)
         stats = service.collect_project_stats("test-project", "main", "claudechain")
 
         # Assert - PR has no task hash, so it's not tracked as orphaned

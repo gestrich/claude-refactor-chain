@@ -6,8 +6,9 @@ does not implement business logic directly.
 """
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional, Tuple
 
+from claudechain.domain.project import Project
 from claudechain.infrastructure.github.actions import GitHubActionsHelper
 from claudechain.infrastructure.repositories.project_repository import ProjectRepository
 from claudechain.services.composite.statistics_service import StatisticsService
@@ -33,8 +34,8 @@ def cmd_statistics(
     Args:
         gh: GitHub Actions helper instance
         repo: GitHub repository (owner/name)
-        base_branch: Base branch to fetch specs from (default: "main")
-        config_path: Optional path to configuration file
+        base_branch: Base branch for single-project mode (default: "main")
+        config_path: Optional path to configuration file (single-project mode)
         days_back: Days to look back for statistics (default: 30)
         format_type: Output format - "slack" or "json" (default: "slack")
         slack_webhook_url: Slack webhook URL for posting statistics (default: "")
@@ -47,20 +48,25 @@ def cmd_statistics(
 
         print("=== ClaudeChain Statistics Collection ===")
         print(f"Days back: {days_back}")
-        if config_path:
-            print(f"Config path: {config_path}")
-        else:
-            print("Mode: All projects")
-        print()
 
         # Initialize services (dependency injection pattern)
         project_repository = ProjectRepository(repo)
         pr_service = PRService(repo)
-        statistics_service = StatisticsService(repo, project_repository, pr_service, base_branch)
+        statistics_service = StatisticsService(repo, project_repository, pr_service)
+
+        # Discover projects (CLI handles discovery, service handles collection)
+        projects = _discover_projects(config_path, base_branch, pr_service)
+
+        if not projects:
+            print("No projects found")
+            gh.write_output("has_statistics", "false")
+            return 0
+
+        print()
 
         # Collect all statistics
         report = statistics_service.collect_all_statistics(
-            config_path=config_path if config_path else None,
+            projects=projects,
             days_back=days_back,
             show_assignee_stats=show_assignee_stats,
         )
@@ -157,3 +163,36 @@ def cmd_statistics(
 
         traceback.print_exc()
         return 1
+
+
+def _discover_projects(
+    config_path: Optional[str],
+    base_branch: str,
+    pr_service: PRService,
+) -> List[Tuple[str, str]]:
+    """Discover projects to collect statistics for.
+
+    CLI is responsible for project discovery. This function handles both:
+    - Single-project mode: when config_path is provided
+    - Multi-project mode: discovers from labeled PRs
+
+    Args:
+        config_path: Optional path to configuration file (single-project mode)
+        base_branch: Base branch for single-project mode
+        pr_service: PRService instance for multi-project discovery
+
+    Returns:
+        List of (project_name, spec_branch) tuples
+    """
+    if config_path:
+        # Single project mode
+        print(f"Single project mode: {config_path}")
+        project = Project.from_config_path(config_path)
+        return [(project.name, base_branch)]
+
+    # Multi-project mode - discover from labeled PRs
+    print("Multi-project mode: discovering projects from GitHub PRs...")
+    project_branches = pr_service.get_unique_projects(label="claudechain")
+    print(f"Found {len(project_branches)} unique project(s)")
+
+    return list(project_branches.items())

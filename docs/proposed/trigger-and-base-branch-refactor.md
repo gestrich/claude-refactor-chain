@@ -395,7 +395,7 @@ workflow_dispatch:
 
 ---
 
-- [ ] Phase 6: Add label to merged PR on successful execution
+- [x] Phase 6: Add label to merged PR on successful execution
 
 **Goal**: When workflow executes successfully for a merged PR, add the `claudechain` label to that PR.
 
@@ -415,25 +415,113 @@ workflow_dispatch:
 
 ---
 
-- [ ] Phase 7: Update statistics to work with new trigger model
+- [x] Phase 7: Update statistics to work with new trigger model
 
-**Goal**: Ensure statistics can find all ClaudeChain projects across branches.
+**Goal**: Ensure statistics can find all ClaudeChain projects across branches, including projects with non-main base branches.
 
-**Current approach**: Statistics uses labels to find related PRs.
+### Key Insight: PR Contains Base Branch Info
 
-**With new model**:
-- All processed PRs will have `claudechain` label (added in Phase 6)
-- Statistics can query for labeled PRs to find projects
-- Alternative: Search for PRs that modified `claude-chain/*/spec.md`
+When a PR is merged, the GitHub API response includes the **base branch** it was merged into (`baseRefName`). Since Phase 6 adds the `claudechain` label to merged PRs, we can:
 
-**Research needed**:
-- GitHub Search API: Can we search for PRs by file path pattern?
-- `gh pr list --search "path:claude-chain/"` - does this work?
+1. Query all PRs with `claudechain` label (current behavior)
+2. Extract the base branch from each PR's `baseRefName` field
+3. Load spec/config from that specific branch via GitHub API (existing code)
 
-**Changes to statistics workflow/action**:
-- May need to support multiple base branches
-- Could accept comma-separated list of base branches to check
-- Or: query labeled PRs to discover which branches have projects
+**This is simpler than a config-based approach** because:
+- The PR itself tells us which branch to query - no guessing
+- We already have code for fetching spec/config via GitHub API
+- Label-based discovery already works
+- No two-pass loading needed
+
+### Implementation Plan
+
+**Changes to `GitHubPullRequest` model** (`github_models.py`):
+```python
+@dataclass
+class GitHubPullRequest:
+    # ... existing fields ...
+    base_ref_name: Optional[str] = None  # Branch PR was merged into
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'GitHubPullRequest':
+        # ... existing parsing ...
+        base_ref_name = data.get("baseRefName")
+        # ...
+```
+
+**Changes to `list_pull_requests()`** (`operations.py`):
+- Add `baseRefName` to the `--json` fields list
+
+**Changes to `PRService.get_unique_projects()`**:
+- Return `Dict[str, str]` (project_name -> base_branch) instead of `Set[str]`
+- Extract base branch from each PR
+
+```python
+def get_unique_projects(self, label: str = "claudechain") -> Dict[str, str]:
+    """Extract unique project names and their base branches from labeled PRs."""
+    all_prs = self.get_all_prs(label=label)
+    projects: Dict[str, str] = {}  # project_name -> base_branch
+
+    for pr in all_prs:
+        if pr.head_ref_name and pr.base_ref_name:
+            parsed = self.parse_branch_name(pr.head_ref_name)
+            if parsed:
+                # Use the base branch from the PR
+                # If multiple PRs for same project, any should work (same base)
+                projects[parsed.project_name] = pr.base_ref_name
+
+    return projects
+```
+
+**Changes to `StatisticsService.collect_all_statistics()`**:
+```python
+def collect_all_statistics(self, ...):
+    # Get projects with their base branches
+    project_branches = self.pr_service.get_unique_projects(label=label)
+
+    for project_name, base_branch in project_branches.items():
+        # Load config and spec from the project's actual base branch
+        config = self._load_project_config(project_name, base_branch)
+        # ... rest of collection using base_branch ...
+```
+
+### Dependency on Phase 6
+
+This approach depends on Phase 6 (labeling merged PRs) being complete:
+- Without labels, we can't discover projects
+- Initial spec PRs get labeled when they trigger ClaudeChain
+- All subsequent PRs already get labeled (existing behavior)
+
+### Edge Cases
+
+| Scenario | Behavior |
+|----------|----------|
+| PR merged to `develop`, labeled | Load spec from `develop` |
+| PR merged to `main`, labeled | Load spec from `main` (current behavior) |
+| Multiple PRs for same project on different branches | Use most recent PR's base branch |
+| Unlabeled PR (pre-Phase 6) | Not discovered (acceptable during transition) |
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/claudechain/domain/github_models.py` | Add `base_ref_name` field to `GitHubPullRequest` |
+| `src/claudechain/infrastructure/github/operations.py` | Add `baseRefName` to PR query fields |
+| `src/claudechain/services/core/pr_service.py` | Update `get_unique_projects()` return type |
+| `src/claudechain/services/composite/statistics_service.py` | Use per-project base branch |
+| `tests/unit/services/core/test_pr_service.py` | Update tests for new return type |
+| `tests/unit/services/composite/test_statistics_service.py` | Tests for multi-branch scenarios |
+
+### Testing
+
+**Unit tests**:
+- `GitHubPullRequest.from_dict()` parses `baseRefName`
+- `PRService.get_unique_projects()` returns project->branch mapping
+- `StatisticsService` loads specs from correct branches
+
+**Integration tests**:
+- Multi-project scenario with different base branches
+- Verify stats report includes projects from multiple branches
 
 ---
 
@@ -465,6 +553,12 @@ workflow_dispatch:
 - Base branch is validated against config before execution
 - Multiple projects in single PR are supported
 - Manual trigger requires both project_name and base_branch
+
+**Statistics/Notifications documentation note**:
+- Document that project discovery for statistics relies on PR branch names matching the `claude-chain-{project}-{hash}` pattern
+- This means statistics only discover projects after ClaudeChain creates the first task PR
+- The initial spec PR (manually created) won't appear in multi-project discovery since its branch name doesn't follow the pattern
+- Single-project mode (via `config_path`) bypasses this and works for any project
 
 ---
 

@@ -86,10 +86,14 @@ class TestCmdStatistics:
     ):
         """Should generate statistics report in Slack format successfully"""
         # Arrange
+        discovered_projects = [("project-a", "main"), ("project-b", "develop")]
         with patch(
             "claudechain.cli.commands.statistics.StatisticsService"
         ) as mock_service_class, patch(
             "claudechain.cli.commands.statistics.ProjectRepository"
+        ), patch(
+            "claudechain.cli.commands.statistics._discover_projects",
+            return_value=discovered_projects
         ):
             mock_service = Mock()
             mock_service.collect_all_statistics.return_value = sample_statistics_report
@@ -109,7 +113,7 @@ class TestCmdStatistics:
         # Assert
         assert result == 0
         mock_service.collect_all_statistics.assert_called_once_with(
-            config_path=None, days_back=30, show_assignee_stats=False
+            projects=discovered_projects, days_back=30, show_assignee_stats=False
         )
 
         # Verify Slack output was written
@@ -136,10 +140,16 @@ class TestCmdStatistics:
         self, mock_github_helper, sample_statistics_report
     ):
         """Should generate statistics report in JSON format successfully"""
-        # Arrange
+        # Arrange - single project mode with config_path
+        discovered_projects = [("my-project", "main")]
         with patch(
             "claudechain.cli.commands.statistics.StatisticsService"
-        ) as mock_service_class, patch("claudechain.cli.commands.statistics.ProjectRepository"):
+        ) as mock_service_class, patch(
+            "claudechain.cli.commands.statistics.ProjectRepository"
+        ), patch(
+            "claudechain.cli.commands.statistics._discover_projects",
+            return_value=discovered_projects
+        ):
             mock_service = Mock()
             mock_service.collect_all_statistics.return_value = sample_statistics_report
             mock_service_class.return_value = mock_service
@@ -158,7 +168,7 @@ class TestCmdStatistics:
         # Assert
         assert result == 0
         mock_service.collect_all_statistics.assert_called_once_with(
-            config_path="/path/to/config.yml", days_back=7, show_assignee_stats=False
+            projects=discovered_projects, days_back=7, show_assignee_stats=False
         )
 
         # Verify JSON output was written
@@ -178,9 +188,15 @@ class TestCmdStatistics:
     ):
         """Should use default value of 30 days when not explicitly provided"""
         # Arrange
+        discovered_projects = [("project-a", "main")]
         with patch(
             "claudechain.cli.commands.statistics.StatisticsService"
-        ) as mock_service_class, patch("claudechain.cli.commands.statistics.ProjectRepository"):
+        ) as mock_service_class, patch(
+            "claudechain.cli.commands.statistics.ProjectRepository"
+        ), patch(
+            "claudechain.cli.commands.statistics._discover_projects",
+            return_value=discovered_projects
+        ):
             mock_service = Mock()
             mock_collect = mock_service.collect_all_statistics
             mock_service_class.return_value = mock_service
@@ -195,16 +211,22 @@ class TestCmdStatistics:
 
         # Assert
         assert result == 0
-        mock_collect.assert_called_once_with(config_path=None, days_back=30, show_assignee_stats=False)
+        mock_collect.assert_called_once_with(projects=discovered_projects, days_back=30, show_assignee_stats=False)
 
     def test_cmd_statistics_writes_leaderboard_when_present(
         self, mock_github_helper, sample_statistics_report
     ):
         """Should write leaderboard to step summary when team stats exist and enabled"""
         # Arrange
+        discovered_projects = [("project-a", "main")]
         with patch(
             "claudechain.cli.commands.statistics.StatisticsService"
-        ) as mock_service_class, patch("claudechain.cli.commands.statistics.ProjectRepository"):
+        ) as mock_service_class, patch(
+            "claudechain.cli.commands.statistics.ProjectRepository"
+        ), patch(
+            "claudechain.cli.commands.statistics._discover_projects",
+            return_value=discovered_projects
+        ):
             mock_service = Mock()
             mock_collect = mock_service.collect_all_statistics
             mock_service_class.return_value = mock_service
@@ -232,9 +254,15 @@ class TestCmdStatistics:
     ):
         """Should write project progress summaries in alphabetical order"""
         # Arrange
+        discovered_projects = [("project-a", "main")]
         with patch(
             "claudechain.cli.commands.statistics.StatisticsService"
-        ) as mock_service_class, patch("claudechain.cli.commands.statistics.ProjectRepository"):
+        ) as mock_service_class, patch(
+            "claudechain.cli.commands.statistics.ProjectRepository"
+        ), patch(
+            "claudechain.cli.commands.statistics._discover_projects",
+            return_value=discovered_projects
+        ):
             mock_service = Mock()
             mock_collect = mock_service.collect_all_statistics
             mock_service_class.return_value = mock_service
@@ -266,9 +294,15 @@ class TestCmdStatistics:
     ):
         """Should write team member activity sorted by merged count descending when enabled"""
         # Arrange
+        discovered_projects = [("project-a", "main")]
         with patch(
             "claudechain.cli.commands.statistics.StatisticsService"
-        ) as mock_service_class, patch("claudechain.cli.commands.statistics.ProjectRepository"):
+        ) as mock_service_class, patch(
+            "claudechain.cli.commands.statistics.ProjectRepository"
+        ), patch(
+            "claudechain.cli.commands.statistics._discover_projects",
+            return_value=discovered_projects
+        ):
             mock_service = Mock()
             mock_collect = mock_service.collect_all_statistics
             mock_service_class.return_value = mock_service
@@ -301,9 +335,15 @@ class TestCmdStatistics:
     ):
         """Should handle empty statistics report gracefully"""
         # Arrange
+        discovered_projects = [("project-a", "main")]
         with patch(
             "claudechain.cli.commands.statistics.StatisticsService"
-        ) as mock_service_class, patch("claudechain.cli.commands.statistics.ProjectRepository"):
+        ) as mock_service_class, patch(
+            "claudechain.cli.commands.statistics.ProjectRepository"
+        ), patch(
+            "claudechain.cli.commands.statistics._discover_projects",
+            return_value=discovered_projects
+        ):
             mock_service = Mock()
             mock_collect = mock_service.collect_all_statistics
             mock_service_class.return_value = mock_service
@@ -328,9 +368,15 @@ class TestCmdStatistics:
     ):
         """Should handle exceptions and return error code"""
         # Arrange
+        discovered_projects = [("project-a", "main")]
         with patch(
             "claudechain.cli.commands.statistics.StatisticsService"
-        ) as mock_service_class, patch("claudechain.cli.commands.statistics.ProjectRepository"):
+        ) as mock_service_class, patch(
+            "claudechain.cli.commands.statistics.ProjectRepository"
+        ), patch(
+            "claudechain.cli.commands.statistics._discover_projects",
+            return_value=discovered_projects
+        ):
             mock_service = Mock()
             mock_collect = mock_service.collect_all_statistics
             mock_service_class.return_value = mock_service

@@ -30,7 +30,6 @@ class StatisticsService:
         repo: str,
         project_repository: ProjectRepository,
         pr_service: PRService,
-        base_branch: str = "main"
     ):
         """Initialize the statistics service
 
@@ -38,10 +37,8 @@ class StatisticsService:
             repo: GitHub repository (owner/name)
             project_repository: ProjectRepository instance for loading project data
             pr_service: PRService instance for PR operations
-            base_branch: Base branch to fetch specs from (default: "main")
         """
         self.repo = repo
-        self.base_branch = base_branch
         self.project_repository = project_repository
         self.pr_service = pr_service
 
@@ -49,15 +46,16 @@ class StatisticsService:
 
     def collect_all_statistics(
         self,
-        config_path: Optional[str] = None,
+        projects: List[tuple],
         days_back: int = DEFAULT_STATS_DAYS_BACK,
         label: str = DEFAULT_PR_LABEL,
         show_assignee_stats: bool = False,
     ) -> StatisticsReport:
-        """Collect statistics for all projects and team members
+        """Collect statistics for provided projects and team members.
 
         Args:
-            config_path: Optional path to specific config (for single project mode)
+            projects: List of (project_name, spec_branch) tuples. The caller is
+                responsible for discovering projects (single or multi-project mode).
             days_back: Days to look back for team member stats
             label: GitHub label to filter PRs
             show_assignee_stats: Whether to collect reviewer statistics (default: False)
@@ -65,84 +63,43 @@ class StatisticsService:
         Returns:
             Complete StatisticsReport
         """
-        report = StatisticsReport(base_branch=self.base_branch)
+        report = StatisticsReport()
         report.generated_at = datetime.now(timezone.utc)
 
         if not self.repo:
             print("Warning: GITHUB_REPOSITORY not set")
             return report
 
-        # Use base branch from instance variable
-        base_branch = self.base_branch
-        all_assignees = set()
-        # List of (ProjectConfiguration, base_branch) tuples
-        project_configs: list[tuple] = []
+        if not projects:
+            print("No projects provided")
+            return report
 
-        if config_path:
-            # Single project mode - fetch config from GitHub API
-            print(f"Single project mode: {config_path}")
+        # Load configurations for all projects
+        all_assignees: set = set()
+        project_configs: List[tuple] = []  # List of (ProjectConfiguration, spec_branch)
 
+        for project_name, spec_branch in projects:
             try:
-                # Extract project name from path using Project domain model
-                project = Project.from_config_path(config_path)
-
-                # load_configuration returns default config if file not found
-                config = self._load_project_config(project.name, base_branch)
-
+                config = self._load_project_config(project_name, spec_branch)
                 if config.assignee:
                     all_assignees.add(config.assignee)
-                project_configs.append((config, base_branch))
-
-                if not config.assignee:
-                    print("  (no assignee configured - using default config)")
-
+                project_configs.append((config, spec_branch))
             except Exception as e:
-                print(f"Error loading config: {e}")
-                return report
+                print(f"Warning: Failed to load project {project_name}: {e}")
+                continue
 
-        else:
-            # Multi-project mode - discover all projects from GitHub PR queries
-            print("Multi-project mode: discovering projects from GitHub PRs...")
-
-            try:
-                # Get unique project names with their base branches using PRService
-                # Returns Dict[project_name, base_branch]
-                project_branches = self.pr_service.get_unique_projects(label=label)
-
-                print(f"Found {len(project_branches)} unique project(s)")
-            except Exception as e:
-                print(f"Error querying GitHub PRs: {e}")
-                return report
-
-            if not project_branches:
-                print("No projects found")
-                return report
-
-            for project_name, project_base_branch in project_branches.items():
-                try:
-                    # Load configuration from the project's base branch (not the global default)
-                    config = self._load_project_config(project_name, project_base_branch)
-
-                    if config.assignee:
-                        all_assignees.add(config.assignee)
-                    project_configs.append((config, project_base_branch))
-
-                except Exception as e:
-                    print(f"Warning: Failed to load project {project_name}: {e}")
-                    continue
-
-        print(f"\nProcessing {len(project_configs)} project(s)...")
+        print(f"Processing {len(project_configs)} project(s)...")
         print(f"Tracking {len(all_assignees)} unique assignee(s)")
 
         # Collect project statistics
-        for config, effective_base_branch in project_configs:
+        for config, spec_branch in project_configs:
             try:
                 project_stats = self.collect_project_stats(
-                    config.project.name, effective_base_branch, label,
+                    config.project.name, spec_branch, label,
                     project=config.project,
                     stale_pr_days=config.get_stale_pr_days()
                 )
-                if project_stats:  # Only add if not None (spec exists in base branch)
+                if project_stats:  # Only add if not None (spec exists in spec_branch)
                     report.add_project(project_stats)
             except Exception as e:
                 print(f"Error collecting stats for {config.project.name}: {e}")
