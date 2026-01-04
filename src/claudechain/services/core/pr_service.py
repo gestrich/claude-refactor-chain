@@ -6,7 +6,7 @@ Encapsulates business logic for PR-related operations.
 """
 
 import re
-from typing import List, Literal, Optional, Set, Tuple, Union
+from typing import Dict, List, Literal, Optional, Set, Tuple, Union
 
 from claudechain.domain.constants import DEFAULT_STATS_DAYS_BACK
 from claudechain.domain.exceptions import GitHubAPIError
@@ -180,31 +180,36 @@ class PRService:
             limit=limit
         )
 
-    def get_unique_projects(self, label: str = "claudechain") -> Set[str]:
-        """Extract unique project names from all PRs with the label.
+    def get_unique_projects(self, label: str = "claudechain") -> Dict[str, str]:
+        """Extract unique project names and their base branches from labeled PRs.
 
-        Used by statistics service for multi-project discovery.
+        Used by statistics service for multi-project discovery. Returns a mapping
+        of project names to their base branches, allowing statistics to query
+        spec files from the correct branch for each project.
 
         Args:
             label: GitHub label to filter PRs (default: "claudechain")
 
         Returns:
-            Set of unique project names extracted from branch names
+            Dict mapping project name to base branch (branch PR was merged into)
 
         Examples:
             >>> service = PRService("owner/repo")
             >>> projects = service.get_unique_projects()
             >>> projects
-            {'my-refactor', 'swift-migration', 'api-cleanup'}
+            {'my-refactor': 'main', 'swift-migration': 'develop', 'api-cleanup': 'main'}
         """
         all_prs = self.get_all_prs(label=label)
-        projects = set()
+        projects: Dict[str, str] = {}
 
         for pr in all_prs:
-            if pr.head_ref_name:
+            if pr.head_ref_name and pr.base_ref_name:
                 parsed = self.parse_branch_name(pr.head_ref_name)
                 if parsed:
-                    projects.add(parsed.project_name)
+                    # Use the base branch from the PR
+                    # If multiple PRs for same project, use the most recent one
+                    # (PRs are returned in order, so later ones overwrite)
+                    projects[parsed.project_name] = pr.base_ref_name
 
         return projects
 

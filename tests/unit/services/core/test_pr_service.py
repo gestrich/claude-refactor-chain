@@ -521,16 +521,22 @@ class TestGetAllPrs:
 
 
 class TestGetUniqueProjects:
-    """Tests for get_unique_projects method"""
+    """Tests for get_unique_projects method
+
+    Note: get_unique_projects now returns Dict[project_name, base_branch]
+    to support multi-branch statistics. PRs must have both head_ref_name
+    and base_ref_name set to be included.
+    """
 
     @patch("claudechain.services.core.pr_service.list_pull_requests")
-    def test_get_unique_projects(self, mock_list_prs):
-        """Should extract unique project names from PRs"""
+    def test_get_unique_projects_returns_dict_with_base_branches(self, mock_list_prs):
+        """Should return dict mapping project names to their base branches"""
         mock_prs = [
             GitHubPullRequest(
                 number=1,
-                state="open",
+                state="merged",
                 head_ref_name="claude-chain-my-refactor-a3f2b891",
+                base_ref_name="main",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -539,18 +545,9 @@ class TestGetUniqueProjects:
             ),
             GitHubPullRequest(
                 number=2,
-                state="open",
-                head_ref_name="claude-chain-my-refactor-f7c4d3e2",
-                title="Task 2",
-                labels=[],
-                assignees=[],
-                created_at=datetime.now(timezone.utc),
-                merged_at=None,
-            ),
-            GitHubPullRequest(
-                number=3,
-                state="open",
+                state="merged",
                 head_ref_name="claude-chain-other-project-de789012",
+                base_ref_name="develop",
                 title="Other project",
                 labels=[],
                 assignees=[],
@@ -563,8 +560,8 @@ class TestGetUniqueProjects:
         service = PRService("owner/repo")
         result = service.get_unique_projects()
 
-        # Should return unique project names
-        assert result == {"my-refactor", "other-project"}
+        # Should return dict with project -> base_branch mapping
+        assert result == {"my-refactor": "main", "other-project": "develop"}
 
     @patch("claudechain.services.core.pr_service.list_pull_requests")
     def test_get_unique_projects_handles_invalid_branches(self, mock_list_prs):
@@ -572,8 +569,9 @@ class TestGetUniqueProjects:
         mock_prs = [
             GitHubPullRequest(
                 number=1,
-                state="open",
+                state="merged",
                 head_ref_name="claude-chain-my-refactor-a3f2b891",
+                base_ref_name="main",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -582,8 +580,9 @@ class TestGetUniqueProjects:
             ),
             GitHubPullRequest(
                 number=2,
-                state="open",
+                state="merged",
                 head_ref_name="invalid-branch-name",
+                base_ref_name="main",
                 title="Invalid",
                 labels=[],
                 assignees=[],
@@ -592,8 +591,9 @@ class TestGetUniqueProjects:
             ),
             GitHubPullRequest(
                 number=3,
-                state="open",
+                state="merged",
                 head_ref_name="claude-chain-no-index",
+                base_ref_name="main",
                 title="No index",
                 labels=[],
                 assignees=[],
@@ -607,17 +607,17 @@ class TestGetUniqueProjects:
         result = service.get_unique_projects()
 
         # Should only return valid project
-        assert result == {"my-refactor"}
+        assert result == {"my-refactor": "main"}
 
     @patch("claudechain.services.core.pr_service.list_pull_requests")
     def test_get_unique_projects_empty_result(self, mock_list_prs):
-        """Should return empty set when no projects found"""
+        """Should return empty dict when no projects found"""
         mock_list_prs.return_value = []
 
         service = PRService("owner/repo")
         result = service.get_unique_projects()
 
-        assert result == set()
+        assert result == {}
 
     @patch("claudechain.services.core.pr_service.list_pull_requests")
     def test_get_unique_projects_custom_label(self, mock_list_prs):
@@ -641,8 +641,9 @@ class TestGetUniqueProjects:
         mock_prs = [
             GitHubPullRequest(
                 number=1,
-                state="open",
+                state="merged",
                 head_ref_name="claude-chain-my-refactor-a3f2b891",
+                base_ref_name="main",
                 title="Task 1",
                 labels=[],
                 assignees=[],
@@ -651,42 +652,10 @@ class TestGetUniqueProjects:
             ),
             GitHubPullRequest(
                 number=2,
-                state="open",
-                head_ref_name=None,  # None branch name
-                title="No branch",
-                labels=[],
-                assignees=[],
-                created_at=datetime.now(timezone.utc),
-                merged_at=None,
-            ),
-        ]
-        mock_list_prs.return_value = mock_prs
-
-        service = PRService("owner/repo")
-        result = service.get_unique_projects()
-
-        # Should only return valid project, skipping None
-        assert result == {"my-refactor"}
-
-    @patch("claudechain.services.core.pr_service.list_pull_requests")
-    def test_get_unique_projects_deduplicates(self, mock_list_prs):
-        """Should deduplicate project names from multiple PRs"""
-        mock_prs = [
-            GitHubPullRequest(
-                number=1,
-                state="open",
-                head_ref_name="claude-chain-my-refactor-a3f2b891",
-                title="Task 1",
-                labels=[],
-                assignees=[],
-                created_at=datetime.now(timezone.utc),
-                merged_at=None,
-            ),
-            GitHubPullRequest(
-                number=2,
-                state="open",
-                head_ref_name="claude-chain-my-refactor-f7c4d3e2",
-                title="Task 2",
+                state="merged",
+                head_ref_name=None,  # None head branch name
+                base_ref_name="main",
+                title="No head branch",
                 labels=[],
                 assignees=[],
                 created_at=datetime.now(timezone.utc),
@@ -694,9 +663,10 @@ class TestGetUniqueProjects:
             ),
             GitHubPullRequest(
                 number=3,
-                state="open",
-                head_ref_name="claude-chain-my-refactor-3",
-                title="Task 3",
+                state="merged",
+                head_ref_name="claude-chain-other-project-f7c4d3e2",
+                base_ref_name=None,  # None base branch name
+                title="No base branch",
                 labels=[],
                 assignees=[],
                 created_at=datetime.now(timezone.utc),
@@ -708,8 +678,43 @@ class TestGetUniqueProjects:
         service = PRService("owner/repo")
         result = service.get_unique_projects()
 
-        # Should return single project, not duplicates
-        assert result == {"my-refactor"}
+        # Should only return project with both head and base branch
+        assert result == {"my-refactor": "main"}
+
+    @patch("claudechain.services.core.pr_service.list_pull_requests")
+    def test_get_unique_projects_deduplicates_uses_latest_base_branch(self, mock_list_prs):
+        """Should use the most recent PR's base branch for duplicate projects"""
+        mock_prs = [
+            GitHubPullRequest(
+                number=1,
+                state="merged",
+                head_ref_name="claude-chain-my-refactor-a3f2b891",
+                base_ref_name="develop",  # Earlier PR merged to develop
+                title="Task 1",
+                labels=[],
+                assignees=[],
+                created_at=datetime.now(timezone.utc),
+                merged_at=None,
+            ),
+            GitHubPullRequest(
+                number=2,
+                state="merged",
+                head_ref_name="claude-chain-my-refactor-f7c4d3e2",
+                base_ref_name="main",  # Later PR merged to main
+                title="Task 2",
+                labels=[],
+                assignees=[],
+                created_at=datetime.now(timezone.utc),
+                merged_at=None,
+            ),
+        ]
+        mock_list_prs.return_value = mock_prs
+
+        service = PRService("owner/repo")
+        result = service.get_unique_projects()
+
+        # Should use the later PR's base branch (main)
+        assert result == {"my-refactor": "main"}
         assert len(result) == 1
 
 

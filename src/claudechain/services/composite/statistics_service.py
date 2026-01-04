@@ -75,7 +75,8 @@ class StatisticsService:
         # Use base branch from instance variable
         base_branch = self.base_branch
         all_assignees = set()
-        project_configs = []  # List of ProjectConfiguration objects
+        # List of (ProjectConfiguration, base_branch) tuples
+        project_configs: list[tuple] = []
 
         if config_path:
             # Single project mode - fetch config from GitHub API
@@ -90,7 +91,7 @@ class StatisticsService:
 
                 if config.assignee:
                     all_assignees.add(config.assignee)
-                project_configs.append(config)
+                project_configs.append((config, base_branch))
 
                 if not config.assignee:
                     print("  (no assignee configured - using default config)")
@@ -104,26 +105,27 @@ class StatisticsService:
             print("Multi-project mode: discovering projects from GitHub PRs...")
 
             try:
-                # Get unique project names using PRService
-                project_names = self.pr_service.get_unique_projects(label=label)
+                # Get unique project names with their base branches using PRService
+                # Returns Dict[project_name, base_branch]
+                project_branches = self.pr_service.get_unique_projects(label=label)
 
-                print(f"Found {len(project_names)} unique project(s)")
+                print(f"Found {len(project_branches)} unique project(s)")
             except Exception as e:
                 print(f"Error querying GitHub PRs: {e}")
                 return report
 
-            if not project_names:
+            if not project_branches:
                 print("No projects found")
                 return report
 
-            for project_name in project_names:
+            for project_name, project_base_branch in project_branches.items():
                 try:
-                    # load_configuration returns default config if file not found
-                    config = self._load_project_config(project_name, base_branch)
+                    # Load configuration from the project's base branch (not the global default)
+                    config = self._load_project_config(project_name, project_base_branch)
 
                     if config.assignee:
                         all_assignees.add(config.assignee)
-                    project_configs.append(config)
+                    project_configs.append((config, project_base_branch))
 
                 except Exception as e:
                     print(f"Warning: Failed to load project {project_name}: {e}")
@@ -133,10 +135,10 @@ class StatisticsService:
         print(f"Tracking {len(all_assignees)} unique assignee(s)")
 
         # Collect project statistics
-        for config in project_configs:
+        for config, effective_base_branch in project_configs:
             try:
                 project_stats = self.collect_project_stats(
-                    config.project.name, base_branch, label,
+                    config.project.name, effective_base_branch, label,
                     project=config.project,
                     stale_pr_days=config.get_stale_pr_days()
                 )

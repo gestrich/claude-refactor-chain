@@ -199,6 +199,48 @@ class TestGitHubPullRequest:
         # Assert
         assert pr.labels == ["label1", "label2"]
 
+    def test_pr_from_dict_with_base_ref_name(self):
+        """Should parse baseRefName from GitHub API response"""
+        # Arrange
+        data = {
+            "number": 103,
+            "title": "Feature PR",
+            "state": "MERGED",
+            "createdAt": "2024-03-01T12:00:00Z",
+            "mergedAt": "2024-03-02T12:00:00Z",
+            "assignees": [],
+            "labels": [],
+            "headRefName": "claude-chain-my-project-a3f2b891",
+            "baseRefName": "develop"
+        }
+
+        # Act
+        pr = GitHubPullRequest.from_dict(data)
+
+        # Assert
+        assert pr.head_ref_name == "claude-chain-my-project-a3f2b891"
+        assert pr.base_ref_name == "develop"
+
+    def test_pr_from_dict_without_base_ref_name(self):
+        """Should handle missing baseRefName gracefully"""
+        # Arrange
+        data = {
+            "number": 104,
+            "title": "Legacy PR",
+            "state": "MERGED",
+            "createdAt": "2024-03-01T12:00:00Z",
+            "mergedAt": "2024-03-02T12:00:00Z",
+            "assignees": [],
+            "labels": []
+        }
+
+        # Act
+        pr = GitHubPullRequest.from_dict(data)
+
+        # Assert
+        assert pr.head_ref_name is None
+        assert pr.base_ref_name is None
+
     def test_is_merged_with_merged_state(self):
         """Should return True when PR state is merged"""
         # Arrange

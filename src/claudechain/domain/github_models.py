@@ -90,7 +90,8 @@ class GitHubPullRequest:
     merged_at: Optional[datetime]
     assignees: List[GitHubUser]
     labels: List[str] = field(default_factory=list)
-    head_ref_name: Optional[str] = None  # Branch name
+    head_ref_name: Optional[str] = None  # Branch name (source branch)
+    base_ref_name: Optional[str] = None  # Target branch (branch PR was merged into)
     url: Optional[str] = None  # PR URL (e.g., https://github.com/owner/repo/pull/123)
 
     @classmethod
@@ -145,8 +146,9 @@ class GitHubPullRequest:
         # Normalize state to lowercase for consistency
         state = data["state"].lower()
 
-        # Get branch name if available
+        # Get branch names if available
         head_ref_name = data.get("headRefName")
+        base_ref_name = data.get("baseRefName")
 
         # Get PR URL if available
         url = data.get("url")
@@ -160,6 +162,7 @@ class GitHubPullRequest:
             assignees=assignees,
             labels=labels,
             head_ref_name=head_ref_name,
+            base_ref_name=base_ref_name,
             url=url
         )
 
