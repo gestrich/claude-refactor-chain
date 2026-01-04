@@ -280,7 +280,9 @@ def detect_projects_from_merge(changed_files: List[str]) -> List[Project]:
 
 - [ ] Phase 5: Add base_branch input for workflow_dispatch
 
-**Goal**: For manual workflow triggers, require both `project_name` AND `base_branch` inputs.
+**Goal**: For manual workflow triggers, require both `project_name` AND `base_branch` inputs, with strict validation.
+
+**Key principle**: We do NOT trust the user's branch selection. The workflow must validate that the selected branch matches the project's configured base branch and throw an error if mismatched.
 
 **Changes to `.github/workflows/claudechain.yml`**:
 ```yaml
@@ -303,7 +305,16 @@ workflow_dispatch:
 **Changes to `parse_event.py`**:
 - For `workflow_dispatch`: use provided `base_branch` input directly
 - Validate project exists on that branch after checkout
-- Validate config's `baseBranch` (if set) matches input
+- **CRITICAL**: Validate config's `baseBranch` (if set) matches input - throw ERROR (not skip) if mismatched
+
+**Validation behavior for workflow_dispatch** (different from PR merge):
+- PR merge events: SKIP silently if base branch mismatch (the PR just merged to a different branch)
+- workflow_dispatch events: ERROR if base branch mismatch (user explicitly chose wrong branch, this is a configuration error)
+
+**Error case examples**:
+- User selects `feature` branch but config says `baseBranch: main` → ERROR: "Base branch mismatch: project '{name}' expects 'main' but workflow was triggered on 'feature'"
+- User selects `main` branch and config says `baseBranch: main` → EXECUTE
+- User selects `main` branch and config has no `baseBranch` → EXECUTE (default matches)
 
 ---
 
