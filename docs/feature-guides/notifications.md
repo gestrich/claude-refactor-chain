@@ -132,6 +132,7 @@ on:
 permissions:
   contents: read
   actions: read
+  pull-requests: read  # Required for listing PRs
 
 jobs:
   statistics:
