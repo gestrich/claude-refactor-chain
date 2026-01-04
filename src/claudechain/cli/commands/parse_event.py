@@ -10,12 +10,9 @@ import os
 from typing import Optional
 
 from claudechain.domain.github_event import GitHubEventContext
-from claudechain.domain.models import BranchInfo
 from claudechain.infrastructure.github.actions import GitHubActionsHelper
-from claudechain.infrastructure.github.operations import (
-    compare_commits,
-    detect_project_from_diff,
-)
+from claudechain.infrastructure.github.operations import compare_commits
+from claudechain.services.core.project_service import ProjectService
 
 
 def cmd_parse_event(
@@ -24,7 +21,6 @@ def cmd_parse_event(
     event_json: str,
     project_name: Optional[str] = None,
     default_base_branch: Optional[str] = None,
-    pr_label: str = "claudechain",
     repo: Optional[str] = None,
 ) -> int:
     """Parse GitHub event and output action parameters.
@@ -33,7 +29,7 @@ def cmd_parse_event(
     It parses the GitHub event payload and determines:
     - Whether execution should be skipped (and why)
     - The git ref to checkout
-    - The project name (from branch pattern or override)
+    - The project name (from changed spec.md files or workflow_dispatch input)
     - The base branch for PR creation
     - The merged PR number (for pull_request events)
 
@@ -43,7 +39,6 @@ def cmd_parse_event(
         event_json: JSON payload from ${{ toJson(github.event) }}
         project_name: Optional project name override (for workflow_dispatch)
         default_base_branch: Default base branch if not determined from event
-        pr_label: Required label for pull_request events
         repo: GitHub repository (owner/name) for API calls
 
     Returns:
@@ -62,7 +57,6 @@ def cmd_parse_event(
         print(f"Event name: {event_name}")
         print(f"Project name override: {project_name or '(none)'}")
         print(f"Default base branch: {default_base_branch}")
-        print(f"Required PR label: {pr_label}")
 
         # Parse the event
         context = GitHubEventContext.from_json(event_name, event_json)
@@ -79,56 +73,55 @@ def cmd_parse_event(
         if context.ref_name:
             print(f"  Ref name: {context.ref_name}")
 
-        # Check if should skip
-        should_skip, reason = context.should_skip(required_label=pr_label)
-        if should_skip:
-            print(f"\n⏭️  Skipping: {reason}")
-            gh.write_output("skip", "true")
-            gh.write_output("skip_reason", reason)
-            return 0
+        # Resolve project name based on event type (mutually exclusive branches)
+        resolved_project: Optional[str] = None
 
-        # Determine project name
-        resolved_project = project_name  # From input (workflow_dispatch)
+        if context.event_name == "workflow_dispatch":
+            # workflow_dispatch: project_name is required from input
+            if not project_name:
+                error_msg = "workflow_dispatch requires project_name input"
+                print(f"\n❌ {error_msg}")
+                gh.set_error(error_msg)
+                return 1
+            resolved_project = project_name
 
-        if not resolved_project:
-            # For merged PRs, extract project from branch name pattern
-            # This avoids calling Compare API which fails if branch was deleted
-            if context.event_name == "pull_request" and context.head_ref:
-                branch_info = BranchInfo.from_branch_name(context.head_ref)
-                if branch_info:
-                    resolved_project = branch_info.project_name
-                    print(f"\n  Detected project from branch: {resolved_project}")
+        elif context.event_name == "pull_request":
+            # PR merge: skip if not merged
+            if not context.pr_merged:
+                reason = "PR was closed but not merged"
+                print(f"\n⏭️  Skipping: {reason}")
+                gh.write_output("skip", "true")
+                gh.write_output("skip_reason", reason)
+                return 0
 
-        if not resolved_project:
-            # Try to detect from changed files (push events)
-            changed_files_context = context.get_changed_files_context()
-            if changed_files_context and repo:
-                before_sha, after_sha = changed_files_context
-                print(f"\n  Detecting project from changed files...")
-                print(f"  Comparing {before_sha[:8]}...{after_sha[:8]}")
-                changed_files = compare_commits(repo, before_sha, after_sha)
-                print(f"  Found {len(changed_files)} changed files")
-                try:
-                    resolved_project = detect_project_from_diff(changed_files)
-                    if resolved_project:
-                        print(f"  Detected project: {resolved_project}")
-                except ValueError as e:
-                    # Multiple projects modified
-                    reason = str(e)
-                    print(f"\n⏭️  Skipping: {reason}")
-                    gh.write_output("skip", "true")
-                    gh.write_output("skip_reason", reason)
-                    return 0
+            # Detect project from changed spec.md files
+            if repo:
+                resolved_project, _ = _detect_project_from_changed_files(context, repo)
 
-        if not resolved_project:
-            if event_name == "workflow_dispatch":
-                reason = "No project_name provided for workflow_dispatch event"
-            else:
-                reason = "No spec.md changes detected in push"
-            print(f"\n⏭️  Skipping: {reason}")
-            gh.write_output("skip", "true")
-            gh.write_output("skip_reason", reason)
-            return 0
+            if not resolved_project:
+                reason = "No spec.md changes detected"
+                print(f"\n⏭️  Skipping: {reason}")
+                gh.write_output("skip", "true")
+                gh.write_output("skip_reason", reason)
+                return 0
+
+        elif context.event_name == "push":
+            # Push: detect project from changed files
+            if repo:
+                resolved_project, _ = _detect_project_from_changed_files(context, repo)
+
+            if not resolved_project:
+                reason = "No spec.md changes detected"
+                print(f"\n⏭️  Skipping: {reason}")
+                gh.write_output("skip", "true")
+                gh.write_output("skip_reason", reason)
+                return 0
+
+        else:
+            error_msg = f"Unsupported event type: {context.event_name}"
+            print(f"\n❌ {error_msg}")
+            gh.set_error(error_msg)
+            return 1
 
         # Determine what to checkout based on the event type
         # - PR merge: checkout base_ref (branch the PR merged INTO) - this has the merged changes
@@ -187,7 +180,6 @@ def main() -> int:
         EVENT_JSON: GitHub event JSON payload
         PROJECT_NAME: Optional project name override
         DEFAULT_BASE_BRANCH: Optional base branch override (if not set, derived from event)
-        PR_LABEL: Required label for PR events (default: "claudechain")
         GITHUB_REPOSITORY: GitHub repository (owner/name) for API calls
     """
     gh = GitHubActionsHelper()
@@ -196,7 +188,6 @@ def main() -> int:
     event_json = os.environ.get("EVENT_JSON", "{}")
     project_name = os.environ.get("PROJECT_NAME", "") or None
     default_base_branch = os.environ.get("DEFAULT_BASE_BRANCH", "") or None
-    pr_label = os.environ.get("PR_LABEL", "claudechain")
     repo = os.environ.get("GITHUB_REPOSITORY", "") or None
 
     return cmd_parse_event(
@@ -205,7 +196,6 @@ def main() -> int:
         event_json=event_json,
         project_name=project_name,
         default_base_branch=default_base_branch,
-        pr_label=pr_label,
         repo=repo,
     )
 
@@ -213,3 +203,56 @@ def main() -> int:
 if __name__ == "__main__":
     import sys
     sys.exit(main())
+
+
+# --- Private helper functions ---
+
+
+def _detect_project_from_changed_files(
+    context: GitHubEventContext,
+    repo: str,
+) -> tuple[Optional[str], bool]:
+    """Detect project from changed spec.md files.
+
+    Works for both PR merge events (comparing base..head branches) and push events
+    (comparing before..after SHAs). This enables the "changed files" triggering model
+    where spec.md changes automatically trigger ClaudeChain.
+
+    Args:
+        context: Parsed GitHub event context (must have changed files context)
+        repo: GitHub repository (owner/name) for API calls
+
+    Returns:
+        Tuple of (project_name, detected_from_spec_change)
+        - project_name: Detected project name, or None if not detected
+        - detected_from_spec_change: True if project was detected from spec.md changes
+    """
+    changed_files_context = context.get_changed_files_context()
+    if not changed_files_context:
+        return None, False
+
+    base_ref, head_ref = changed_files_context
+
+    # Format refs for display (truncate SHAs for push events)
+    base_display = base_ref[:8] if len(base_ref) == 40 else base_ref
+    head_display = head_ref[:8] if len(head_ref) == 40 else head_ref
+
+    print(f"\n  Detecting project from changed files...")
+    print(f"  Comparing {base_display}...{head_display}")
+
+    try:
+        changed_files = compare_commits(repo, base_ref, head_ref)
+        print(f"  Found {len(changed_files)} changed files")
+        projects = ProjectService.detect_projects_from_merge(changed_files)
+        if projects:
+            # For now, take the first project (Phase 4 will handle multiple)
+            project_name = projects[0].name
+            print(f"  Detected project from spec.md changes: {project_name}")
+            if len(projects) > 1:
+                print(f"  Note: Multiple projects detected ({[p.name for p in projects]}), processing first one")
+            return project_name, True
+    except Exception as e:
+        # Compare API may fail if branch was deleted after merge
+        print(f"  Could not detect from changed files: {e}")
+
+    return None, False
