@@ -37,7 +37,7 @@ ClaudeChain can post to Slack when PRs are created, keeping your team informed.
 Pass the webhook URL to the action:
 
 ```yaml
-- uses: gestrich/claude-chain@v2
+- uses: gestrich/claude-chain@main
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -75,7 +75,7 @@ After creating a PR, ClaudeChain:
 PR summaries are **enabled by default**. To disable:
 
 ```yaml
-- uses: gestrich/claude-chain@v2
+- uses: gestrich/claude-chain@main
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -139,7 +139,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: gestrich/claude-chain/statistics@v1
+      - uses: gestrich/claude-chain/statistics@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           days_back: 7
@@ -201,7 +201,7 @@ The **Status** column shows warnings for projects needing attention:
 To enable the leaderboard, add `show_reviewer_stats: true` to your workflow:
 
 ```yaml
-- uses: gestrich/claude-chain/statistics@v1
+- uses: gestrich/claude-chain/statistics@main
   with:
     github_token: ${{ secrets.GITHUB_TOKEN }}
     show_reviewer_stats: true  # Enable reviewer leaderboard

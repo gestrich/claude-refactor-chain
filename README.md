@@ -65,7 +65,7 @@ jobs:
   run-claudechain:
     runs-on: ubuntu-latest
     steps:
-      - uses: gestrich/claude-chain@v2
+      - uses: gestrich/claude-chain@main
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -96,7 +96,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: gestrich/claude-chain/statistics@v1
+      - uses: gestrich/claude-chain/statistics@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}

@@ -56,7 +56,7 @@ jobs:
   run-claudechain:
     runs-on: ubuntu-latest
     steps:
-      - uses: gestrich/claude-chain@v2
+      - uses: gestrich/claude-chain@main
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: gestrich/claude-chain@v1
+      - uses: gestrich/claude-chain@main
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -276,7 +276,7 @@ If your tasks require running tests, builds, or other shell commands, add them e
 
 ```yaml
 # Workflow-level: Full Bash access for all projects
-- uses: gestrich/claude-chain@v2
+- uses: gestrich/claude-chain@main
   with:
     claude_allowed_tools: 'Read,Write,Edit,Bash'
 ```
