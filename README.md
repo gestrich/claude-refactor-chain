@@ -31,7 +31,9 @@ Each task is identified by a hash of its description, so you can freely reorder,
 
 ## Quick Start
 
-**Prerequisite:** [Anthropic API key](https://console.anthropic.com)
+**Prerequisites:**
+- [Anthropic API key](https://console.anthropic.com) (required)
+- [Slack webhook URL](https://api.slack.com/messaging/webhooks) (optional, for notifications)
 
 ### 1. Add the Workflows
 
