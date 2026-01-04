@@ -43,7 +43,7 @@ on:
   pull_request:
     types: [closed]
     branches:
-      - main
+      - main  # Branch your PRs merge into
 
 permissions:
   contents: write
@@ -61,6 +61,8 @@ jobs:
           github_event: ${{ toJson(github.event) }}
           event_name: ${{ github.event_name }}
           project_name: ${{ github.event.inputs.project_name || '' }}
+          claude_allowed_tools: 'Read,Write,Edit,Bash(git add:*),Bash(git commit:*)'  # Configure as needed
+          base_branch: 'main'  # Branch your PRs merge into
           # slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
 ```
 
@@ -69,6 +71,8 @@ jobs:
 - `pull_request: types: [closed]` - Triggers when PRs are merged (for auto-continuation)
 - `github_event` / `event_name` - Passes event context so the action can detect projects automatically
 - `project_name` - Used for manual triggers; auto-detected for PR events
+- `claude_allowed_tools` - Controls which tools Claude can use (see [Tool Permissions](#tool-permissions))
+- `base_branch` - The branch PRs will target (must match the `branches` filter above)
 
 ### Standard Workflow (Alternative)
 
@@ -120,7 +124,7 @@ jobs:
 
 ### Add the Anthropic API Key Secret
 
-1. Go to **Settings** → **Secrets and variables** → **Actions**
+1. Go to **Settings** → **Secrets and variables** → **Actions** → **Repository secrets**
 2. Click **New repository secret**
 3. Name: `ANTHROPIC_API_KEY`
 4. Value: Your API key from [console.anthropic.com](https://console.anthropic.com)
@@ -133,7 +137,9 @@ jobs:
 3. Check **"Allow GitHub Actions to create and approve pull requests"**
 4. Click **Save**
 
-### Install Claude Code GitHub App
+### Install Claude Code GitHub App (Optional)
+
+This step is optional but enables using `@claude` mentions on PRs for interactive code review.
 
 In your local repository, run Claude Code and execute:
 
@@ -141,7 +147,7 @@ In your local repository, run Claude Code and execute:
 /install-github-app
 ```
 
-Follow the prompts to install the app on your repository. This grants Claude Code permission to read your code and create PRs.
+Follow the prompts to install the app on your repository.
 
 ### Optional: Add Slack Webhook
 

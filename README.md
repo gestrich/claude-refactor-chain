@@ -2,12 +2,12 @@
 
 ## Overview
 
-ClaudeChain runs Claude Code on individual steps that you define for your project, creating pull requests for each step one at a time. When you merge a PR, it automatically stages the next PR, creating a chain of incremental improvements.
+ClaudeChain runs Claude Code on individual tasks that you define for your project, creating pull requests for each task one at a time. When you merge a PR, it automatically stages the next PR, creating a chain of incremental improvements.
 
 Built on Claude Code and GitHub Actions, it automates the tedious refactoring work that never gets prioritized—migrations, refactoring, code cleanup, and documentation that would otherwise sit on the backlog forever.
 
 **Key features:**
-- 📋 **Incremental automation** - Write your refactor spec, get automated PRs for each step
+- 📋 **Incremental automation** - Write your refactor spec, get automated PRs for each task
 - ⚡ **Manageable review burden** - One PR at a time, small focused changes
 - 🔄 **Continuous flow** - Merge PRs when you have time, next PR stages automatically
 - 💬 **Context for reviewers** - AI-generated summaries explain each change
@@ -53,6 +53,8 @@ Describe what you want to refactor and how to do it.
 - [ ] Third task to complete
 ```
 
+Tasks can be organized however you like—grouped under headings, separated by blank lines, or interspersed with other text. Just ensure each task starts with `- [ ]` so ClaudeChain can find it.
+
 ### 2. Add the Workflow
 
 Create `.github/workflows/claudechain.yml`:
@@ -70,7 +72,7 @@ on:
   pull_request:
     types: [closed]
     branches:
-      - main
+      - main # Branch your PRs merge into
 
 permissions:
   contents: write
@@ -88,13 +90,15 @@ jobs:
           github_event: ${{ toJson(github.event) }}
           event_name: ${{ github.event_name }}
           project_name: ${{ github.event.inputs.project_name || '' }}
+          claude_allowed_tools: 'Read,Write,Edit,Bash(git add:*),Bash(git commit:*)'  # Configure as needed
+          base_branch: 'main'  # Branch your PRs merge into
 ```
 
 ### 3. Configure GitHub
 
-1. **Add secret:** Settings → Secrets → `ANTHROPIC_API_KEY`
-2. **Enable PRs:** Settings → Actions → "Allow GitHub Actions to create and approve pull requests"
-3. **Install app:** Run `/install-github-app` in Claude Code
+1. **Add secret:** Settings → Secrets & Variables → Actions → Repository Secrets → `ANTHROPIC_API_KEY`
+2. **Enable PRs:** Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"
+3. **Install app:** Run `/install-github-app` in Claude Code. (Optional: To use @claude on PRs)
 
 ### 4. Start ClaudeChain
 

@@ -79,6 +79,8 @@ Tasks use Markdown checkbox syntax:
 - The description text is used to generate the task hash
 - When a PR merges, ClaudeChain automatically marks the task `- [x]`
 
+**Flexible organization:** Tasks can be organized however you like—grouped under headings, separated by blank lines, or interspersed with other text. Just ensure each task starts with `- [ ]` so ClaudeChain can find it.
+
 ### Task Lifecycle
 
 ```
