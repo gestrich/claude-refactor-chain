@@ -1,6 +1,6 @@
 # Notifications Guide
 
-This guide explains how to set up Slack notifications, PR summaries, and statistics reports for visibility into ClaudeChain activity.
+This guide explains how to set up Slack notifications, PR summaries, and statistics reports for visibility into your PR chain's progress.
 
 ## Table of Contents
 

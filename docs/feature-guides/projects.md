@@ -1,6 +1,6 @@
 # Projects Guide
 
-This guide explains how to create and configure ClaudeChain projects, including writing task specs and managing tasks safely.
+This guide explains how to create and configure ClaudeChain projects, including writing task specs and managing tasks safely. Each project defines a chain of tasks that ClaudeChain works through one PR at a time.
 
 ## Table of Contents
 

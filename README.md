@@ -8,7 +8,7 @@ Built on Claude Code and GitHub Actions, it automates the tedious refactoring wo
 
 **Key features:**
 - 📋 **Incremental automation** - Write your refactor spec, get automated PRs for each step
-- ⚡ **Manageable review burden** - One PR at a time, distributed across team members
+- ⚡ **Manageable review burden** - One PR at a time, small focused changes
 - 🔄 **Continuous flow** - Merge PRs when you have time, next PR stages automatically
 - 💬 **Context for reviewers** - AI-generated summaries explain each change
 - 📊 **Visibility** - Track progress, team stats, cost, and completion rates

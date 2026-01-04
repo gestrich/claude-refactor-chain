@@ -1,6 +1,6 @@
 # Setup Guide
 
-This guide walks you through the one-time setup to get ClaudeChain running in your repository.
+This guide walks you through the one-time setup to get ClaudeChain running in your repository. Once configured, ClaudeChain will automatically create a chain of PRs from your task list—one task at a time, each building on the last.
 
 ## Table of Contents
 

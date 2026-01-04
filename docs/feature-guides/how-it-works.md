@@ -25,10 +25,10 @@ ClaudeChain automates incremental code refactoring by:
 It's designed for work that would otherwise sit on the backlog forever—migrations, refactoring, code cleanup, documentation—breaking it into manageable, reviewable PRs.
 
 **Key characteristics:**
-- One PR at a time (per reviewer)
+- One PR at a time per project
 - Human review required for each change
 - Automatic continuation when PRs are merged
-- Distributed review burden across team members
+- Small, focused changes that are easy to review
 
 ---
 

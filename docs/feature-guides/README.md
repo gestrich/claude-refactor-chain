@@ -1,6 +1,6 @@
 # Feature Guides
 
-User-facing documentation for ClaudeChain features. These guides explain how to use ClaudeChain effectively in your projects.
+User-facing documentation for ClaudeChain features. These guides explain how to use ClaudeChain to create a chain of automated PRs that work through your refactoring tasks one step at a time.
 
 ## Available Guides
 

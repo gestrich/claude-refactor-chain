@@ -1,6 +1,6 @@
 # Troubleshooting
 
-This guide covers common issues and solutions when using ClaudeChain.
+This guide covers common issues and solutions when using ClaudeChain to keep your PR chain flowing smoothly.
 
 ## Table of Contents
 
