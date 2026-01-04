@@ -32,3 +32,9 @@ Expect: Another PR to merge
 Run statistics workflow
 Expect: Slack message posted with costs/open/merged PRs
 Expect: Github summary valid
+
+### Manual Worfklow Run
+
+Variations
+* base branch (good/bad)
+* project name (good/bad)
