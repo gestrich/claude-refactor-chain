@@ -16,7 +16,7 @@ Do NOT just output the summary as text. The summary MUST be written to a file us
 1. View the changes using: `git diff origin/{BASE_BRANCH}...HEAD`
 2. Analyze the changes made in the diff
 3. If helpful, use the Read tool to explore relevant code for additional context
-4. Generate a concise summary (<300 words) that explains:
+4. Generate a concise summary (<200 words) that explains:
    - What specific changes were made (files, functions, logic)
    - Why these changes were made (purpose, benefits)
    - Any notable implementation details

@@ -40,6 +40,7 @@ Generate a summary of the changes.
             repo="owner/repo",
             run_id="456789",
             action_path=str(tmp_path),
+            base_branch="main",
         )
 
         # Assertions
@@ -73,6 +74,7 @@ Generate a summary of the changes.
             repo="owner/repo",
             run_id="123",
             action_path="/tmp",
+            base_branch="main",
         )
 
         # Should exit successfully without error
@@ -94,6 +96,7 @@ Generate a summary of the changes.
             repo="owner/repo",
             run_id="456",
             action_path="/tmp",
+            base_branch="main",
         )
 
         # Should fail
@@ -113,12 +116,33 @@ Generate a summary of the changes.
             repo="",
             run_id="",
             action_path="/tmp",
+            base_branch="main",
         )
 
         # Should fail
         assert exit_code == 1
         gh.set_error.assert_called_once_with(
             "GITHUB_REPOSITORY and GITHUB_RUN_ID are required"
+        )
+
+    def test_prepare_summary_missing_base_branch(self):
+        """Test prepare_summary fails when BASE_BRANCH is missing"""
+        gh = MagicMock(spec=GitHubActionsHelper)
+
+        exit_code = cmd_prepare_summary(
+            gh=gh,
+            pr_number="123",
+            task="Some task",
+            repo="owner/repo",
+            run_id="456",
+            action_path="/tmp",
+            base_branch="",
+        )
+
+        # Should fail
+        assert exit_code == 1
+        gh.set_error.assert_called_once_with(
+            "BASE_BRANCH environment variable is required"
         )
 
     def test_prepare_summary_template_not_found(self):
@@ -132,6 +156,7 @@ Generate a summary of the changes.
             repo="owner/repo",
             run_id="456",
             action_path="/nonexistent/path",
+            base_branch="main",
         )
 
         # Should fail
@@ -161,6 +186,7 @@ URL: {WORKFLOW_URL}
             repo="test/repo",
             run_id="111222",
             action_path=str(tmp_path),
+            base_branch="main",
         )
 
         assert exit_code == 0
@@ -189,6 +215,7 @@ URL: {WORKFLOW_URL}
             repo="owner/repo",
             run_id="789",
             action_path=str(tmp_path),
+            base_branch="main",
         )
 
         assert exit_code == 0
@@ -216,6 +243,7 @@ URL: {WORKFLOW_URL}
             repo="myorg/myrepo",
             run_id="987654321",
             action_path=str(tmp_path),
+            base_branch="main",
         )
 
         assert exit_code == 0
@@ -244,6 +272,7 @@ URL: {WORKFLOW_URL}
             repo="owner/repo",
             run_id="123",
             action_path=str(tmp_path),
+            base_branch="main",
         )
 
         # Should fail gracefully

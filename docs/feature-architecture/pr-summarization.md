@@ -2,7 +2,7 @@
 
 ## Overview
 
-ClaudeChain includes an optional feature to automatically post AI-generated summary comments on PRs. The summary analyzes the changes using local git history and workflow context, explaining what was done and why in under 300 words.
+ClaudeChain includes an optional feature to automatically post AI-generated summary comments on PRs. The summary analyzes the changes using local git history and workflow context, explaining what was done and why in under 200 words.
 
 ## Architecture Decision
 
@@ -30,7 +30,7 @@ ClaudeChain includes an optional feature to automatically post AI-generated summ
    - Runs: git diff origin/<base_branch>...HEAD
    - Optionally explores code with Read tool for context
    - Analyzes the changes
-   - Generates summary (<300 words)
+   - Generates summary (<200 words)
    - Writes summary to file using Write tool
 4. Post PR comment step posts summary to PR
 ```
@@ -84,7 +84,7 @@ ClaudeChain includes an optional feature to automatically post AI-generated summ
 ## API Costs
 
 - Input tokens: ~500-5000 (depends on diff size)
-- Output tokens: ~750 (300 words max)
+- Output tokens: ~500 (200 words max)
 - Cost per summary: ~$0.002-0.005 (Sonnet 4.5)
 - Users control via `add_pr_summary` flag (default enabled)
 

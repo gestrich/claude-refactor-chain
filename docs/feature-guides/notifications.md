@@ -107,7 +107,7 @@ the response body.
 
 Each summary costs approximately **$0.002-0.005** depending on diff size:
 - Input: ~500-5000 tokens (varies with diff size)
-- Output: ~750 tokens (300 words max)
+- Output: ~500 tokens (200 words max)
 
 For high-volume projects, consider disabling if cost is a concern.
 

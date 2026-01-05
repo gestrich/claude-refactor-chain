@@ -13,7 +13,7 @@ def cmd_prepare_summary(
     repo: str,
     run_id: str,
     action_path: str,
-    base_branch: str = "main"
+    base_branch: str,
 ) -> int:
     """Handle 'prepare-summary' subcommand - generate prompt for PR summary comment
 
@@ -47,6 +47,10 @@ def cmd_prepare_summary(
 
         if not repo or not run_id:
             gh.set_error("GITHUB_REPOSITORY and GITHUB_RUN_ID are required")
+            return 1
+
+        if not base_branch:
+            gh.set_error("BASE_BRANCH environment variable is required")
             return 1
 
         # Construct workflow URL

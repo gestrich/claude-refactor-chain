@@ -61,7 +61,7 @@ def main():
             repo=os.environ.get("GITHUB_REPOSITORY", ""),
             run_id=os.environ.get("GITHUB_RUN_ID", ""),
             action_path=os.environ.get("ACTION_PATH", ""),
-            base_branch=os.environ.get("BASE_BRANCH", DEFAULT_BASE_BRANCH)
+            base_branch=os.environ.get("BASE_BRANCH", "")
         )
     elif args.command == "post-pr-comment":
         return cmd_post_pr_comment(

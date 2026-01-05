@@ -245,7 +245,7 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_RUN_ID: ${{ github.run_id }}
         ACTION_PATH: ${{ github.action_path }}
-        BASE_BRANCH: ${{ steps.parse.outputs.base_branch || inputs.default_base_branch }}
+        BASE_BRANCH: ${{ steps.parse.outputs.base_branch }}
       run: |
         export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"
         python3 -m claudechain prepare-summary
