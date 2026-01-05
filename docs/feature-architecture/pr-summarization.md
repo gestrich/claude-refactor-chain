@@ -2,7 +2,7 @@
 
 ## Overview
 
-ClaudeChain includes an optional feature to automatically post AI-generated summary comments on PRs. The summary analyzes the PR diff and workflow context, explaining what was done and why in under 200 words.
+ClaudeChain includes an optional feature to automatically post AI-generated summary comments on PRs. The summary analyzes the changes using local git history and workflow context, explaining what was done and why in under 300 words.
 
 ## Architecture Decision
 
@@ -23,15 +23,16 @@ ClaudeChain includes an optional feature to automatically post AI-generated summ
 1. Finalize step completes → Outputs pr_number
 2. Prepare summary step starts (if enabled and PR exists)
    - Load prompt template from resources/prompts/summary_prompt.md
-   - Substitute: {TASK_DESCRIPTION}, {PR_NUMBER}, {WORKFLOW_URL}
+   - Substitute: {TASK_DESCRIPTION}, {PR_NUMBER}, {WORKFLOW_URL}, {BASE_BRANCH}
    - Output: summary_prompt
 3. Claude Code step starts (receives summary_prompt)
    - Claude reads the prompt with context
-   - Runs: gh pr diff <pr_number> --patch
-   - Analyzes the diff
-   - Generates summary (<200 words)
-   - Posts comment: gh pr comment <pr_number> --body-file <temp>
-4. Summary appears on PR
+   - Runs: git diff origin/<base_branch>...HEAD
+   - Optionally explores code with Read tool for context
+   - Analyzes the changes
+   - Generates summary (<300 words)
+   - Writes summary to file using Write tool
+4. Post PR comment step posts summary to PR
 ```
 
 ### Components
@@ -39,12 +40,12 @@ ClaudeChain includes an optional feature to automatically post AI-generated summ
 #### 1. Prompt Template
 - Location: `src/claudechain/resources/prompts/summary_prompt.md`
 - Purpose: Template for summary generation with variable substitution
-- Variables: `{TASK_DESCRIPTION}`, `{PR_NUMBER}`, `{WORKFLOW_URL}`
+- Variables: `{TASK_DESCRIPTION}`, `{PR_NUMBER}`, `{WORKFLOW_URL}`, `{BASE_BRANCH}`, `{SUMMARY_FILE_PATH}`
 
 #### 2. Prepare Summary Command
 - Module: `src/claudechain/cli/commands/prepare_summary.py`
-- Function: `cmd_prepare_summary(args, gh)`
-- Reads environment variables: `PR_NUMBER`, `TASK`, `GITHUB_REPOSITORY`, `GITHUB_RUN_ID`
+- Function: `cmd_prepare_summary(gh, pr_number, task, repo, run_id, action_path, base_branch)`
+- Reads environment variables: `PR_NUMBER`, `TASK_DESCRIPTION`, `GITHUB_REPOSITORY`, `GITHUB_RUN_ID`, `BASE_BRANCH`
 - Performs template variable substitution
 - Writes final prompt to `$GITHUB_OUTPUT` as `summary_prompt`
 
@@ -83,7 +84,7 @@ ClaudeChain includes an optional feature to automatically post AI-generated summ
 ## API Costs
 
 - Input tokens: ~500-5000 (depends on diff size)
-- Output tokens: ~500 (200 words max)
+- Output tokens: ~750 (300 words max)
 - Cost per summary: ~$0.002-0.005 (Sonnet 4.5)
 - Users control via `add_pr_summary` flag (default enabled)
 

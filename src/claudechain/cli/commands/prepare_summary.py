@@ -12,11 +12,12 @@ def cmd_prepare_summary(
     task: str,
     repo: str,
     run_id: str,
-    action_path: str
+    action_path: str,
+    base_branch: str = "main"
 ) -> int:
     """Handle 'prepare-summary' subcommand - generate prompt for PR summary comment
 
-    This command generates a prompt for Claude Code to analyze a PR diff and post
+    This command generates a prompt for Claude Code to analyze changes and write
     a summary comment.
 
     All parameters passed explicitly, no environment variable access.
@@ -28,6 +29,7 @@ def cmd_prepare_summary(
         repo: GitHub repository (owner/name format)
         run_id: GitHub Actions run ID
         action_path: Path to the action directory
+        base_branch: Base branch for git diff comparison
 
     Returns:
         Exit code (0 for success, non-zero for failure)
@@ -66,6 +68,7 @@ def cmd_prepare_summary(
         summary_prompt = summary_prompt.replace("{PR_NUMBER}", pr_number)
         summary_prompt = summary_prompt.replace("{WORKFLOW_URL}", workflow_url)
         summary_prompt = summary_prompt.replace("{SUMMARY_FILE_PATH}", PR_SUMMARY_FILE_PATH)
+        summary_prompt = summary_prompt.replace("{BASE_BRANCH}", base_branch)
 
         # Write output
         gh.write_output("summary_prompt", summary_prompt)
