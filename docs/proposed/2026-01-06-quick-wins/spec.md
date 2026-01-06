@@ -8,7 +8,7 @@ The TODO list contains many small improvements that have accumulated. This spec 
 
 ---
 
-- [ ] **Add project name to PR titles**
+- [x] **Add project name to PR titles**
 
 Currently PR titles are generated without indicating which project they belong to. When multiple ClaudeChain projects exist in a repository, it's unclear which project a PR is associated with from the title alone.
 
