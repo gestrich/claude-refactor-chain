@@ -744,11 +744,12 @@ class StatisticsReport:
             if stats.tasks:
                 project_section.add(Header("Tasks", level=3))
 
-                # Build table with columns: Status, Task, PR, Cost
+                # Build table with columns: Checkbox, Task, PR, Status, Cost
                 columns = (
                     TableColumn(header="", align="center"),  # checkbox
                     TableColumn(header="Task", align="left"),
                     TableColumn(header="PR", align="left"),
+                    TableColumn(header="Status", align="left"),
                     TableColumn(header="Cost", align="right"),
                 )
 
@@ -763,27 +764,28 @@ class StatisticsReport:
                         pr = task.pr
                         pr_url = pr.url or self._build_pr_url(pr.number)
                         if pr.is_merged():
-                            state = "Merged"
+                            status = "Merged"
                         elif pr.is_open():
-                            state = f"Open, {pr.days_open}d"
+                            status = f"Open ({pr.days_open}d)"
                         else:
-                            state = "Closed"
-                        # Use Link element - formatter handles rendering
+                            status = "Closed"
+                        # PR link in its own column, status separate
                         if pr_url:
-                            pr_info = Link(f"#{pr.number} ({state})", pr_url)
+                            pr_info = Link(f"#{pr.number}", pr_url)
                         else:
-                            pr_info = f"#{pr.number} ({state})"
+                            pr_info = f"#{pr.number}"
                     else:
                         pr_info = "-"
+                        status = "-"
 
                     cost_str = f"${task.cost_usd:.2f}" if task.cost_usd > 0 else "-"
                     total_cost += task.cost_usd
 
-                    rows.append(TableRow(cells=(checkbox, desc, pr_info, cost_str)))
+                    rows.append(TableRow(cells=(checkbox, desc, pr_info, status, cost_str)))
 
                 # Add total row if there are costs
                 if total_cost > 0:
-                    rows.append(TableRow(cells=("", "", "**Total**", f"**${total_cost:.2f}**")))
+                    rows.append(TableRow(cells=("", "", "", "**Total**", f"**${total_cost:.2f}**")))
 
                 project_section.add(Table(columns=columns, rows=tuple(rows)))
 

@@ -2221,7 +2221,8 @@ class TestFormatProjectDetails:
         result = report.format_project_details()
 
         assert "✓" in result  # Checkmark for completed task
-        assert "#31 (Merged)" in result
+        assert "#31" in result  # PR number in its own column
+        assert "Merged" in result  # Status in separate column
 
     def test_format_truncates_long_descriptions(self):
         """Should truncate task descriptions longer than 50 chars in table format"""
