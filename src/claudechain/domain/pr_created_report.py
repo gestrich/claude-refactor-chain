@@ -77,16 +77,13 @@ class PullRequestCreatedReport:
         formatter = SlackReportFormatter()
 
         # Build using formatter for individual elements to ensure correct syntax
-        # Note: emoji is outside bold markers to match original format
+        # Title includes PR link: "🎉 PR #32 Created"
+        pr_link = formatter.format_link(Link(f"PR #{self.pr_number}", self.pr_url))
         lines = [
-            "🎉 " + formatter.format_text_block(TextBlock("New PR Created", style="bold")),
+            f"🎉 {pr_link} Created",
             "",
-            formatter.format_labeled_value(
-                LabeledValue("PR", Link(f"#{self.pr_number}", self.pr_url))
-            ),
             formatter.format_labeled_value(LabeledValue("Project", self.project_name)),
             formatter.format_labeled_value(LabeledValue("Task", self.task)),
-            "",
             formatter.format_labeled_value(LabeledValue("Cost", format_usd(self.cost_breakdown.total_cost))),
         ]
 

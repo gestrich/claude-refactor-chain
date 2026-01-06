@@ -101,15 +101,14 @@ class TestBuildNotificationElements:
         assert isinstance(result, str)
 
     def test_contains_header(self, report):
-        """Test notification contains header with emoji."""
+        """Test notification contains header with PR link and emoji."""
         result = report.build_notification_elements()
-        assert "🎉 *New PR Created*" in result
+        assert "🎉 <https://github.com/owner/repo/pull/123|PR #123> Created" in result
 
     def test_contains_pr_link(self, report):
-        """Test notification contains PR link in Slack format."""
+        """Test notification contains PR link in title using Slack format."""
         result = report.build_notification_elements()
-        assert "*PR:*" in result
-        assert "<https://github.com/owner/repo/pull/123|#123>" in result
+        assert "<https://github.com/owner/repo/pull/123|PR #123>" in result
 
     def test_contains_project_name(self, report):
         """Test notification contains project name."""
@@ -134,12 +133,10 @@ class TestBuildNotificationElements:
         result = report.build_notification_elements()
 
         expected = (
-            "🎉 *New PR Created*\n"
+            "🎉 <https://github.com/owner/repo/pull/123|PR #123> Created\n"
             "\n"
-            "*PR:* <https://github.com/owner/repo/pull/123|#123>\n"
             "*Project:* my-project\n"
             "*Task:* Fix the login bug\n"
-            "\n"
             "*Cost:* $0.20"
         )
         assert result == expected
