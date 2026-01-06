@@ -87,9 +87,7 @@ class PullRequestCreatedReport:
             formatter.format_labeled_value(LabeledValue("Project", self.project_name)),
             formatter.format_labeled_value(LabeledValue("Task", self.task)),
             "",
-            formatter.format_labeled_value(
-                LabeledValue("💰 Cost", format_usd(self.cost_breakdown.total_cost))
-            ),
+            formatter.format_labeled_value(LabeledValue("Cost", format_usd(self.cost_breakdown.total_cost))),
         ]
 
         return "\n".join(lines)

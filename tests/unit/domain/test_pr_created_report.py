@@ -126,7 +126,7 @@ class TestBuildNotificationElements:
     def test_contains_cost(self, report):
         """Test notification contains cost."""
         result = report.build_notification_elements()
-        assert "*💰 Cost:*" in result
+        assert "*Cost:*" in result
         assert "$0.20" in result
 
     def test_matches_expected_format(self, report):
@@ -140,7 +140,7 @@ class TestBuildNotificationElements:
             "*Project:* my-project\n"
             "*Task:* Fix the login bug\n"
             "\n"
-            "*💰 Cost:* $0.20"
+            "*Cost:* $0.20"
         )
         assert result == expected
 
