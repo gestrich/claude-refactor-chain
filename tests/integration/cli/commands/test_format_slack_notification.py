@@ -56,7 +56,7 @@ class TestFormatPrNotification:
         # Assert
         assert "🎉 *New PR Created*" in result
         assert "*PR:* <https://github.com/owner/repo/pull/42|#42>" in result
-        assert "*Project:* `my-project`" in result
+        assert "*Project:* my-project" in result
         assert "*Task:* Refactor authentication system" in result
 
     def test_format_pr_notification_includes_total_cost(self):
@@ -78,7 +78,7 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        assert "*💰 Cost:* $0.17" in result  # Total cost only (0.123456 + 0.045678)
+        assert "*Cost:* $0.17" in result  # Total cost only (0.123456 + 0.045678)
 
     def test_format_pr_notification_uses_two_decimal_places(self):
         """Should display costs with 2 decimal places (cents)"""
@@ -99,7 +99,7 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        assert "*💰 Cost:* $0.00" in result
+        assert "*Cost:* $0.00" in result
 
     def test_format_pr_notification_handles_zero_costs(self):
         """Should format zero costs correctly"""
@@ -117,7 +117,7 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        assert "*💰 Cost:* $0.00" in result
+        assert "*Cost:* $0.00" in result
 
     def test_format_pr_notification_handles_large_costs(self):
         """Should format large cost values correctly"""
@@ -138,7 +138,7 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        assert "*💰 Cost:* $169.14" in result  # Total only
+        assert "*Cost:* $169.14" in result  # Total only
 
     def test_format_pr_notification_formats_pr_link_as_slack_mrkdwn(self):
         """Should format PR link using Slack mrkdwn syntax"""
@@ -179,7 +179,7 @@ class TestFormatPrNotification:
         assert "Main task:" not in result  # No line-by-line breakdown
         assert "Per-Model" not in result  # No model details
         # Should have total cost
-        assert "*💰 Cost:* $3.00" in result
+        assert "*Cost:* $3.00" in result
 
     def test_format_pr_notification_does_not_include_model_breakdown(self):
         """Should NOT include per-model breakdown (that goes in PR comment)"""
@@ -212,7 +212,7 @@ class TestFormatPrNotification:
         assert "*📊 Per-Model Usage:*" not in result
         assert "claude-3-haiku-20240307" not in result
         # Just the total cost
-        assert "*💰 Cost:* $0.01" in result
+        assert "*Cost:* $0.01" in result
 
 
 class TestCmdFormatSlackNotification:
