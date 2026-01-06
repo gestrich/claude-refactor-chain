@@ -77,7 +77,7 @@ outputs:
     value: ${{ steps.parse.outputs.project_name || steps.prepare.outputs.project_name }}
   base_branch:
     description: 'Resolved base branch'
-    value: ${{ steps.parse.outputs.base_branch || inputs.default_base_branch }}
+    value: ${{ steps.prepare.outputs.base_branch || steps.parse.outputs.base_branch || inputs.default_base_branch }}
 
   # PR outputs
   pr_number:
@@ -223,7 +223,7 @@ runs:
         PR_TEMPLATE_PATH: ${{ steps.prepare.outputs.pr_template_path }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_RUN_ID: ${{ github.run_id }}
-        BASE_BRANCH: ${{ steps.parse.outputs.base_branch || inputs.default_base_branch }}
+        BASE_BRANCH: ${{ steps.prepare.outputs.base_branch || steps.parse.outputs.base_branch || inputs.default_base_branch }}
         HAS_CAPACITY: ${{ steps.prepare.outputs.has_capacity }}
         HAS_TASK: ${{ steps.prepare.outputs.has_task }}
         ACTION_PATH: ${{ github.action_path }}
@@ -245,7 +245,7 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_RUN_ID: ${{ github.run_id }}
         ACTION_PATH: ${{ github.action_path }}
-        BASE_BRANCH: ${{ steps.parse.outputs.base_branch }}
+        BASE_BRANCH: ${{ steps.prepare.outputs.base_branch || steps.parse.outputs.base_branch || inputs.default_base_branch }}
       run: |
         export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"
         python3 -m claudechain prepare-summary
