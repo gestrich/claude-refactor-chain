@@ -32,7 +32,7 @@ Task a3f2b891: Add user authentication
 
 ---
 
-- [ ] **Add repository name to Slack notifications**
+- [x] **Add repository name to Slack notifications**
 
 When ClaudeChain is used across multiple repositories, Slack notifications don't indicate which repository the statistics are for. This makes it hard to identify the source at a glance.
 

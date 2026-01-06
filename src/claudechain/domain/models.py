@@ -487,11 +487,12 @@ class ProjectStats:
 class StatisticsReport:
     """Aggregated statistics report for all projects and team members"""
 
-    def __init__(self, base_branch: Optional[str] = None):
+    def __init__(self, base_branch: Optional[str] = None, repo: Optional[str] = None):
         self.team_stats = {}      # username -> TeamMemberStats
         self.project_stats = {}   # project_name -> ProjectStats
         self.generated_at = None  # datetime
         self.base_branch = base_branch  # Branch used to fetch specs
+        self.repo = repo  # GitHub repository (owner/name)
         self.generation_time_seconds: Optional[float] = None  # Time to generate report
 
     def add_team_member(self, stats: TeamMemberStats):
@@ -529,13 +530,19 @@ class StatisticsReport:
         notification title, so we don't duplicate it here.
 
         Returns:
-            Section containing branch metadata (if any)
+            Section containing repo and branch metadata (if any)
         """
         section = Section()
 
-        # Only show branch if specified (skip Generated timestamp as it's redundant)
+        # Build metadata parts
+        metadata_parts = []
+        if self.repo:
+            metadata_parts.append(self.repo)
         if self.base_branch:
-            section.add(TextBlock(f"Branch: {self.base_branch}", style="italic"))
+            metadata_parts.append(f"Branch: {self.base_branch}")
+
+        if metadata_parts:
+            section.add(TextBlock(" · ".join(metadata_parts), style="italic"))
 
         return section
 

@@ -64,7 +64,7 @@ class StatisticsService:
             Complete StatisticsReport
         """
         start_time = datetime.now(timezone.utc)
-        report = StatisticsReport()
+        report = StatisticsReport(repo=self.repo)
         report.generated_at = start_time
 
         if not self.repo:
