@@ -478,12 +478,17 @@ class TestCmdStatistics:
         # so we just verify the command ran successfully
         assert "ClaudeChain Statistics Collection" in captured.out
 
-    def test_cmd_statistics_slack_format_outputs_slack_text(
+    def test_cmd_statistics_slack_format_outputs_block_kit_json(
         self, mock_github_helper, sample_statistics_report, capsys
     ):
-        """Should output Slack formatted text to console when format is slack"""
+        """Should output Block Kit JSON to console when format is slack"""
         # Arrange
-        slack_output = "Slack formatted report text"
+        block_kit_payload = {
+            "text": "ClaudeChain Statistics",
+            "blocks": [
+                {"type": "header", "text": {"type": "plain_text", "text": "Test"}}
+            ]
+        }
         discovered_projects = [("project-a", "main")]
         with patch(
             "claudechain.cli.commands.statistics.StatisticsService"
@@ -496,8 +501,8 @@ class TestCmdStatistics:
             mock_service = Mock()
             mock_collect = mock_service.collect_all_statistics
             mock_service_class.return_value = mock_service
-            sample_statistics_report.format_for_slack = Mock(
-                return_value=slack_output
+            sample_statistics_report.format_for_slack_blocks = Mock(
+                return_value=block_kit_payload
             )
             mock_collect.return_value = sample_statistics_report
 
@@ -511,8 +516,58 @@ class TestCmdStatistics:
         # Assert
         assert result == 0
         captured = capsys.readouterr()
-        assert "Slack Output" in captured.out
-        assert slack_output in captured.out
+        assert "Slack Output (Block Kit JSON)" in captured.out
+        assert "blocks" in captured.out
+
+    def test_cmd_statistics_slack_message_is_valid_block_kit_json(
+        self, mock_github_helper, sample_statistics_report
+    ):
+        """Should write valid Block Kit JSON to slack_message output"""
+        # Arrange
+        block_kit_payload = {
+            "text": "ClaudeChain Statistics",
+            "blocks": [
+                {"type": "header", "text": {"type": "plain_text", "text": "Report"}},
+                {"type": "divider"}
+            ]
+        }
+        discovered_projects = [("project-a", "main")]
+        with patch(
+            "claudechain.cli.commands.statistics.StatisticsService"
+        ) as mock_service_class, patch(
+            "claudechain.cli.commands.statistics.ProjectRepository"
+        ), patch(
+            "claudechain.cli.commands.statistics._discover_projects",
+            return_value=discovered_projects
+        ):
+            mock_service = Mock()
+            mock_collect = mock_service.collect_all_statistics
+            mock_service_class.return_value = mock_service
+            sample_statistics_report.format_for_slack_blocks = Mock(
+                return_value=block_kit_payload
+            )
+            mock_collect.return_value = sample_statistics_report
+
+            # Act
+            result = cmd_statistics(
+                gh=mock_github_helper,
+                repo="owner/repo",
+                format_type="slack"
+            )
+
+        # Assert
+        assert result == 0
+        slack_output_calls = [
+            c for c in mock_github_helper.write_output.call_args_list if c[0][0] == "slack_message"
+        ]
+        assert len(slack_output_calls) == 1
+
+        # Verify it's valid JSON with Block Kit structure
+        slack_json = slack_output_calls[0][0][1]
+        parsed = json.loads(slack_json)
+        assert "text" in parsed
+        assert "blocks" in parsed
+        assert isinstance(parsed["blocks"], list)
 
     def test_cmd_statistics_writes_timestamp_to_summary(
         self, mock_github_helper, sample_statistics_report

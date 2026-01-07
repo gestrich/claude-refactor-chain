@@ -108,23 +108,16 @@ Implemented `format_leaderboard_blocks` method with medal emojis and 2-column se
 
 Added `format_for_slack_blocks()` method to `StatisticsReport` that returns Block Kit JSON dict. Updated statistics command to use new method and output JSON for webhooks.
 
-- [ ] Phase 6: Update tests
+- [x] Phase 6: Update tests
 
-Update existing tests to verify the new Block Kit output structure.
+Created `tests/unit/domain/formatters/test_slack_block_kit_formatter.py` with 32 tests covering:
+- Block builder functions (header, context, section, divider)
+- Progress bar generation
+- Project blocks (checkmarks, progress, stats, PR links, warnings)
+- Leaderboard blocks (medals, section fields, limits)
+- Warnings blocks
 
-Files to modify:
-- `tests/unit/domain/test_models.py` - Update tests for new block methods
-- `tests/integration/cli/commands/test_statistics.py` - Verify Block Kit JSON output
-- Create `tests/unit/domain/formatters/test_slack_block_kit_formatter.py`
-
-Test requirements:
-- Verify blocks array structure is valid
-- Verify header blocks use plain_text (required by Slack)
-- Verify section fields are limited to 10 per section
-- Verify mrkdwn text uses correct syntax
-- Verify fallback text is included for notification previews
-- Verify ✅ only appears on 100% complete projects
-- Verify ⚠️ appears on PRs older than 5 days
+Updated `tests/integration/cli/commands/test_statistics.py` with Block Kit JSON verification tests.
 
 - [ ] Phase 7: Validation
 
