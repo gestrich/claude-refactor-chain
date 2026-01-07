@@ -222,7 +222,7 @@ class TestProjectBlocks:
         assert "50%" in section_text
 
     def test_project_shows_stats_context(self, formatter):
-        """Project blocks include merged count and cost"""
+        """Project blocks include merged count and cost with padding"""
         result = formatter.format_project_blocks(
             project_name="test-project",
             merged=5,
@@ -231,7 +231,8 @@ class TestProjectBlocks:
         )
 
         context_text = result[1]["elements"][0]["text"]
-        assert "5/10 merged" in context_text
+        assert " 5/10" in context_text  # Right-padded merged count
+        assert "merged" in context_text
         assert "$15.50" in context_text
 
     def test_project_shows_open_prs_with_links(self, formatter):
