@@ -18,6 +18,7 @@ from claudechain.domain.formatters.report_elements import (
 )
 from claudechain.domain.formatters.slack_formatter import SlackReportFormatter
 from claudechain.domain.formatters.markdown_formatter import MarkdownReportFormatter
+from claudechain.domain.formatters.slack_block_kit_formatter import SlackBlockKitFormatter
 from claudechain.domain.formatting import format_usd
 from claudechain.domain.github_models import GitHubPullRequest, PRState
 
@@ -918,6 +919,101 @@ class StatisticsReport:
             sections.append(f"_Elapsed time: {self.generation_time_seconds:.1f}s_")
 
         return "\n\n".join(sections)
+
+    def format_for_slack_blocks(
+        self,
+        show_assignee_stats: bool = False,
+        stale_pr_days: int = 7,
+    ) -> Dict:
+        """Complete report as Slack Block Kit JSON structure.
+
+        Returns a dict with 'text' (fallback) and 'blocks' array suitable
+        for posting to Slack webhooks.
+
+        Args:
+            show_assignee_stats: Whether to include the assignee leaderboard (default: False)
+            stale_pr_days: Threshold for stale PR warnings (default: 7 days)
+
+        Returns:
+            Dict with 'text' and 'blocks' keys for Slack webhook payload
+        """
+        formatter = SlackBlockKitFormatter(self.repo or "")
+        blocks: List[Dict] = []
+
+        # Header blocks
+        blocks.extend(formatter.format_header_blocks(
+            title="ClaudeChain Statistics",
+            generated_at=self.generated_at,
+        ))
+
+        # Leaderboard blocks (only if enabled)
+        if show_assignee_stats:
+            sorted_members = sorted(
+                self.team_stats.items(),
+                key=lambda x: (-x[1].merged_count, x[0])
+            )
+            active_members = [
+                {"username": username, "merged": stats.merged_count}
+                for username, stats in sorted_members
+                if stats.merged_count > 0
+            ]
+            blocks.extend(formatter.format_leaderboard_blocks(active_members))
+
+        # Project progress blocks
+        for project_name in sorted(self.project_stats.keys()):
+            stats = self.project_stats[project_name]
+
+            # Build open PRs list with age
+            open_prs = []
+            for pr in stats.open_prs:
+                open_prs.append({
+                    "number": pr.number,
+                    "title": pr.task_description,
+                    "url": pr.url or self._build_pr_url(pr.number),
+                    "age_days": pr.days_open,
+                })
+
+            blocks.extend(formatter.format_project_blocks(
+                project_name=project_name,
+                merged=stats.completed_tasks,
+                total=stats.total_tasks,
+                cost_usd=stats.total_cost_usd,
+                open_prs=open_prs if open_prs else None,
+            ))
+
+        # Warnings blocks
+        warnings_data = []
+        for stats in self.projects_needing_attention():
+            items = []
+
+            # Stale PRs
+            for pr in stats.open_prs:
+                if pr.is_stale(stale_pr_days):
+                    items.append(f"#{pr.number} ({pr.days_open}d, stale)")
+
+            # Open orphaned PRs
+            for pr in stats.orphaned_prs:
+                if pr.is_open():
+                    items.append(f"#{pr.number} ({pr.days_open}d, orphaned)")
+
+            # No open PRs but tasks remain
+            if stats.has_remaining_tasks:
+                items.append(f"No open PRs ({stats.pending_tasks} tasks remaining)")
+
+            if items:
+                warnings_data.append({
+                    "project_name": stats.project_name,
+                    "items": items,
+                })
+
+        blocks.extend(formatter.format_warnings_blocks(warnings_data))
+
+        # Generation time in context block
+        if self.generation_time_seconds is not None:
+            from claudechain.domain.formatters.slack_block_kit_formatter import context_block
+            blocks.append(context_block(f"_Elapsed time: {self.generation_time_seconds:.1f}s_"))
+
+        return formatter.build_message(blocks, fallback_text="ClaudeChain Statistics")
 
     def format_for_pr_comment(self) -> str:
         """Brief summary for PR notifications"""

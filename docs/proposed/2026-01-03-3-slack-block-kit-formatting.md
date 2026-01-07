@@ -104,25 +104,9 @@ Implemented `format_project_blocks` method with project name + ✅, progress bar
 
 Implemented `format_leaderboard_blocks` method with medal emojis and 2-column section fields layout.
 
-- [ ] Phase 5: Update format_for_slack to output Block Kit JSON
+- [x] Phase 5: Update format_for_slack to output Block Kit JSON
 
-Modify `StatisticsReport.format_for_slack()` to return a JSON structure with `blocks` array instead of plain text.
-
-Files to modify:
-- `src/claudechain/domain/models.py` - Update `format_for_slack()` to return dict with blocks
-- `src/claudechain/cli/commands/statistics.py` - Handle JSON output for Slack webhook
-
-Key change: The webhook payload structure changes from:
-```json
-{"text": "plain text message"}
-```
-to:
-```json
-{
-  "text": "Fallback text for notifications",
-  "blocks": [...]
-}
-```
+Added `format_for_slack_blocks()` method to `StatisticsReport` that returns Block Kit JSON dict. Updated statistics command to use new method and output JSON for webhooks.
 
 - [ ] Phase 6: Update tests
 
