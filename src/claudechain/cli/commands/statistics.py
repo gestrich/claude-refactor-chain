@@ -5,7 +5,6 @@ This command instantiates services and coordinates their operations but
 does not implement business logic directly.
 """
 
-import json
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
@@ -79,16 +78,14 @@ def cmd_statistics(
 
         # Generate outputs based on format
         if format_type == "slack":
-            # Generate Block Kit JSON for Slack webhook
-            slack_payload = report.format_for_slack_blocks(
+            slack_text = report.format_for_slack(
                 show_assignee_stats=show_assignee_stats,
             )
-            slack_json = json.dumps(slack_payload)
-            gh.write_output("slack_message", slack_json)
+            gh.write_output("slack_message", slack_text)
             gh.write_output("has_statistics", "true")
             gh.write_output("slack_webhook_url", slack_webhook_url)
-            print("=== Slack Output (Block Kit JSON) ===")
-            print(json.dumps(slack_payload, indent=2))
+            print("=== Slack Output ===")
+            print(slack_text)
             print()
 
         if format_type == "json" or format_type == "slack":

@@ -7,12 +7,10 @@ domain objects rather than raw dictionaries.
 Following the principle: "Parse once into well-formed models"
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Self
 
 
 class PRState(Enum):
@@ -26,7 +24,7 @@ class PRState(Enum):
     MERGED = "merged"
 
     @classmethod
-    def from_string(cls, state: str) -> PRState:
+    def from_string(cls, state: str) -> Self:
         """Parse PR state from string (case-insensitive).
 
         Args:

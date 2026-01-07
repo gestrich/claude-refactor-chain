@@ -19,7 +19,6 @@ from claudechain.domain.formatters.report_elements import (
 from claudechain.domain.formatters.report_formatter import ReportFormatter
 from claudechain.domain.formatters.slack_formatter import SlackReportFormatter
 from claudechain.domain.formatters.markdown_formatter import MarkdownReportFormatter
-from claudechain.domain.formatters.slack_block_kit_formatter import SlackBlockKitFormatter
 
 __all__ = [
     "TableFormatter",
@@ -41,5 +40,4 @@ __all__ = [
     "ReportFormatter",
     "SlackReportFormatter",
     "MarkdownReportFormatter",
-    "SlackBlockKitFormatter",
 ]
