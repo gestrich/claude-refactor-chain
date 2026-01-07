@@ -133,7 +133,9 @@ class SlackBlockKitFormatter:
         blocks.append(section_block(f"{name}\n{progress_bar}"))
 
         cost_str = format_usd(cost_usd) if cost_usd > 0 else "$0.00"
-        blocks.append(context_block(f"{status}  {merged}/{total} merged  •  💰 {cost_str}"))
+        # Use inline code for fixed-width number formatting
+        progress_text = f"`{merged:>2}/{total:<2}`"
+        blocks.append(context_block(f"{status}  {progress_text} merged  •  💰 {cost_str}"))
 
         if open_prs:
             pr_lines = []
