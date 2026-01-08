@@ -168,7 +168,7 @@ class SlackBlockKitFormatter:
         fields = []
         for i, entry in enumerate(entries[:6]):
             medal = medals[i] if i < 3 else f"{i+1}."
-            fields.append(f"{medal} *{entry['username']}*\n{entry['merged']} merged")
+            fields.append(f"{medal} *{entry['username']}*  •  {entry['merged']} merged")
 
         if fields:
             blocks.append(section_fields_block(fields))
