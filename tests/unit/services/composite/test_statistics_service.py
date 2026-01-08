@@ -1236,7 +1236,11 @@ class TestCollectTeamMemberStats:
     def test_collect_stats_basic(self):
         """Test basic team member stats collection from GitHub"""
         from datetime import datetime, timezone, timedelta
-        from claudechain.domain.github_models import GitHubPullRequest
+        from claudechain.domain.github_models import GitHubPullRequest, GitHubUser
+
+        # Create GitHubUser objects for assignees
+        alice = GitHubUser(login="alice", name="Alice")
+        bob = GitHubUser(login="bob", name="Bob")
 
         # Create mock GitHub PRs with valid 8-char hex hashes
         pr1 = GitHubPullRequest(
@@ -1245,7 +1249,7 @@ class TestCollectTeamMemberStats:
             state="merged",
             created_at=datetime.now(timezone.utc) - timedelta(days=5),
             merged_at=datetime.now(timezone.utc) - timedelta(days=4),
-            assignees=["alice"],
+            assignees=[alice],
             labels=["claudechain"],
             head_ref_name="claude-chain-test-project-a3f2b891"
         )
@@ -1256,7 +1260,7 @@ class TestCollectTeamMemberStats:
             state="merged",
             created_at=datetime.now(timezone.utc) - timedelta(days=3),
             merged_at=datetime.now(timezone.utc) - timedelta(days=2),
-            assignees=["bob"],
+            assignees=[bob],
             labels=["claudechain"],
             head_ref_name="claude-chain-test-project-f7c4d3e2"
         )
@@ -1267,7 +1271,7 @@ class TestCollectTeamMemberStats:
             state="open",
             created_at=datetime.now(timezone.utc) - timedelta(days=1),
             merged_at=None,
-            assignees=["alice"],
+            assignees=[alice],
             labels=["claudechain"],
             head_ref_name="claude-chain-test-project-1a2b3c4d"
         )

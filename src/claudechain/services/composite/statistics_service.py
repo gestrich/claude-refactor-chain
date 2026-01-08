@@ -372,14 +372,14 @@ class StatisticsService:
                     timestamp=timestamp
                 )
 
-                # Add to each assignee's stats
-                for assignee in pr.assignees:
-                    if assignee in stats_dict:
+                # Add to each assignee's stats (use login strings, not GitHubUser objects)
+                for assignee_login in pr.get_assignee_logins():
+                    if assignee_login in stats_dict:
                         if pr.state == "merged":
-                            stats_dict[assignee].add_merged_pr(pr_ref)
+                            stats_dict[assignee_login].add_merged_pr(pr_ref)
                             merged_count += 1
                         elif pr.state == "open":
-                            stats_dict[assignee].add_open_pr(pr_ref)
+                            stats_dict[assignee_login].add_open_pr(pr_ref)
                             open_count += 1
 
         except Exception as e:
