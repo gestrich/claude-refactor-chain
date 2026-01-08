@@ -101,7 +101,7 @@ def cmd_statistics(
             gh.write_output("statistics_json", json_data)
 
         # Write GitHub Step Summary
-        gh.write_step_summary("# ClaudeChain Statistics Report")
+        gh.write_step_summary("# ClaudeCode Stats")
         gh.write_step_summary("")
         gh.write_step_summary(f"*Generated: {datetime.now(timezone.utc).isoformat()}*")
         gh.write_step_summary("")
@@ -163,7 +163,7 @@ def cmd_statistics(
     except Exception as e:
         gh.set_error(f"Statistics collection failed: {str(e)}")
         gh.write_output("has_statistics", "false")
-        gh.write_step_summary("# ClaudeChain Statistics Report")
+        gh.write_step_summary("# ClaudeCode Stats")
         gh.write_step_summary("")
         gh.write_step_summary(f"❌ **Error**: {str(e)}")
         import traceback

@@ -53,9 +53,9 @@ class TestFormatPrNotification:
             repo="owner/repo"
         )
 
-        # Assert - title includes PR link, no separate PR line
-        assert "🎉 <https://github.com/owner/repo/pull/42|PR #42> Created" in result
+        # Assert - PR link is on its own row right after Project
         assert "*Project:* my-project" in result
+        assert "*PR:* <https://github.com/owner/repo/pull/42|#42>" in result
         assert "*Task:* Refactor authentication system" in result
 
     def test_format_pr_notification_includes_total_cost(self):
@@ -155,8 +155,8 @@ class TestFormatPrNotification:
         )
 
         # Assert
-        # Slack mrkdwn link format in title: <URL|PR #99>
-        assert "<https://github.com/owner/repo/pull/99|PR #99> Created" in result
+        # Slack mrkdwn link format in PR row: <URL|#99>
+        assert "*PR:* <https://github.com/owner/repo/pull/99|#99>" in result
 
     def test_format_pr_notification_is_concise(self):
         """Should be concise without detailed breakdowns (those go in PR comment)"""
@@ -260,7 +260,7 @@ class TestCmdFormatSlackNotification:
         slack_message_call = [c for c in calls if c[0][0] == "slack_message"]
         assert len(slack_message_call) == 1
         message = slack_message_call[0][0][1]
-        assert "🎉 <https://github.com/owner/repo/pull/42|PR #42> Created" in message
+        assert "*PR:* <https://github.com/owner/repo/pull/42|#42>" in message
         assert "my-project" in message
 
     def test_cmd_format_slack_notification_includes_all_required_fields_in_message(self, mock_gh_actions, default_params):
@@ -441,7 +441,7 @@ class TestCmdFormatSlackNotification:
         message = slack_message_call[0][0][1]
 
         # Should still contain basic structure
-        assert "🎉 <https://github.com/owner/repo/pull/42|PR #42> Created" in message
+        assert "*PR:* <https://github.com/owner/repo/pull/42|#42>" in message
 
     def test_cmd_format_slack_notification_handles_unexpected_exception(self, mock_gh_actions, default_params):
         """Should catch and report unexpected exceptions"""
@@ -522,7 +522,7 @@ class TestCmdFormatSlackNotification:
         # Assert
         captured = capsys.readouterr()
         assert "=== Slack Notification Message ===" in captured.out
-        assert "🎉 <https://github.com/owner/repo/pull/42|PR #42> Created" in captured.out
+        assert "*PR:* <https://github.com/owner/repo/pull/42|#42>" in captured.out
 
     def test_cmd_format_slack_notification_does_not_include_model_breakdown(self, mock_gh_actions):
         """Should NOT include per-model breakdown (that goes in PR comment)"""

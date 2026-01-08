@@ -151,7 +151,7 @@ class TestSlackBlockKitFormatter:
         result = formatter.format_header_blocks()
 
         assert len(result) == 2
-        assert result[0]["text"]["text"] == "ClaudeChain Statistics"
+        assert result[0]["text"]["text"] == "ClaudeCode Stats"
 
 
 class TestProjectBlocks:

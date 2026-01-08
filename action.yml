@@ -309,8 +309,16 @@ runs:
         webhook-type: incoming-webhook
         payload: |
           {
-            "text": "New ClaudeChain PR Created",
+            "text": "PR Created",
             "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "PR Created",
+                  "emoji": true
+                }
+              },
               {
                 "type": "section",
                 "text": {

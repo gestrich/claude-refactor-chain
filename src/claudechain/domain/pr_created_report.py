@@ -67,22 +67,21 @@ class PullRequestCreatedReport:
         """Build formatted Slack notification message.
 
         Returns a pre-formatted string to match the exact Slack message format
-        with specific blank line placement.
+        with specific blank line placement. Note: The "PR Created" header is
+        rendered separately in action.yml using Block Kit header block.
 
         Returns:
-            Formatted Slack notification string.
+            Formatted Slack notification string (body content only, no title).
         """
         from claudechain.domain.formatters import SlackReportFormatter
 
         formatter = SlackReportFormatter()
 
-        # Build using formatter for individual elements to ensure correct syntax
-        # Title includes PR link: "🎉 PR #32 Created"
-        pr_link = formatter.format_link(Link(f"PR #{self.pr_number}", self.pr_url))
+        # Build body content - PR: row goes right after Project:
+        pr_link = formatter.format_link(Link(f"#{self.pr_number}", self.pr_url))
         lines = [
-            f"🎉 {pr_link} Created",
-            "",
             formatter.format_labeled_value(LabeledValue("Project", self.project_name)),
+            formatter.format_labeled_value(LabeledValue("PR", pr_link)),
             formatter.format_labeled_value(LabeledValue("Task", self.task)),
             formatter.format_labeled_value(LabeledValue("Cost", format_usd(self.cost_breakdown.total_cost))),
         ]
