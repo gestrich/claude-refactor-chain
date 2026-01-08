@@ -565,7 +565,7 @@ class StatisticsReport:
     def to_header_section(self) -> Section:
         """Build report header section with metadata.
 
-        Note: The main title "ClaudeCode Stats" is handled by the Slack
+        Note: The main title "ClaudeChain Stats" is handled by the Slack
         notification title, so we don't duplicate it here.
 
         Returns:
@@ -944,7 +944,7 @@ class StatisticsReport:
 
         # Header blocks
         blocks.extend(formatter.format_header_blocks(
-            title="ClaudeCode Stats",
+            title="ClaudeChain Stats",
         ))
 
         # Leaderboard blocks (only if enabled)
@@ -1018,7 +1018,7 @@ class StatisticsReport:
             else:
                 blocks.append(context_block(f"_<{run_url}|See details in GitHub Actions>_"))
 
-        return formatter.build_message(blocks, fallback_text="ClaudeCode Stats")
+        return formatter.build_message(blocks, fallback_text="ClaudeChain Stats")
 
     def format_for_pr_comment(self) -> str:
         """Brief summary for PR notifications"""

@@ -134,7 +134,7 @@ class TestCmdStatistics:
         # Verify step summary was written
         assert mock_github_helper.write_step_summary.call_count > 0
         summary_calls = mock_github_helper.write_step_summary.call_args_list
-        assert any("ClaudeCode Stats" in str(c) for c in summary_calls)
+        assert any("ClaudeChain Stats" in str(c) for c in summary_calls)
 
     def test_cmd_statistics_success_with_json_format(
         self, mock_github_helper, sample_statistics_report
@@ -484,7 +484,7 @@ class TestCmdStatistics:
         """Should output Block Kit JSON to console when format is slack"""
         # Arrange
         block_kit_payload = {
-            "text": "ClaudeCode Stats",
+            "text": "ClaudeChain Stats",
             "blocks": [
                 {"type": "header", "text": {"type": "plain_text", "text": "Test"}}
             ]
@@ -525,7 +525,7 @@ class TestCmdStatistics:
         """Should write valid Block Kit JSON to slack_message output"""
         # Arrange
         block_kit_payload = {
-            "text": "ClaudeCode Stats",
+            "text": "ClaudeChain Stats",
             "blocks": [
                 {"type": "header", "text": {"type": "plain_text", "text": "Report"}},
                 {"type": "divider"}

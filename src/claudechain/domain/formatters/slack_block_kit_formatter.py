@@ -40,7 +40,7 @@ class SlackBlockKitFormatter:
     def build_message(
         self,
         blocks: list[dict[str, Any]],
-        fallback_text: str = "ClaudeCode Stats",
+        fallback_text: str = "ClaudeChain Stats",
     ) -> dict[str, Any]:
         """Build the complete Slack message payload.
 
@@ -58,7 +58,7 @@ class SlackBlockKitFormatter:
 
     def format_header_blocks(
         self,
-        title: str = "ClaudeCode Stats",
+        title: str = "ClaudeChain Stats",
     ) -> list[dict[str, Any]]:
         """Generate header blocks for the report.
 
