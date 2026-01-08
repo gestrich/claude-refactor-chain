@@ -53,6 +53,7 @@ class PullRequestCreatedReport:
     repo: str
     run_id: str
     summary_content: Optional[str] = None
+    assignee: Optional[str] = None
 
     @property
     def workflow_url(self) -> str:
@@ -82,9 +83,16 @@ class PullRequestCreatedReport:
         lines = [
             formatter.format_labeled_value(LabeledValue("Project", self.project_name)),
             formatter.format_labeled_value(LabeledValue("PR", pr_link)),
+        ]
+
+        # Add assignee if present
+        if self.assignee:
+            lines.append(formatter.format_labeled_value(LabeledValue("Assignee", f"@{self.assignee}")))
+
+        lines.extend([
             formatter.format_labeled_value(LabeledValue("Task", self.task)),
             formatter.format_labeled_value(LabeledValue("Cost", format_usd(self.cost_breakdown.total_cost))),
-        ]
+        ])
 
         return "\n".join(lines)
 

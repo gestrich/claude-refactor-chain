@@ -302,6 +302,7 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         ACTION_PATH: ${{ github.action_path }}
         START_TIME: ${{ steps.start_time.outputs.timestamp }}
+        ASSIGNEE: ${{ steps.prepare.outputs.assignee }}
       run: |
         export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"
         python3 -m claudechain format-slack-notification

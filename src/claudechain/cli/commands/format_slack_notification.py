@@ -15,6 +15,7 @@ def cmd_format_slack_notification(
     task: str,
     cost_breakdown_json: str,
     repo: str,
+    assignee: str = "",
 ) -> int:
     """
     Format Slack notification message for a created PR.
@@ -29,6 +30,7 @@ def cmd_format_slack_notification(
         task: Task description
         cost_breakdown_json: JSON string with complete cost breakdown (from CostBreakdown.to_json())
         repo: Repository in format owner/repo
+        assignee: Optional assignee username
 
     Outputs:
         slack_message: Formatted Slack message in mrkdwn format
@@ -43,6 +45,7 @@ def cmd_format_slack_notification(
     project_name = project_name.strip()
     task = task.strip()
     cost_breakdown_json = cost_breakdown_json.strip()
+    assignee = assignee.strip()
 
     # If no PR, don't send notification
     if not pr_number or not pr_url:
@@ -62,6 +65,7 @@ def cmd_format_slack_notification(
             task=task,
             cost_breakdown=cost_breakdown,
             repo=repo,
+            assignee=assignee if assignee else None,
         )
 
         # Output for Slack
@@ -87,6 +91,7 @@ def format_pr_notification(
     task: str,
     cost_breakdown: CostBreakdown,
     repo: str,
+    assignee: str = None,
 ) -> str:
     """
     Format PR notification for Slack in mrkdwn format.
@@ -98,6 +103,7 @@ def format_pr_notification(
         task: Task description
         cost_breakdown: CostBreakdown with costs and per-model data
         repo: Repository name (used for workflow URL generation)
+        assignee: Optional assignee username
 
     Returns:
         Formatted Slack message in mrkdwn
@@ -112,6 +118,7 @@ def format_pr_notification(
         cost_breakdown=cost_breakdown,
         repo=repo,
         run_id="",  # Not used for Slack notification
+        assignee=assignee,
     )
 
     return report.build_notification_elements()

@@ -96,6 +96,7 @@ def main():
             task=os.environ.get("TASK_DESCRIPTION", ""),
             cost_breakdown_json=os.environ.get("COST_BREAKDOWN", ""),
             repo=os.environ.get("GITHUB_REPOSITORY", ""),
+            assignee=os.environ.get("ASSIGNEE", ""),
         )
     elif args.command == "statistics":
         # Use env var if set and non-empty, otherwise fall back to constant
