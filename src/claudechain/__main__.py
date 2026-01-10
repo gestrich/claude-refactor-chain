@@ -15,6 +15,7 @@ from claudechain.cli.commands.discover import main as cmd_discover
 from claudechain.cli.commands.discover_ready import main as cmd_discover_ready
 from claudechain.cli.commands.finalize import cmd_finalize
 from claudechain.cli.commands.format_slack_notification import cmd_format_slack_notification
+from claudechain.cli.commands.parse_claude_result import cmd_parse_claude_result
 from claudechain.cli.commands.parse_event import main as cmd_parse_event
 from claudechain.cli.commands.post_pr_comment import cmd_post_pr_comment
 from claudechain.cli.commands.prepare import cmd_prepare
@@ -137,6 +138,12 @@ def main():
             gh=gh,
             triggered_projects=args.triggered_projects or os.environ.get("TRIGGERED_PROJECTS", ""),
             failed_projects=args.failed_projects or os.environ.get("FAILED_PROJECTS", ""),
+        )
+    elif args.command == "parse-claude-result":
+        return cmd_parse_claude_result(
+            gh=gh,
+            execution_file=os.environ.get("EXECUTION_FILE", ""),
+            result_type=os.environ.get("RESULT_TYPE", "main"),
         )
     elif args.command == "parse-event":
         # parse-event reads from environment variables

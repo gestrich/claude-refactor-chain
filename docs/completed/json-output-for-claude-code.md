@@ -10,7 +10,7 @@ By adding JSON output arguments, we can:
 
 ## Phases
 
-- [ ] Phase 1: Define JSON schemas for Claude Code outputs
+- [x] Phase 1: Define JSON schemas for Claude Code outputs
 
 Create JSON schemas for both execution types:
 - **Main task schema**: `success` (boolean), `error_message` (optional string), `summary` (string describing what was done)
@@ -18,13 +18,13 @@ Create JSON schemas for both execution types:
 
 Add schema definitions to a new file `src/claudechain/domain/claude_schemas.py` containing the schema dictionaries as Python constants that can be serialized to JSON for the CLI args.
 
-- [ ] Phase 2: Update prepare.py to output JSON schema
+- [x] Phase 2: Update prepare.py to output JSON schema
 
 Update `src/claudechain/cli/commands/prepare.py` to:
 - Output the main task JSON schema as a step output (escaped for shell)
 - The schema will be passed to `claude_args` in action.yml
 
-- [ ] Phase 3: Update action.yml to pass JSON output args
+- [x] Phase 3: Update action.yml to pass JSON output args
 
 Modify the "Run Claude Code" step:
 - Add `--output-format json --json-schema '${{ steps.prepare.outputs.json_schema }}'` to `claude_args`
@@ -32,7 +32,7 @@ Modify the "Run Claude Code" step:
 
 Modify the "Generate PR summary" step similarly with the summary schema.
 
-- [ ] Phase 4: Parse JSON output and gate PR creation
+- [x] Phase 4: Parse JSON output and gate PR creation
 
 Create a new step after "Run Claude Code" to parse the execution file:
 - Read the JSON execution file
@@ -44,7 +44,7 @@ Update finalize step condition:
 - Only run if `steps.parse_result.outputs.success == 'true'`
 - If failed, skip PR creation entirely
 
-- [ ] Phase 5: Add Slack error notification
+- [x] Phase 5: Add Slack error notification
 
 Add error notification formatting to `src/claudechain/domain/formatters/slack_block_kit_formatter.py`:
 - Add `format_error_notification()` method
@@ -55,13 +55,13 @@ Add new step in `action.yml`:
 - Condition: `if: steps.parse_result.outputs.success == 'false' && inputs.slack_webhook_url != ''`
 - Use error-styled Slack payload
 
-- [ ] Phase 6: Add tests
+- [x] Phase 6: Add tests
 
 Write tests for:
 - `tests/unit/domain/test_claude_schemas.py` - Schema structure validation
 - `tests/unit/domain/formatters/test_slack_block_kit_formatter.py` - Error notification format
 
-- [ ] Phase 7: Validation
+- [x] Phase 7: Validation
 
 Run the test suite:
 ```bash

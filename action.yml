@@ -94,6 +94,14 @@ outputs:
     description: 'Whether all tasks are complete (true/false)'
     value: ${{ steps.prepare.outputs.all_tasks_done }}
 
+  # Claude Code execution outputs
+  claude_success:
+    description: 'Whether Claude Code task completed successfully (true/false)'
+    value: ${{ steps.parse_claude_result.outputs.success }}
+  claude_error:
+    description: 'Error message if Claude Code task failed (empty if successful)'
+    value: ${{ steps.parse_claude_result.outputs.error_message }}
+
 runs:
   using: 'composite'
   steps:
@@ -183,7 +191,7 @@ runs:
         prompt: ${{ steps.prepare.outputs.claude_prompt }}
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         github_token: ${{ inputs.github_token }}
-        claude_args: '--allowedTools ${{ steps.prepare.outputs.allowed_tools }} --model ${{ inputs.claude_model }}'
+        claude_args: '--allowedTools ${{ steps.prepare.outputs.allowed_tools }} --model ${{ inputs.claude_model }} --output-format json --json-schema ${{ toJSON(steps.prepare.outputs.json_schema) }}'
         show_full_output: true
 
     # Preserve main execution file before summary step overwrites it
@@ -198,9 +206,21 @@ runs:
         echo "main_execution_file=$MAIN_EXEC_FILE" >> $GITHUB_OUTPUT
         echo "Preserved main execution file to: $MAIN_EXEC_FILE"
 
+    - name: Parse Claude Code result
+      id: parse_claude_result
+      if: steps.preserve_main_execution.outputs.main_execution_file != ''
+      shell: bash
+      env:
+        EXECUTION_FILE: ${{ steps.preserve_main_execution.outputs.main_execution_file }}
+        RESULT_TYPE: main
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"
+        python3 -m claudechain parse-claude-result
+
     - name: Finalize and create PR
       id: finalize
-      if: always() && steps.parse.outputs.skip != 'true'
+      if: always() && steps.parse.outputs.skip != 'true' && steps.parse_claude_result.outputs.success != 'false'
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
@@ -223,6 +243,51 @@ runs:
       run: |
         export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"
         python3 -m claudechain finalize
+
+    - name: Post error to Slack
+      if: steps.parse_claude_result.outputs.success == 'false' && inputs.slack_webhook_url != ''
+      uses: slackapi/slack-github-action@v2
+      with:
+        webhook: ${{ inputs.slack_webhook_url }}
+        webhook-type: incoming-webhook
+        payload: |
+          {
+            "text": "ClaudeChain Task Failed",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "Task Failed ❌",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Project:* ${{ steps.prepare.outputs.project_name }}\n*Task:* ${{ steps.prepare.outputs.task_description }}"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Error:*\n```${{ steps.parse_claude_result.outputs.error_message }}```"
+                }
+              },
+              {
+                "type": "context",
+                "elements": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow run>"
+                  }
+                ]
+              }
+            ]
+          }
+      continue-on-error: true
 
     - name: Prepare summary prompt
       id: prepare_summary
@@ -253,7 +318,7 @@ runs:
         prompt: ${{ steps.prepare_summary.outputs.summary_prompt }}
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         github_token: ${{ inputs.github_token }}
-        claude_args: '--allowedTools "Bash(git diff:*),Bash(cat:*),Read,Write" --model ${{ inputs.claude_model }}'
+        claude_args: '--allowedTools "Bash(git diff:*),Bash(cat:*),Read,Write" --model ${{ inputs.claude_model }} --output-format json --json-schema ${{ toJSON(steps.prepare_summary.outputs.summary_json_schema) }}'
         show_full_output: true
 
     # Preserve summary execution file for consistent cost tracking

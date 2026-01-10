@@ -45,8 +45,8 @@ Generate a summary of the changes.
 
         # Assertions
         assert exit_code == 0
-        # Now writes 2 outputs: summary_prompt, summary_file
-        assert gh.write_output.call_count == 2
+        # Now writes 3 outputs: summary_prompt, summary_file, summary_json_schema
+        assert gh.write_output.call_count == 3
 
         # Verify output contains substituted values (first call is summary_prompt)
         call_args_list = gh.write_output.call_args_list

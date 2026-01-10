@@ -381,3 +381,111 @@ class TestWarningsBlocks:
         assert "⚠️ Needs Attention" in result[0]["text"]["text"]
         assert "test-project" in result[1]["text"]["text"]
         assert "#42" in result[1]["text"]["text"]
+
+
+class TestErrorNotificationBlocks:
+    """Tests for error notification formatting"""
+
+    @pytest.fixture
+    def formatter(self):
+        return SlackBlockKitFormatter(repo="owner/repo")
+
+    def test_error_notification_structure(self, formatter):
+        """Error notification includes all required blocks"""
+        result = formatter.format_error_notification(
+            project_name="test-project",
+            task_description="Implement feature X",
+            error_message="File not found",
+            run_url="https://github.com/owner/repo/actions/runs/123"
+        )
+
+        assert "text" in result
+        assert "blocks" in result
+        assert result["text"] == "ClaudeChain task failed: test-project"
+
+    def test_error_notification_header(self, formatter):
+        """Error notification has correct header"""
+        result = formatter.format_error_notification(
+            project_name="test-project",
+            task_description="Implement feature X",
+            error_message="Something went wrong",
+            run_url="https://github.com/owner/repo/actions/runs/123"
+        )
+
+        header_block = result["blocks"][0]
+        assert header_block["type"] == "header"
+        assert "Task Failed" in header_block["text"]["text"]
+        assert "❌" in header_block["text"]["text"]
+
+    def test_error_notification_includes_project_and_task(self, formatter):
+        """Error notification shows project name and task description"""
+        result = formatter.format_error_notification(
+            project_name="my-project",
+            task_description="Fix the bug",
+            error_message="Error occurred",
+            run_url="https://github.com/owner/repo/actions/runs/123"
+        )
+
+        section_block = result["blocks"][1]
+        assert section_block["type"] == "section"
+        assert "my-project" in section_block["text"]["text"]
+        assert "Fix the bug" in section_block["text"]["text"]
+
+    def test_error_notification_includes_error_message(self, formatter):
+        """Error notification includes the error message in code block"""
+        result = formatter.format_error_notification(
+            project_name="test-project",
+            task_description="Implement feature X",
+            error_message="Something went wrong",
+            run_url="https://github.com/owner/repo/actions/runs/123"
+        )
+
+        error_block = result["blocks"][2]
+        assert error_block["type"] == "section"
+        assert "```Something went wrong```" in error_block["text"]["text"]
+
+    def test_error_notification_truncates_long_error(self, formatter):
+        """Long error messages are truncated"""
+        long_error = "x" * 600
+        result = formatter.format_error_notification(
+            project_name="test-project",
+            task_description="Implement feature X",
+            error_message=long_error,
+            run_url="https://github.com/owner/repo/actions/runs/123"
+        )
+
+        error_block = result["blocks"][2]
+        error_text = error_block["text"]["text"]
+        # Should be truncated to 500 chars + "..."
+        assert "..." in error_text
+        assert len(error_text) < 600
+
+    def test_error_notification_includes_run_url(self, formatter):
+        """Error notification includes link to workflow run"""
+        result = formatter.format_error_notification(
+            project_name="test-project",
+            task_description="Implement feature X",
+            error_message="Error occurred",
+            run_url="https://github.com/owner/repo/actions/runs/123"
+        )
+
+        context_block = result["blocks"][-1]
+        assert context_block["type"] == "context"
+        context_text = context_block["elements"][0]["text"]
+        assert "https://github.com/owner/repo/actions/runs/123" in context_text
+        assert "View workflow run" in context_text
+
+    def test_error_notification_without_error_message(self, formatter):
+        """Error notification works when error_message is empty"""
+        result = formatter.format_error_notification(
+            project_name="test-project",
+            task_description="Implement feature X",
+            error_message="",
+            run_url="https://github.com/owner/repo/actions/runs/123"
+        )
+
+        # Should have header, project/task section, and context (no error block)
+        assert len(result["blocks"]) == 3
+        assert result["blocks"][0]["type"] == "header"
+        assert result["blocks"][1]["type"] == "section"
+        assert result["blocks"][2]["type"] == "context"

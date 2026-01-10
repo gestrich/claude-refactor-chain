@@ -2,8 +2,9 @@
 
 import os
 
-from claudechain.infrastructure.github.actions import GitHubActionsHelper
+from claudechain.domain.claude_schemas import get_summary_task_schema_json
 from claudechain.domain.constants import PR_SUMMARY_FILE_PATH
+from claudechain.infrastructure.github.actions import GitHubActionsHelper
 
 
 def cmd_prepare_summary(
@@ -77,6 +78,7 @@ def cmd_prepare_summary(
         # Write output
         gh.write_output("summary_prompt", summary_prompt)
         gh.write_output("summary_file", PR_SUMMARY_FILE_PATH)
+        gh.write_output("summary_json_schema", get_summary_task_schema_json())
 
         print(f"✅ Summary prompt prepared for PR #{pr_number}")
         print(f"   Task: {task}")

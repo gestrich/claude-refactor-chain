@@ -120,6 +120,11 @@ def create_parser() -> argparse.ArgumentParser:
         help="Space-separated list of projects that failed to trigger"
     )
 
+    parser_parse_claude_result = subparsers.add_parser(
+        "parse-claude-result",
+        help="Parse Claude Code execution result for success/failure"
+    )
+
     parser_parse_event = subparsers.add_parser(
         "parse-event",
         help="Parse GitHub event context and output action parameters"

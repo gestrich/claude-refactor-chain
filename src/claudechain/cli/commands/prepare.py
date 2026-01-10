@@ -9,6 +9,7 @@ import argparse
 import os
 from typing import Optional
 
+from claudechain.domain.claude_schemas import get_main_task_schema_json
 from claudechain.domain.config import validate_spec_format_from_string
 from claudechain.domain.constants import DEFAULT_BASE_BRANCH
 from claudechain.domain.exceptions import ConfigurationError, FileNotFoundError, GitError, GitHubAPIError
@@ -278,6 +279,7 @@ Now complete the task '{task}' following all the details and instructions in the
         gh.write_output("all_tasks_done", "false")
         gh.write_output("branch_name", branch_name)
         gh.write_output("claude_prompt", claude_prompt)
+        gh.write_output("json_schema", get_main_task_schema_json())
 
         print("\n✅ Preparation complete - ready to run Claude Code")
         return 0

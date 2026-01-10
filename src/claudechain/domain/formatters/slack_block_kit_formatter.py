@@ -205,6 +205,46 @@ class SlackBlockKitFormatter:
 
         return blocks
 
+    def format_error_notification(
+        self,
+        project_name: str,
+        task_description: str,
+        error_message: str,
+        run_url: str,
+    ) -> dict[str, Any]:
+        """Generate Slack Block Kit payload for error notification.
+
+        Creates an error-styled Slack message when Claude Code fails to complete a task.
+
+        Args:
+            project_name: Name of the project
+            task_description: Description of the task that failed
+            error_message: Error message from Claude Code
+            run_url: URL to the GitHub Actions run
+
+        Returns:
+            Complete Slack message payload with error styling
+        """
+        blocks: list[dict[str, Any]] = []
+
+        # Header with error emoji
+        blocks.append(header_block("Task Failed ❌"))
+
+        # Project and task info
+        content = f"*Project:* {project_name}\n*Task:* {task_description}"
+        blocks.append(section_block(content))
+
+        # Error message
+        if error_message:
+            # Truncate long error messages
+            truncated_error = error_message[:500] + "..." if len(error_message) > 500 else error_message
+            blocks.append(section_block(f"*Error:*\n```{truncated_error}```"))
+
+        # Footer with link to action run
+        blocks.append(context_block(f"<{run_url}|View workflow run>"))
+
+        return self.build_message(blocks, fallback_text=f"ClaudeChain task failed: {project_name}")
+
     # ============================================================
     # Private Helpers
     # ============================================================
