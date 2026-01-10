@@ -191,7 +191,7 @@ runs:
         prompt: ${{ steps.prepare.outputs.claude_prompt }}
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         github_token: ${{ inputs.github_token }}
-        claude_args: '--allowedTools ${{ steps.prepare.outputs.allowed_tools }} --model ${{ inputs.claude_model }} --output-format json --json-schema ${{ toJSON(steps.prepare.outputs.json_schema) }}'
+        claude_args: '--allowedTools ${{ steps.prepare.outputs.allowed_tools }} --model ${{ inputs.claude_model }} --json-schema ${{ toJSON(steps.prepare.outputs.json_schema) }}'
         show_full_output: true
 
     # Preserve main execution file before summary step overwrites it
@@ -318,7 +318,7 @@ runs:
         prompt: ${{ steps.prepare_summary.outputs.summary_prompt }}
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         github_token: ${{ inputs.github_token }}
-        claude_args: '--allowedTools "Bash(git diff:*),Bash(cat:*),Read,Write" --model ${{ inputs.claude_model }} --output-format json --json-schema ${{ toJSON(steps.prepare_summary.outputs.summary_json_schema) }}'
+        claude_args: '--allowedTools "Bash(git diff:*),Bash(cat:*),Read,Write" --model ${{ inputs.claude_model }} --json-schema ${{ toJSON(steps.prepare_summary.outputs.summary_json_schema) }}'
         show_full_output: true
 
     # Preserve summary execution file for consistent cost tracking
