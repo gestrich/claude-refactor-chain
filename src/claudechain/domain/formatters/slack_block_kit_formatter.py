@@ -63,15 +63,13 @@ class SlackBlockKitFormatter:
         """Generate header blocks for the report.
 
         Args:
-            title: Report title
+            title: Report title (should include repo if needed)
 
         Returns:
             List of Block Kit blocks for the header
         """
         blocks: list[dict[str, Any]] = []
         blocks.append(header_block(title))
-        if self.repo:
-            blocks.append(context_block(f"_{self.repo}_"))
         blocks.append(divider_block())
         return blocks
 

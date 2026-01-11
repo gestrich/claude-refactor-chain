@@ -987,10 +987,9 @@ class StatisticsReport:
         formatter = SlackBlockKitFormatter(self.repo or "")
         blocks: List[Dict] = []
 
-        # Header blocks
-        blocks.extend(formatter.format_header_blocks(
-            title="ClaudeChain Stats",
-        ))
+        # Header blocks - include repo in title for context
+        title = f"Chains: {self.repo} 🔗" if self.repo else "ClaudeChain Stats"
+        blocks.extend(formatter.format_header_blocks(title=title))
 
         # Leaderboard blocks (only if enabled)
         if show_assignee_stats:
