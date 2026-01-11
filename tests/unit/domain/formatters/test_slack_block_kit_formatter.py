@@ -138,20 +138,31 @@ class TestSlackBlockKitFormatter:
         assert result["blocks"] == blocks
 
     def test_format_header_blocks_includes_required_elements(self, formatter):
-        """Header blocks include title and divider"""
+        """Header blocks include title, repo context, and divider"""
         result = formatter.format_header_blocks(title="Test Report")
 
-        assert len(result) == 2
+        assert len(result) == 3
         assert result[0]["type"] == "header"
         assert result[0]["text"]["text"] == "Test Report"
-        assert result[1]["type"] == "divider"
+        assert result[1]["type"] == "context"
+        assert "_owner/repo_" in result[1]["elements"][0]["text"]
+        assert result[2]["type"] == "divider"
 
     def test_format_header_blocks_uses_default_title(self, formatter):
         """Header uses default title when not provided"""
         result = formatter.format_header_blocks()
 
-        assert len(result) == 2
+        assert len(result) == 3
         assert result[0]["text"]["text"] == "ClaudeChain Stats"
+
+    def test_format_header_blocks_omits_repo_when_empty(self):
+        """Header omits repo context when repo is empty"""
+        formatter = SlackBlockKitFormatter(repo="")
+        result = formatter.format_header_blocks()
+
+        assert len(result) == 2
+        assert result[0]["type"] == "header"
+        assert result[1]["type"] == "divider"
 
 
 class TestProjectBlocks:

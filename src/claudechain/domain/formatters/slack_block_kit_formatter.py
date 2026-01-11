@@ -70,6 +70,8 @@ class SlackBlockKitFormatter:
         """
         blocks: list[dict[str, Any]] = []
         blocks.append(header_block(title))
+        if self.repo:
+            blocks.append(context_block(f"_{self.repo}_"))
         blocks.append(divider_block())
         return blocks
 
