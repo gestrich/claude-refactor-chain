@@ -269,7 +269,7 @@ runs:
         python3 -m claudechain finalize
 
     - name: Post error to Slack
-      if: failure() && steps.parse_claude_result.conclusion == 'failure' && inputs.slack_webhook_url != ''
+      if: failure() && inputs.slack_webhook_url != ''
       uses: slackapi/slack-github-action@v2
       with:
         webhook: ${{ inputs.slack_webhook_url }}
@@ -290,14 +290,14 @@ runs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "*Project:* ${{ steps.prepare.outputs.project_name }}\n*Task:* ${{ steps.prepare.outputs.task_description }}"
+                  "text": "*Project:* ${{ steps.prepare.outputs.project_name || 'Unknown' }}\n*Task:* ${{ steps.prepare.outputs.task_description || 'Unknown' }}"
                 }
               },
               {
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": ${{ toJSON(format('*Error:*\n```{0}```', steps.parse_claude_result.outputs.error_message)) }}
+                  "text": ${{ toJSON(format('*Error:*\n```{0}```', steps.parse_claude_result.outputs.error_message || 'Workflow failed - check the run logs for details')) }}
                 }
               },
               {
