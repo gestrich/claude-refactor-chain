@@ -44,11 +44,11 @@ Add a build step before the ClaudeChain action:
 
 **Option 2: Pre-action Script**
 
-Create a `pre.sh` script in your project directory:
+Create a `pre-action.sh` script in your project directory:
 
 ```bash
-# claude-chain/my-project/pre.sh
 #!/bin/bash
+# claude-chain/my-project/pre-action.sh
 set -e
 
 echo "Building required tooling..."
