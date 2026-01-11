@@ -78,9 +78,10 @@ class PullRequestCreatedReport:
 
         formatter = SlackReportFormatter()
 
-        # Build body content - PR: row goes right after Project:
+        # Build body content - Repo first for context, then Project and PR
         pr_link = formatter.format_link(Link(f"#{self.pr_number}", self.pr_url))
         lines = [
+            formatter.format_labeled_value(LabeledValue("Repo", self.repo)),
             formatter.format_labeled_value(LabeledValue("Project", self.project_name)),
             formatter.format_labeled_value(LabeledValue("PR", pr_link)),
         ]

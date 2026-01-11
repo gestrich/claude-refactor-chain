@@ -128,12 +128,19 @@ class TestBuildNotificationElements:
         result = report.build_notification_elements()
 
         expected = (
+            "*Repo:* owner/repo\n"
             "*Project:* my-project\n"
             "*PR:* <https://github.com/owner/repo/pull/123|#123>\n"
             "*Task:* Fix the login bug\n"
             "*Cost:* $0.20"
         )
         assert result == expected
+
+    def test_contains_repo(self, report):
+        """Test notification contains repository name."""
+        result = report.build_notification_elements()
+        assert "*Repo:*" in result
+        assert "owner/repo" in result
 
 
 class TestBuildCommentElements:
