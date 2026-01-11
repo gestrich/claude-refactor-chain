@@ -56,21 +56,19 @@ class SlackBlockKitFormatter:
             "blocks": blocks
         }
 
-    def format_header_blocks(
-        self,
-        title: str = "ClaudeChain Stats",
-    ) -> list[dict[str, Any]]:
-        """Generate header blocks for the report.
+    def format_header_blocks(self) -> list[dict[str, Any]]:
+        """Generate header blocks for the Chains section.
 
-        Args:
-            title: Report title (should include repo if needed)
+        Uses section block with bold text to match leaderboard style.
 
         Returns:
             List of Block Kit blocks for the header
         """
         blocks: list[dict[str, Any]] = []
-        blocks.append(header_block(title))
-        blocks.append(divider_block())
+        if self.repo:
+            blocks.append(section_block(f"🔗 *Chains:* {self.repo}"))
+        else:
+            blocks.append(section_block("🔗 *Chains*"))
         return blocks
 
     # ============================================================

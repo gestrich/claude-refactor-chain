@@ -137,21 +137,22 @@ class TestSlackBlockKitFormatter:
         assert result["text"] == "Test"
         assert result["blocks"] == blocks
 
-    def test_format_header_blocks_includes_required_elements(self, formatter):
-        """Header blocks include title and divider"""
-        result = formatter.format_header_blocks(title="Chains: owner/repo 🔗")
-
-        assert len(result) == 2
-        assert result[0]["type"] == "header"
-        assert result[0]["text"]["text"] == "Chains: owner/repo 🔗"
-        assert result[1]["type"] == "divider"
-
-    def test_format_header_blocks_uses_default_title(self, formatter):
-        """Header uses default title when not provided"""
+    def test_format_header_blocks_with_repo(self, formatter):
+        """Header shows Chains with repo name"""
         result = formatter.format_header_blocks()
 
-        assert len(result) == 2
-        assert result[0]["text"]["text"] == "ClaudeChain Stats"
+        assert len(result) == 1
+        assert result[0]["type"] == "section"
+        assert "🔗 *Chains:* owner/repo" in result[0]["text"]["text"]
+
+    def test_format_header_blocks_without_repo(self):
+        """Header shows just Chains when no repo"""
+        formatter = SlackBlockKitFormatter(repo="")
+        result = formatter.format_header_blocks()
+
+        assert len(result) == 1
+        assert result[0]["type"] == "section"
+        assert result[0]["text"]["text"] == "🔗 *Chains*"
 
 
 class TestProjectBlocks:
