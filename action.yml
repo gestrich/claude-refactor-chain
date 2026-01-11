@@ -269,7 +269,7 @@ runs:
         python3 -m claudechain finalize
 
     - name: Post error to Slack
-      if: steps.parse_claude_result.outputs.success == 'false' && inputs.slack_webhook_url != ''
+      if: always() && steps.parse_claude_result.outputs.success == 'false' && inputs.slack_webhook_url != ''
       uses: slackapi/slack-github-action@v2
       with:
         webhook: ${{ inputs.slack_webhook_url }}
