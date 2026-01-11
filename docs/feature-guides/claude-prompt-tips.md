@@ -7,6 +7,7 @@ Best practices for writing effective prompts and configuring Claude Code for rel
 - [Build Tooling Before Claude Runs](#build-tooling-before-claude-runs)
 - [Enforce Critical Tool Success](#enforce-critical-tool-success)
 - [Using Custom Commands](#using-custom-commands)
+- [Working Directory Restrictions](#working-directory-restrictions)
 
 ---
 
@@ -184,6 +185,48 @@ Claude will read the file and follow its instructions.
 
 ---
 
+## Working Directory Restrictions
+
+Claude Code has security restrictions that prevent using `cat` (and similar commands) to read files outside the working directory where Claude Code is running.
+
+### The Problem
+
+If your workflow writes files to `/tmp` or another directory outside the project:
+
+```bash
+# This will fail in Claude Code
+echo "results" > /tmp/output.txt
+cat /tmp/output.txt  # ❌ Blocked - outside working directory
+```
+
+Claude Code restricts file access to the current working directory for security reasons.
+
+### Solution: Use the Working Directory
+
+Write temporary files within the project directory instead:
+
+```bash
+# Use a local temp directory
+mkdir -p .tmp
+echo "results" > .tmp/output.txt
+cat .tmp/output.txt  # ✅ Works
+```
+
+Or use the scratchpad directory if available in the Claude Code environment.
+
+### In Your Prompts
+
+If your task involves temporary files, be explicit:
+
+```markdown
+When writing temporary files, always write them within the current
+working directory (e.g., `.tmp/` folder). Do not use `/tmp` or other
+system directories as Claude Code cannot read files outside the
+working directory.
+```
+
+---
+
 ## Quick Reference
 
 | Tip | Do | Don't |
@@ -192,6 +235,7 @@ Claude will read the file and follow its instructions.
 | Critical tools | Use MUST/STOP language | Hope Claude checks exit codes |
 | Error details | Request explicit logging | Assume errors will be captured |
 | Custom commands | Reference file path | Use slash command syntax |
+| Temp files | Write to working directory | Write to `/tmp` or outside dirs |
 
 ---
 
