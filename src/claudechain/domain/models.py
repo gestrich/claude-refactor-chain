@@ -988,7 +988,7 @@ class StatisticsReport:
         blocks: List[Dict] = []
 
         # Header blocks - include repo in title for context
-        title = f"Chains: {self.repo} 🔗" if self.repo else "ClaudeChain Stats"
+        title = f"Chains: {self.repo} 🔗" if self.repo else "Chains 🔗"
         blocks.extend(formatter.format_header_blocks(title=title))
 
         # Leaderboard blocks (only if enabled)
