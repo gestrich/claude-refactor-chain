@@ -373,7 +373,7 @@ class TestFindProjectArtifacts:
         result = find_project_artifacts(
             repo="owner/repo",
             project="test",
-            workflow_name="Claude Chain",
+            workflow_file="Claude Chain",
             download_metadata=False,
         )
 
@@ -407,7 +407,7 @@ class TestFindProjectArtifacts:
 
         # Act
         result = find_project_artifacts(
-            repo="owner/repo", project="test", workflow_name="Claude Chain"
+            repo="owner/repo", project="test", workflow_file="Claude Chain"
         )
 
         # Assert
@@ -441,7 +441,7 @@ class TestFindProjectArtifacts:
         result = find_project_artifacts(
             repo="owner/repo",
             project="test",
-            workflow_name="Claude Chain",
+            workflow_file="Claude Chain",
             download_metadata=True,
         )
 
@@ -468,7 +468,7 @@ class TestFindProjectArtifacts:
 
         # Act
         result = find_project_artifacts(
-            repo="owner/repo", project="test", workflow_name="Claude Chain"
+            repo="owner/repo", project="test", workflow_file="Claude Chain"
         )
 
         # Assert
@@ -501,7 +501,7 @@ class TestFindProjectArtifacts:
 
         # Act
         result = find_project_artifacts(
-            repo="owner/repo", project="test", workflow_name="Claude Chain"
+            repo="owner/repo", project="test", workflow_file="Claude Chain"
         )
 
         # Assert
@@ -526,7 +526,7 @@ class TestFindProjectArtifacts:
         result = find_project_artifacts(
             repo="owner/repo",
             project="test",
-            workflow_name="Claude Chain",
+            workflow_file="Claude Chain",
             download_metadata=True,
         )
 
@@ -546,7 +546,7 @@ class TestFindProjectArtifacts:
 
         # Act
         result = find_project_artifacts(
-            repo="owner/repo", project="test", workflow_name="Claude Chain"
+            repo="owner/repo", project="test", workflow_file="Claude Chain"
         )
 
         # Assert
@@ -555,7 +555,7 @@ class TestFindProjectArtifacts:
         assert "Warning: Failed to get workflow runs" in captured.out
 
     @patch("claudechain.services.composite.artifact_service.gh_api_call")
-    def test_find_project_artifacts_url_encodes_workflow_name_with_special_chars(
+    def test_find_project_artifacts_url_encodes_workflow_file_with_special_chars(
         self, mock_gh_api_call
     ):
         """Should URL-encode workflow names with special characters"""
@@ -566,7 +566,7 @@ class TestFindProjectArtifacts:
         find_project_artifacts(
             repo="owner/repo",
             project="test",
-            workflow_name="My Workflow & Tests",
+            workflow_file="My Workflow & Tests",
         )
 
         # Assert - verify the workflow name is URL-encoded
@@ -660,7 +660,7 @@ class TestFindInProgressTasks:
 
         # Act
         result = find_in_progress_tasks(
-            repo="owner/repo", project="test", workflow_name="Claude Chain"
+            repo="owner/repo", project="test", workflow_file="Claude Chain"
         )
 
         # Assert
@@ -668,7 +668,7 @@ class TestFindInProgressTasks:
         mock_find_artifacts.assert_called_once_with(
             repo="owner/repo",
             project="test",
-            workflow_name="Claude Chain",
+            workflow_file="Claude Chain",
             download_metadata=False,
         )
 
@@ -691,7 +691,7 @@ class TestFindInProgressTasks:
 
         # Act
         result = find_in_progress_tasks(
-            repo="owner/repo", project="test", workflow_name="Claude Chain"
+            repo="owner/repo", project="test", workflow_file="Claude Chain"
         )
 
         # Assert
@@ -707,7 +707,7 @@ class TestFindInProgressTasks:
 
         # Act
         result = find_in_progress_tasks(
-            repo="owner/repo", project="test", workflow_name="Claude Chain"
+            repo="owner/repo", project="test", workflow_file="Claude Chain"
         )
 
         # Assert
@@ -758,7 +758,7 @@ class TestGetAssigneeAssignments:
 
         # Act
         result = get_assignee_assignments(
-            repo="owner/repo", project="test", workflow_name="Claude Chain"
+            repo="owner/repo", project="test", workflow_file="Claude Chain"
         )
 
         # Assert
@@ -766,7 +766,7 @@ class TestGetAssigneeAssignments:
         mock_find_artifacts.assert_called_once_with(
             repo="owner/repo",
             project="test",
-            workflow_name="Claude Chain",
+            workflow_file="Claude Chain",
             download_metadata=True,
         )
 
@@ -802,7 +802,7 @@ class TestGetAssigneeAssignments:
 
         # Act
         result = get_assignee_assignments(
-            repo="owner/repo", project="test", workflow_name="Claude Chain"
+            repo="owner/repo", project="test", workflow_file="Claude Chain"
         )
 
         # Assert
@@ -818,7 +818,7 @@ class TestGetAssigneeAssignments:
 
         # Act
         result = get_assignee_assignments(
-            repo="owner/repo", project="test", workflow_name="Claude Chain"
+            repo="owner/repo", project="test", workflow_file="Claude Chain"
         )
 
         # Assert

@@ -30,7 +30,7 @@ class StatisticsService:
         repo: str,
         project_repository: ProjectRepository,
         pr_service: PRService,
-        workflow_name: str,
+        workflow_file: str,
     ):
         """Initialize the statistics service
 
@@ -38,12 +38,12 @@ class StatisticsService:
             repo: GitHub repository (owner/name)
             project_repository: ProjectRepository instance for loading project data
             pr_service: PRService instance for PR operations
-            workflow_name: Name of the workflow that creates PRs (for artifact discovery)
+            workflow_file: Name of the workflow that creates PRs (for artifact discovery)
         """
         self.repo = repo
         self.project_repository = project_repository
         self.pr_service = pr_service
-        self.workflow_name = workflow_name
+        self.workflow_file = workflow_file
 
     # Public API methods
 
@@ -299,7 +299,7 @@ class StatisticsService:
         artifacts = find_project_artifacts(
             repo=self.repo,
             project=project_name,
-            workflow_name=self.workflow_name,
+            workflow_file=self.workflow_file,
             download_metadata=True,
         )
 

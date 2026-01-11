@@ -41,7 +41,7 @@ class ProjectArtifact:
 def find_project_artifacts(
     repo: str,
     project: str,
-    workflow_name: str,
+    workflow_file: str,
     limit: int = 50,
     download_metadata: bool = False,
 ) -> List[ProjectArtifact]:
@@ -52,7 +52,7 @@ def find_project_artifacts(
     Args:
         repo: GitHub repository (owner/name)
         project: Project name to filter artifacts
-        workflow_name: Name of the workflow that creates PRs (from workflow's name: property)
+        workflow_file: Name of the workflow that creates PRs (from workflow's name: property)
         limit: Maximum number of workflow runs to check
         download_metadata: Whether to download full metadata JSON
 
@@ -70,17 +70,17 @@ def find_project_artifacts(
 
     # Query workflow runs for the specific workflow
     # URL-encode the workflow name to handle spaces and special characters
-    workflow_name_encoded = urllib.parse.quote(workflow_name)
+    workflow_file_encoded = urllib.parse.quote(workflow_file)
     try:
         api_response = gh_api_call(
-            f"/repos/{repo}/actions/workflows/{workflow_name_encoded}/runs?status=completed&per_page={limit}"
+            f"/repos/{repo}/actions/workflows/{workflow_file_encoded}/runs?status=completed&per_page={limit}"
         )
         runs = api_response.get("workflow_runs", [])
     except GitHubAPIError as e:
-        print(f"Warning: Failed to get workflow runs for '{workflow_name}': {e}")
+        print(f"Warning: Failed to get workflow runs for '{workflow_file}': {e}")
         runs = []
 
-    print(f"Checking {len(runs)} workflow run(s) from '{workflow_name}' for artifacts")
+    print(f"Checking {len(runs)} workflow run(s) from '{workflow_file}' for artifacts")
 
     # Process workflow runs and collect artifacts
     for run in runs:
@@ -148,7 +148,7 @@ def get_artifact_metadata(repo: str, artifact_id: int) -> Optional[TaskMetadata]
 
 
 def find_in_progress_tasks(
-    repo: str, project: str, workflow_name: str
+    repo: str, project: str, workflow_file: str
 ) -> set[int]:
     """Get task indices for all in-progress tasks (open PRs).
 
@@ -157,7 +157,7 @@ def find_in_progress_tasks(
     Args:
         repo: GitHub repository
         project: Project name
-        workflow_name: Name of the workflow that creates PRs
+        workflow_file: Name of the workflow that creates PRs
 
     Returns:
         Set of task indices that are currently in progress
@@ -165,7 +165,7 @@ def find_in_progress_tasks(
     artifacts = find_project_artifacts(
         repo=repo,
         project=project,
-        workflow_name=workflow_name,
+        workflow_file=workflow_file,
         download_metadata=False,  # Just need names
     )
 
@@ -173,14 +173,14 @@ def find_in_progress_tasks(
 
 
 def get_assignee_assignments(
-    repo: str, project: str, workflow_name: str
+    repo: str, project: str, workflow_file: str
 ) -> dict[int, str]:
     """Get mapping of PR numbers to assigned assignees.
 
     Args:
         repo: GitHub repository
         project: Project name
-        workflow_name: Name of the workflow that creates PRs
+        workflow_file: Name of the workflow that creates PRs
 
     Returns:
         Dict mapping PR number -> assignee username
@@ -188,7 +188,7 @@ def get_assignee_assignments(
     artifacts = find_project_artifacts(
         repo=repo,
         project=project,
-        workflow_name=workflow_name,
+        workflow_file=workflow_file,
         download_metadata=True,
     )
 

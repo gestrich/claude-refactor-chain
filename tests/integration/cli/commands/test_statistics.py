@@ -103,7 +103,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 base_branch="main",
                 config_path=None,
                 days_back=30,
@@ -159,7 +159,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 base_branch="main",
                 config_path="/path/to/config.yml",
                 days_back=7,
@@ -208,7 +208,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 format_type="slack"
             )
 
@@ -243,7 +243,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 format_type="slack",
                 show_assignee_stats=True
             )
@@ -276,7 +276,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 format_type="slack"
             )
 
@@ -317,7 +317,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 format_type="slack",
                 show_assignee_stats=True
             )
@@ -359,7 +359,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 format_type="slack",
                 show_assignee_stats=True
             )
@@ -393,7 +393,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 format_type="slack"
             )
 
@@ -437,7 +437,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 config_path="/path/to/config.yml",
                 days_back=15,
                 format_type="slack"
@@ -476,7 +476,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 config_path=None,
                 format_type="slack"
             )
@@ -520,7 +520,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 format_type="slack"
             )
 
@@ -563,7 +563,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 format_type="slack"
             )
 
@@ -611,7 +611,7 @@ class TestCmdStatistics:
                 result = cmd_statistics(
                     gh=mock_github_helper,
                     repo="owner/repo",
-                    workflow_name="Claude Chain",
+                    workflow_file="Claude Chain",
                     format_type="slack"
                 )
 
@@ -643,7 +643,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 format_type="json"
             )
 
@@ -682,7 +682,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 days_back=90,
                 format_type="json"
             )
@@ -716,7 +716,7 @@ class TestCmdStatistics:
             result = cmd_statistics(
                 gh=mock_github_helper,
                 repo="owner/repo",
-                workflow_name="Claude Chain",
+                workflow_file="Claude Chain",
                 format_type="slack"
             )
 

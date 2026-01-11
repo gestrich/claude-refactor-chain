@@ -101,10 +101,10 @@ def main():
             assignee=os.environ.get("ASSIGNEE", ""),
         )
     elif args.command == "statistics":
-        # Read workflow_name - required for artifact discovery
-        workflow_name = os.environ.get("INPUT_WORKFLOW_NAME", "")
-        if not workflow_name:
-            print("Error: workflow_name input is required for statistics")
+        # Read workflow_file - required for artifact discovery
+        workflow_file = os.environ.get("INPUT_WORKFLOW_FILE", "")
+        if not workflow_file:
+            print("Error: workflow_file input is required for statistics")
             return 1
 
         # Use env var if set and non-empty, otherwise fall back to constant
@@ -112,7 +112,7 @@ def main():
         return cmd_statistics(
             gh=gh,
             repo=args.repo or os.environ.get("GITHUB_REPOSITORY", ""),
-            workflow_name=workflow_name,
+            workflow_file=workflow_file,
             base_branch=env_base_branch if env_base_branch else DEFAULT_BASE_BRANCH,
             config_path=args.config_path or os.environ.get("CONFIG_PATH"),
             days_back=args.days_back or int(os.environ.get("STATS_DAYS_BACK", "30")),
