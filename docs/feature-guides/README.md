@@ -9,6 +9,7 @@ User-facing documentation for ClaudeChain features. These guides explain how to 
 | [How It Works](./how-it-works.md) | Core mental model: PR chain, task identification, automatic continuation |
 | [Setup](./setup.md) | One-time setup: workflow file, secrets, permissions, Claude Code app |
 | [Projects](./projects.md) | Creating projects: spec.md, configuration.yml, modifying tasks |
+| [Claude Prompt Tips](./claude-prompt-tips.md) | Best practices for writing effective prompts and task specs |
 | [Notifications](./notifications.md) | Slack notifications, PR summaries, statistics reports |
 | [Troubleshooting](./troubleshooting.md) | Common issues and solutions |
 
@@ -22,6 +23,7 @@ User-facing documentation for ClaudeChain features. These guides explain how to 
 
 **Already set up?** Jump to what you need:
 
+- **[Claude Prompt Tips](./claude-prompt-tips.md)** - Write better prompts and task specs
 - **[Notifications](./notifications.md)** - Add Slack alerts and statistics
 - **[Troubleshooting](./troubleshooting.md)** - Fix common problems
 
