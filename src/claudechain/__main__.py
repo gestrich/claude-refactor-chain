@@ -21,6 +21,7 @@ from claudechain.cli.commands.post_pr_comment import cmd_post_pr_comment
 from claudechain.cli.commands.prepare import cmd_prepare
 from claudechain.cli.commands.prepare_summary import cmd_prepare_summary
 from claudechain.cli.commands.run_action_script import cmd_run_action_script
+from claudechain.cli.commands.setup import cmd_setup
 from claudechain.cli.commands.statistics import cmd_statistics
 from claudechain.cli.parser import create_parser
 from claudechain.domain.constants import DEFAULT_ALLOWED_TOOLS, DEFAULT_BASE_BRANCH
@@ -164,6 +165,8 @@ def main():
         # parse-event reads from environment variables
         # This allows it to work with the action.yml which sets env vars
         return cmd_parse_event()
+    elif args.command == "setup":
+        return cmd_setup(repo_path=args.repo_path)
     else:
         gh.set_error(f"Unknown command: {args.command}")
         return 1

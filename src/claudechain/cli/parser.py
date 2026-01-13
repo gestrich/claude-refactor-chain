@@ -141,6 +141,15 @@ def create_parser() -> argparse.ArgumentParser:
         help="Path to the project directory"
     )
 
+    parser_setup = subparsers.add_parser(
+        "setup",
+        help="Interactive setup wizard for ClaudeChain"
+    )
+    parser_setup.add_argument(
+        "repo_path",
+        help="Path to the repository to set up"
+    )
+
     parser_parse_event = subparsers.add_parser(
         "parse-event",
         help="Parse GitHub event context and output action parameters"
