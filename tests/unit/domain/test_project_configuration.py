@@ -527,6 +527,167 @@ assignee: alice
         assert stale_pr_days == DEFAULT_STALE_PR_DAYS
 
 
+class TestProjectConfigurationLabels:
+    """Test suite for ProjectConfiguration labels functionality"""
+
+    def test_from_yaml_string_parses_labels(self):
+        """Should parse labels from YAML configuration"""
+        # Arrange
+        project = Project("my-project")
+        yaml_content = """
+assignee: alice
+labels: team-backend,needs-review
+"""
+
+        # Act
+        config = ProjectConfiguration.from_yaml_string(project, yaml_content)
+
+        # Assert
+        assert config.labels == "team-backend,needs-review"
+
+    def test_from_yaml_string_labels_is_none_when_not_specified(self):
+        """Should have None labels when not specified in YAML"""
+        # Arrange
+        project = Project("my-project")
+        yaml_content = """
+assignee: alice
+"""
+
+        # Act
+        config = ProjectConfiguration.from_yaml_string(project, yaml_content)
+
+        # Assert
+        assert config.labels is None
+
+    def test_get_labels_returns_config_value_when_set(self):
+        """Should return config's labels when it is set"""
+        # Arrange
+        project = Project("my-project")
+        config = ProjectConfiguration(
+            project=project,
+            labels="team-backend,needs-review"
+        )
+
+        # Act
+        result = config.get_labels("default-label")
+
+        # Assert
+        assert result == "team-backend,needs-review"
+
+    def test_get_labels_returns_default_when_not_set(self):
+        """Should return default_labels when config's labels is not set"""
+        # Arrange
+        project = Project("my-project")
+        config = ProjectConfiguration(
+            project=project,
+            labels=None
+        )
+
+        # Act
+        result = config.get_labels("default-label")
+
+        # Assert
+        assert result == "default-label"
+
+    def test_get_labels_returns_empty_default_when_not_set(self):
+        """Should return empty string when config's labels is not set and default is empty"""
+        # Arrange
+        project = Project("my-project")
+        config = ProjectConfiguration(
+            project=project,
+            labels=None
+        )
+
+        # Act
+        result = config.get_labels("")
+
+        # Assert
+        assert result == ""
+
+    def test_to_dict_includes_labels_when_set(self):
+        """Should include labels in dict when labels is set"""
+        # Arrange
+        project = Project("my-project")
+        config = ProjectConfiguration(
+            project=project,
+            labels="team-backend,needs-review"
+        )
+
+        # Act
+        result = config.to_dict()
+
+        # Assert
+        assert "labels" in result
+        assert result["labels"] == "team-backend,needs-review"
+
+    def test_to_dict_excludes_labels_when_not_set(self):
+        """Should not include labels in dict when labels is None"""
+        # Arrange
+        project = Project("my-project")
+        config = ProjectConfiguration(
+            project=project,
+            labels=None
+        )
+
+        # Act
+        result = config.to_dict()
+
+        # Assert
+        assert "labels" not in result
+
+    def test_default_creates_config_with_no_labels(self):
+        """Should create default config with no labels override"""
+        # Arrange
+        project = Project("my-project")
+
+        # Act
+        config = ProjectConfiguration.default(project)
+
+        # Assert
+        assert config.labels is None
+
+    def test_default_get_labels_returns_workflow_default(self):
+        """Default config should fall back to workflow's default labels"""
+        # Arrange
+        project = Project("my-project")
+        config = ProjectConfiguration.default(project)
+
+        # Act
+        labels = config.get_labels("workflow-label")
+
+        # Assert
+        assert labels == "workflow-label"
+
+    def test_labels_with_single_label(self):
+        """Should handle single label correctly"""
+        # Arrange
+        project = Project("my-project")
+        yaml_content = """
+labels: priority
+"""
+
+        # Act
+        config = ProjectConfiguration.from_yaml_string(project, yaml_content)
+
+        # Assert
+        assert config.labels == "priority"
+        assert config.get_labels("default") == "priority"
+
+    def test_labels_with_spaces_in_comma_separated_list(self):
+        """Should handle labels with spaces in comma-separated list"""
+        # Arrange
+        project = Project("my-project")
+        yaml_content = """
+labels: team-backend, needs-review, priority
+"""
+
+        # Act
+        config = ProjectConfiguration.from_yaml_string(project, yaml_content)
+
+        # Assert
+        assert config.labels == "team-backend, needs-review, priority"
+
+
 class TestProjectConfigurationIntegration:
     """Integration tests for ProjectConfiguration with various scenarios"""
 
@@ -539,6 +700,7 @@ assignee: alice
 baseBranch: develop
 allowedTools: Read,Write,Edit,Bash(npm test:*)
 stalePRDays: 14
+labels: team-backend,needs-review
 """
 
         # Act
@@ -550,11 +712,13 @@ stalePRDays: 14
         assert config.base_branch == "develop"
         assert config.allowed_tools == "Read,Write,Edit,Bash(npm test:*)"
         assert config.stale_pr_days == 14
+        assert config.labels == "team-backend,needs-review"
 
         # Verify all getters work correctly
         assert config.get_base_branch("main") == "develop"
         assert config.get_allowed_tools("Write,Read,Bash,Edit") == "Read,Write,Edit,Bash(npm test:*)"
         assert config.get_stale_pr_days() == 14
+        assert config.get_labels("default") == "team-backend,needs-review"
 
         # Verify to_dict includes all fields
         result = config.to_dict()
@@ -562,3 +726,4 @@ stalePRDays: 14
         assert result["baseBranch"] == "develop"
         assert result["allowedTools"] == "Read,Write,Edit,Bash(npm test:*)"
         assert result["stalePRDays"] == 14
+        assert result["labels"] == "team-backend,needs-review"

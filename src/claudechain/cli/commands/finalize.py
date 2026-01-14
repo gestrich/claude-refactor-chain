@@ -52,6 +52,7 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
         has_capacity = os.environ.get("HAS_CAPACITY", "")
         has_task = os.environ.get("HAS_TASK", "")
         label = os.environ.get("LABEL", "")
+        pr_labels_str = os.environ.get("PR_LABELS", "")
 
         # === Generate Summary Early (for all cases) ===
         print("\n=== Generating workflow summary ===")
@@ -206,6 +207,11 @@ def cmd_finalize(args: argparse.Namespace, gh: GitHubActionsHelper) -> int:
             if assignee:
                 pr_create_args.extend(["--assignee", assignee])
                 pr_create_args.extend(["--reviewer", assignee])
+
+            # Add additional PR labels (comma-separated)
+            pr_labels = [l.strip() for l in pr_labels_str.split(",") if l.strip()]
+            for pr_label in pr_labels:
+                pr_create_args.extend(["--label", pr_label])
 
             pr_url = run_gh_command(pr_create_args)
         finally:

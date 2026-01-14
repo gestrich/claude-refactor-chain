@@ -51,6 +51,10 @@ inputs:
     description: 'Label to apply to ClaudeChain PRs'
     required: false
     default: 'claudechain'
+  pr_labels:
+    description: 'Comma-separated list of additional labels to apply to PRs (optional)'
+    required: false
+    default: ''
 
 outputs:
   # Execution status outputs (for simplified workflow)
@@ -167,6 +171,7 @@ runs:
         SLACK_WEBHOOK_URL: ${{ inputs.slack_webhook_url }}
         PR_LABEL: ${{ inputs.pr_label }}
         CLAUDE_ALLOWED_TOOLS: ${{ inputs.claude_allowed_tools }}
+        PR_LABELS: ${{ inputs.pr_labels }}
       run: |
         export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"
         python3 -m claudechain prepare
@@ -263,6 +268,7 @@ runs:
         BASE_BRANCH: ${{ steps.prepare.outputs.base_branch || inputs.default_base_branch }}
         HAS_CAPACITY: ${{ steps.prepare.outputs.has_capacity }}
         HAS_TASK: ${{ steps.prepare.outputs.has_task }}
+        PR_LABELS: ${{ steps.prepare.outputs.pr_labels }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
         export PYTHONPATH="$ACTION_PATH/src:$PYTHONPATH"

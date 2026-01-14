@@ -81,7 +81,7 @@ class TestPrepareMergeTargetValidation:
             mock_repo_class.return_value = mock_repo
 
             # Act
-            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
 
         # Assert
         assert result == 0  # Not an error, just skip
@@ -149,7 +149,7 @@ class TestPrepareMergeTargetValidation:
             mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
-            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
 
         # Assert - should succeed
         assert result == 0
@@ -207,7 +207,7 @@ class TestPrepareMergeTargetValidation:
             mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
-            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
 
         # Assert - should succeed (base branch matches config)
         assert result == 0
@@ -236,7 +236,7 @@ class TestPrepareMergeTargetValidation:
             mock_repo_class.return_value = mock_repo
 
             # Act
-            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
 
         # Assert - should skip because feature != main
         assert result == 0
@@ -343,7 +343,7 @@ class TestPrepareBaseBranchResolution:
             mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
-            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
 
         # Assert
         assert result == 0
@@ -400,7 +400,7 @@ class TestPrepareBaseBranchResolution:
             mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
-            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
 
         # Assert
         assert result == 0
@@ -458,7 +458,7 @@ class TestPrepareBaseBranchResolution:
             mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
-            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
 
         # Assert
         assert result == 0
@@ -516,7 +516,7 @@ class TestPrepareBaseBranchResolution:
             mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
-            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
 
         # Assert
         assert result == 0
@@ -621,7 +621,7 @@ class TestPrepareAllowedToolsResolution:
             mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act - pass workflow default, but config has override
-            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
 
         # Assert
         assert result == 0
@@ -678,7 +678,7 @@ class TestPrepareAllowedToolsResolution:
             mock_assignee_service_class.return_value = mock_assignee_service
 
             # Act
-            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit")
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
 
         # Assert
         assert result == 0
@@ -690,3 +690,225 @@ class TestPrepareAllowedToolsResolution:
         captured = capsys.readouterr()
         assert "Allowed tools: Read,Write,Edit" in captured.out
         assert "overridden" not in captured.out
+
+
+class TestPreparePRLabelsResolution:
+    """Test suite for pr_labels resolution in prepare command"""
+
+    @pytest.fixture
+    def mock_github_helper(self):
+        """Fixture providing mocked GitHubActionsHelper"""
+        mock = Mock()
+        mock.write_output = Mock()
+        mock.write_step_summary = Mock()
+        mock.set_error = Mock()
+        mock.set_notice = Mock()
+        return mock
+
+    @pytest.fixture
+    def mock_args(self):
+        """Fixture providing mocked argparse.Namespace"""
+        return Mock()
+
+    @pytest.fixture
+    def sample_spec(self):
+        """Fixture providing sample spec content"""
+        return SpecContent(
+            project=Project("test-project"),
+            content="""# Test Spec
+
+## Tasks
+- [ ] Task 1
+- [ ] Task 2
+"""
+        )
+
+    @pytest.fixture
+    def sample_config_with_labels(self):
+        """Fixture providing config with labels override"""
+        return ProjectConfiguration(
+            project=Project("test-project"),
+            assignee="reviewer1",
+            labels="team-backend,needs-review"
+        )
+
+    @pytest.fixture
+    def sample_config_without_labels(self):
+        """Fixture providing config without labels"""
+        return ProjectConfiguration(
+            project=Project("test-project"),
+            assignee="reviewer1",
+            labels=None
+        )
+
+    def test_prepare_uses_config_labels_when_set(
+        self, mock_github_helper, mock_args, sample_spec, sample_config_with_labels, capsys, monkeypatch
+    ):
+        """Should use labels from config when it is set"""
+        # Arrange
+        monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+        monkeypatch.setenv("PROJECT_NAME", "test-project")
+        monkeypatch.setenv("BASE_BRANCH", "main")
+
+        with patch("claudechain.cli.commands.prepare.ProjectRepository") as mock_repo_class, \
+             patch("claudechain.cli.commands.prepare.PRService") as mock_pr_service_class, \
+             patch("claudechain.cli.commands.prepare.TaskService") as mock_task_service_class, \
+             patch("claudechain.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
+             patch("claudechain.cli.commands.prepare.ensure_label_exists"), \
+             patch("claudechain.cli.commands.prepare.validate_spec_format_from_string"), \
+             patch("claudechain.cli.commands.prepare.run_git_command"):
+
+            # Mock ProjectRepository
+            mock_repo = Mock()
+            mock_repo.load_local_configuration.return_value = sample_config_with_labels
+            mock_repo.load_local_spec.return_value = sample_spec
+            mock_repo_class.return_value = mock_repo
+
+            # Mock PRService
+            mock_pr_service = Mock()
+            mock_pr_service.format_branch_name.return_value = "claude-chain-test-project-abc123"
+            mock_pr_service_class.return_value = mock_pr_service
+
+            # Mock TaskService
+            mock_task_service = Mock()
+            mock_task_service.detect_orphaned_prs.return_value = []
+            mock_task_service.get_in_progress_tasks.return_value = set()
+            mock_task_service.find_next_available_task.return_value = (1, "Task 1", "abc123")
+            mock_task_service_class.return_value = mock_task_service
+
+            # Mock AssigneeService
+            mock_assignee_service = Mock()
+            mock_capacity_result = Mock()
+            mock_capacity_result.format_summary.return_value = "## Capacity Check\n✅ test-project (0/1)"
+            mock_capacity_result.has_capacity = True
+            mock_capacity_result.assignee = "reviewer1"
+            mock_assignee_service.check_capacity.return_value = mock_capacity_result
+            mock_assignee_service_class.return_value = mock_assignee_service
+
+            # Act - pass empty default, but config has override
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
+
+        # Assert
+        assert result == 0
+
+        # Verify pr_labels output uses config override
+        mock_github_helper.write_output.assert_any_call("pr_labels", "team-backend,needs-review")
+
+        # Verify console output shows override
+        captured = capsys.readouterr()
+        assert "PR labels: team-backend,needs-review (overridden from default)" in captured.out
+
+    def test_prepare_uses_default_labels_when_config_not_set(
+        self, mock_github_helper, mock_args, sample_spec, sample_config_without_labels, capsys, monkeypatch
+    ):
+        """Should use default pr_labels when config doesn't specify one"""
+        # Arrange
+        monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+        monkeypatch.setenv("PROJECT_NAME", "test-project")
+        monkeypatch.setenv("BASE_BRANCH", "main")
+
+        with patch("claudechain.cli.commands.prepare.ProjectRepository") as mock_repo_class, \
+             patch("claudechain.cli.commands.prepare.PRService") as mock_pr_service_class, \
+             patch("claudechain.cli.commands.prepare.TaskService") as mock_task_service_class, \
+             patch("claudechain.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
+             patch("claudechain.cli.commands.prepare.ensure_label_exists"), \
+             patch("claudechain.cli.commands.prepare.validate_spec_format_from_string"), \
+             patch("claudechain.cli.commands.prepare.run_git_command"):
+
+            # Mock ProjectRepository
+            mock_repo = Mock()
+            mock_repo.load_local_configuration.return_value = sample_config_without_labels
+            mock_repo.load_local_spec.return_value = sample_spec
+            mock_repo_class.return_value = mock_repo
+
+            # Mock PRService
+            mock_pr_service = Mock()
+            mock_pr_service.format_branch_name.return_value = "claude-chain-test-project-abc123"
+            mock_pr_service_class.return_value = mock_pr_service
+
+            # Mock TaskService
+            mock_task_service = Mock()
+            mock_task_service.detect_orphaned_prs.return_value = []
+            mock_task_service.get_in_progress_tasks.return_value = set()
+            mock_task_service.find_next_available_task.return_value = (1, "Task 1", "abc123")
+            mock_task_service_class.return_value = mock_task_service
+
+            # Mock AssigneeService
+            mock_assignee_service = Mock()
+            mock_capacity_result = Mock()
+            mock_capacity_result.format_summary.return_value = "## Capacity Check\n✅ test-project (0/1)"
+            mock_capacity_result.has_capacity = True
+            mock_capacity_result.assignee = "reviewer1"
+            mock_assignee_service.check_capacity.return_value = mock_capacity_result
+            mock_assignee_service_class.return_value = mock_assignee_service
+
+            # Act - with workflow default labels
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="workflow-label")
+
+        # Assert
+        assert result == 0
+
+        # Verify pr_labels output uses default
+        mock_github_helper.write_output.assert_any_call("pr_labels", "workflow-label")
+
+        # Verify console output shows default (no override message since default is non-empty)
+        captured = capsys.readouterr()
+        assert "PR labels: workflow-label" in captured.out
+        assert "overridden" not in captured.out
+
+    def test_prepare_uses_empty_labels_when_neither_config_nor_default_set(
+        self, mock_github_helper, mock_args, sample_spec, sample_config_without_labels, capsys, monkeypatch
+    ):
+        """Should use empty pr_labels when neither config nor default is set"""
+        # Arrange
+        monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+        monkeypatch.setenv("PROJECT_NAME", "test-project")
+        monkeypatch.setenv("BASE_BRANCH", "main")
+
+        with patch("claudechain.cli.commands.prepare.ProjectRepository") as mock_repo_class, \
+             patch("claudechain.cli.commands.prepare.PRService") as mock_pr_service_class, \
+             patch("claudechain.cli.commands.prepare.TaskService") as mock_task_service_class, \
+             patch("claudechain.cli.commands.prepare.AssigneeService") as mock_assignee_service_class, \
+             patch("claudechain.cli.commands.prepare.ensure_label_exists"), \
+             patch("claudechain.cli.commands.prepare.validate_spec_format_from_string"), \
+             patch("claudechain.cli.commands.prepare.run_git_command"):
+
+            # Mock ProjectRepository
+            mock_repo = Mock()
+            mock_repo.load_local_configuration.return_value = sample_config_without_labels
+            mock_repo.load_local_spec.return_value = sample_spec
+            mock_repo_class.return_value = mock_repo
+
+            # Mock PRService
+            mock_pr_service = Mock()
+            mock_pr_service.format_branch_name.return_value = "claude-chain-test-project-abc123"
+            mock_pr_service_class.return_value = mock_pr_service
+
+            # Mock TaskService
+            mock_task_service = Mock()
+            mock_task_service.detect_orphaned_prs.return_value = []
+            mock_task_service.get_in_progress_tasks.return_value = set()
+            mock_task_service.find_next_available_task.return_value = (1, "Task 1", "abc123")
+            mock_task_service_class.return_value = mock_task_service
+
+            # Mock AssigneeService
+            mock_assignee_service = Mock()
+            mock_capacity_result = Mock()
+            mock_capacity_result.format_summary.return_value = "## Capacity Check\n✅ test-project (0/1)"
+            mock_capacity_result.has_capacity = True
+            mock_capacity_result.assignee = "reviewer1"
+            mock_assignee_service.check_capacity.return_value = mock_capacity_result
+            mock_assignee_service_class.return_value = mock_assignee_service
+
+            # Act - with empty default labels
+            result = cmd_prepare(mock_args, mock_github_helper, default_allowed_tools="Read,Write,Edit", default_pr_labels="")
+
+        # Assert
+        assert result == 0
+
+        # Verify pr_labels output is empty
+        mock_github_helper.write_output.assert_any_call("pr_labels", "")
+
+        # Verify no PR labels message is printed (empty labels don't get logged)
+        captured = capsys.readouterr()
+        assert "PR labels:" not in captured.out

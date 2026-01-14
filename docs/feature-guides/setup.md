@@ -227,6 +227,7 @@ After triggering:
 | `add_pr_summary` | No | `true` | Add AI-generated summary to PR |
 | `slack_webhook_url` | No | - | Slack webhook for notifications |
 | `pr_label` | No | `claudechain` | Label for ClaudeChain PRs |
+| `pr_labels` | No | (empty) | Additional labels to apply to PRs (comma-separated) |
 
 ### Outputs
 

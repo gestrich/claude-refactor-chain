@@ -20,6 +20,7 @@ class ProjectConfiguration:
     base_branch: Optional[str] = None  # Optional override for target base branch
     allowed_tools: Optional[str] = None  # Optional override for Claude's allowed tools
     stale_pr_days: Optional[int] = None  # Days before a PR is considered stale
+    labels: Optional[str] = None  # Optional comma-separated labels to apply to PRs
 
     @classmethod
     def default(cls, project: Project) -> 'ProjectConfiguration':
@@ -29,6 +30,7 @@ class ProjectConfiguration:
         - No assignee (PRs created without assignee)
         - No base branch override (uses workflow default)
         - No allowed tools override (uses workflow default)
+        - No labels override (uses workflow default)
 
         Args:
             project: Project domain model
@@ -41,7 +43,8 @@ class ProjectConfiguration:
             assignee=None,
             base_branch=None,
             allowed_tools=None,
-            stale_pr_days=None
+            stale_pr_days=None,
+            labels=None
         )
 
     @classmethod
@@ -62,13 +65,15 @@ class ProjectConfiguration:
         base_branch = config.get("baseBranch")
         allowed_tools = config.get("allowedTools")
         stale_pr_days = config.get("stalePRDays")
+        labels = config.get("labels")
 
         return cls(
             project=project,
             assignee=assignee,
             base_branch=base_branch,
             allowed_tools=allowed_tools,
-            stale_pr_days=stale_pr_days
+            stale_pr_days=stale_pr_days,
+            labels=labels
         )
 
     def get_base_branch(self, default_base_branch: str) -> str:
@@ -110,6 +115,19 @@ class ProjectConfiguration:
             return self.stale_pr_days
         return default
 
+    def get_labels(self, default_labels: str) -> str:
+        """Resolve labels from project config or fall back to default.
+
+        Args:
+            default_labels: Default from workflow/CLI (required, no default here)
+
+        Returns:
+            Project's labels if set, otherwise the default
+        """
+        if self.labels:
+            return self.labels
+        return default_labels
+
     def to_dict(self) -> dict:
         """Convert to dictionary representation
 
@@ -127,4 +145,6 @@ class ProjectConfiguration:
             result["allowedTools"] = self.allowed_tools
         if self.stale_pr_days is not None:
             result["stalePRDays"] = self.stale_pr_days
+        if self.labels:
+            result["labels"] = self.labels
         return result

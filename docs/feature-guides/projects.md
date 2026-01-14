@@ -178,6 +178,9 @@ allowedTools: Read,Write,Edit,Bash
 
 # Optional: Days before a PR is considered stale (for statistics)
 stalePRDays: 7
+
+# Optional: Additional labels to apply to PRs (comma-separated)
+labels: team-backend,needs-review
 ```
 
 ### Field Reference
@@ -188,6 +191,7 @@ stalePRDays: 7
 | `baseBranch` | string | No | Override base branch (defaults to workflow context) |
 | `allowedTools` | string | No | Override allowed tools (defaults to workflow input) |
 | `stalePRDays` | number | No | Days before a PR is considered stale (default: 7) |
+| `labels` | string | No | Additional labels for PRs (comma-separated, overrides workflow input) |
 
 ### Stale PR Tracking
 

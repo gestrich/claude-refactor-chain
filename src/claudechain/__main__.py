@@ -52,7 +52,8 @@ def main():
         return cmd_prepare(
             args,
             gh,
-            default_allowed_tools=env_allowed_tools if env_allowed_tools else DEFAULT_ALLOWED_TOOLS
+            default_allowed_tools=env_allowed_tools if env_allowed_tools else DEFAULT_ALLOWED_TOOLS,
+            default_pr_labels=os.environ.get("PR_LABELS", "")
         )
     elif args.command == "finalize":
         return cmd_finalize(args, gh)

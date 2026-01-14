@@ -23,7 +23,7 @@ from claudechain.services.core.assignee_service import AssigneeService
 from claudechain.services.core.task_service import TaskService
 
 
-def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper, default_allowed_tools: str) -> int:
+def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper, default_allowed_tools: str, default_pr_labels: str) -> int:
     """Orchestrate preparation workflow using Service Layer classes.
 
     This command instantiates services and coordinates their operations but
@@ -36,6 +36,7 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper, default_allow
         args: Parsed command-line arguments
         gh: GitHub Actions helper instance
         default_allowed_tools: Default allowed tools from workflow (can be overridden by project config)
+        default_pr_labels: Default PR labels from workflow (can be overridden by project config)
 
     Returns:
         Exit code (0 for success, non-zero for various failure modes)
@@ -113,6 +114,13 @@ def cmd_prepare(args: argparse.Namespace, gh: GitHubActionsHelper, default_allow
             print(f"Allowed tools: {allowed_tools} (overridden from default)")
         else:
             print(f"Allowed tools: {allowed_tools}")
+
+        # Resolve PR labels (config override or default)
+        pr_labels = config.get_labels(default_pr_labels)
+        if pr_labels != default_pr_labels:
+            print(f"PR labels: {pr_labels} (overridden from default)")
+        elif pr_labels:
+            print(f"PR labels: {pr_labels}")
 
         slack_webhook_url = os.environ.get("SLACK_WEBHOOK_URL", "")  # From action input
         label = os.environ.get("PR_LABEL", "claudechain")  # From action input, defaults to "claudechain"
@@ -270,6 +278,7 @@ Now complete the task '{task}' following all the details and instructions in the
         gh.write_output("pr_template_path", project.pr_template_path)
         gh.write_output("base_branch", base_branch)
         gh.write_output("allowed_tools", allowed_tools)
+        gh.write_output("pr_labels", pr_labels)
         gh.write_output("label", label)
         gh.write_output("slack_webhook_url", slack_webhook_url)
         gh.write_output("task_description", task)
